@@ -9,9 +9,6 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    container:
-      image: azenkain/go-node:latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -20,19 +17,13 @@ jobs:
           mkdir -p assets/resources
           printf "%s" "${{ secrets.ENV_FILE }}" > assets/resources/.env
 
-      - name: Download Go dependencies
-        run: go mod download
-
-      - name: Build for linux (embed env)
-        run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o build/history-api ./cmd/history-api
-
       - name: Stop and remove old containers
         run: |
-          docker compose down --remove-orphans || true
+          docker compose down || true
 
-      - name: Clean up only this project images
+      - name: Remove unused Docker resources
         run: |
-          docker image prune -f
+          docker system prune -a --volumes -f
 
       - name: Build and restart containers
         run: |
