@@ -9,7 +9,7 @@ import (
 func NotFoundRoute(app *fiber.App) {
 	app.Use(
 		func(c fiber.Ctx) error {
-			return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+			return c.Status(fiber.StatusNotFound).JSON(response.CommonResponse{
 				Status:  false,
 				Message: "sorry, endpoint is not found",
 			})
