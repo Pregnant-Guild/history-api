@@ -25,7 +25,6 @@ jobs:
         run: |
           docker system prune -a --volumes -f
 
-      - name: Build and restart containers
+      - name: Deploy to Container
         run: |
-          # Đảm bảo file .env tồn tại trước khi chạy
-          docker compose --env-file ./assets/resources/.env up -d --build
+          docker compose --env-file ./assets/resources/.env up -d --build --remove-orphans
