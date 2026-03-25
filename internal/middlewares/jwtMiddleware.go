@@ -1,9 +1,9 @@
 package middlewares
 
 import (
+	"history-api/internal/dtos/response"
 	"history-api/pkg/config"
 	"history-api/pkg/constant"
-	"history-api/pkg/dtos/response"
 	"slices"
 
 	jwtware "github.com/gofiber/contrib/v3/jwt"

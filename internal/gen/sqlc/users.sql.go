@@ -11,44 +11,36 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createUser = `-- name: CreateUser :one
-INSERT INTO users (
-    name,
-    email,
-    password_hash,
+const createUserProfile = `-- name: CreateUserProfile :one
+INSERT INTO user_profiles (
+    user_id,
+    display_name,
     avatar_url
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3
 )
-RETURNING id, name, email, password_hash, avatar_url, is_active, is_verified, token_version, refresh_token, is_deleted, created_at, updated_at
+RETURNING user_id, display_name, full_name, avatar_url, bio, location, website, country_code, phone, created_at, updated_at
 `
 
-type CreateUserParams struct {
-	Name         string      `json:"name"`
-	Email        string      `json:"email"`
-	PasswordHash string      `json:"password_hash"`
-	AvatarUrl    pgtype.Text `json:"avatar_url"`
+type CreateUserProfileParams struct {
+	UserID      pgtype.UUID `json:"user_id"`
+	DisplayName pgtype.Text `json:"display_name"`
+	AvatarUrl   pgtype.Text `json:"avatar_url"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser,
-		arg.Name,
-		arg.Email,
-		arg.PasswordHash,
-		arg.AvatarUrl,
-	)
-	var i User
+func (q *Queries) CreateUserProfile(ctx context.Context, arg CreateUserProfileParams) (UserProfile, error) {
+	row := q.db.QueryRow(ctx, createUserProfile, arg.UserID, arg.DisplayName, arg.AvatarUrl)
+	var i UserProfile
 	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Email,
-		&i.PasswordHash,
+		&i.UserID,
+		&i.DisplayName,
+		&i.FullName,
 		&i.AvatarUrl,
-		&i.IsActive,
-		&i.IsVerified,
-		&i.TokenVersion,
-		&i.RefreshToken,
-		&i.IsDeleted,
+		&i.Bio,
+		&i.Location,
+		&i.Website,
+		&i.CountryCode,
+		&i.Phone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -58,8 +50,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 const deleteUser = `-- name: DeleteUser :exec
 UPDATE users
 SET
-    is_deleted = true,
-    updated_at = now()
+    is_deleted = true
 WHERE id = $1
 `
 
@@ -68,59 +59,69 @@ func (q *Queries) DeleteUser(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
-const existsUserByEmail = `-- name: ExistsUserByEmail :one
-SELECT EXISTS (
-    SELECT 1 FROM users
-    WHERE email = $1
-      AND is_deleted = false
-)
+const getTokenVersion = `-- name: GetTokenVersion :one
+SELECT token_version
+FROM users
+WHERE id = $1 AND is_deleted = false
 `
 
-func (q *Queries) ExistsUserByEmail(ctx context.Context, email string) (bool, error) {
-	row := q.db.QueryRow(ctx, existsUserByEmail, email)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
+func (q *Queries) GetTokenVersion(ctx context.Context, id pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, getTokenVersion, id)
+	var token_version int32
+	err := row.Scan(&token_version)
+	return token_version, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT
-    u.id, 
-    u.name, 
-    u.email, 
-    u.password_hash, 
-    u.avatar_url,
-    u.is_active, 
-    u.is_verified, 
-    u.token_version, 
+    u.id,
+    u.email,
+    u.password_hash,
+    u.is_verified,
+    u.token_version,
     u.is_deleted,
-    u.created_at, 
+    u.created_at,
     u.updated_at,
-    COALESCE(
-        json_agg(
-            json_build_object('id', r.id, 'name', r.name)
-        ) FILTER (WHERE r.id IS NOT NULL),
-        '[]'
-    )::json AS roles
+
+    (
+        SELECT json_build_object(
+            'display_name', p.display_name,
+            'full_name', p.full_name,
+            'avatar_url', p.avatar_url,
+            'bio', p.bio,
+            'location', p.location,
+            'website', p.website,
+            'country_code', p.country_code,
+            'phone', p.phone
+        )
+        FROM user_profiles p
+        WHERE p.user_id = u.id
+    ) AS profile,
+
+    (
+        SELECT COALESCE(
+            json_agg(json_build_object('id', r.id, 'name', r.name)),
+            '[]'
+        )::json
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
+        WHERE ur.user_id = u.id
+    ) AS roles
+
 FROM users u
-LEFT JOIN user_roles ur ON u.id = ur.user_id
-LEFT JOIN roles r ON ur.role_id = r.id
 WHERE u.email = $1 AND u.is_deleted = false
-GROUP BY u.id
 `
 
 type GetUserByEmailRow struct {
 	ID           pgtype.UUID        `json:"id"`
-	Name         string             `json:"name"`
 	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	IsActive     pgtype.Bool        `json:"is_active"`
-	IsVerified   pgtype.Bool        `json:"is_verified"`
+	PasswordHash pgtype.Text        `json:"password_hash"`
+	IsVerified   bool               `json:"is_verified"`
 	TokenVersion int32              `json:"token_version"`
-	IsDeleted    pgtype.Bool        `json:"is_deleted"`
+	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Profile      []byte             `json:"profile"`
 	Roles        []byte             `json:"roles"`
 }
 
@@ -129,16 +130,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 	var i GetUserByEmailRow
 	err := row.Scan(
 		&i.ID,
-		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
-		&i.AvatarUrl,
-		&i.IsActive,
 		&i.IsVerified,
 		&i.TokenVersion,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Profile,
 		&i.Roles,
 	)
 	return i, err
@@ -146,44 +145,58 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT
-    u.id, 
-    u.name, 
-    u.email, 
-    u.password_hash, 
-    u.avatar_url,
-    u.is_active, 
-    u.is_verified, 
-    u.token_version, 
+    u.id,
+    u.email,
+    u.password_hash,
+    u.is_verified,
+    u.token_version,
     u.refresh_token,
     u.is_deleted,
-    u.created_at, 
+    u.created_at,
     u.updated_at,
-    COALESCE(
-        json_agg(
-            json_build_object('id', r.id, 'name', r.name)
-        ) FILTER (WHERE r.id IS NOT NULL),
-        '[]'
-    )::json AS roles
+
+    -- profile JSON
+    (
+        SELECT json_build_object(
+            'display_name', p.display_name,
+            'full_name', p.full_name,
+            'avatar_url', p.avatar_url,
+            'bio', p.bio,
+            'location', p.location,
+            'website', p.website,
+            'country_code', p.country_code,
+            'phone', p.phone
+        )
+        FROM user_profiles p
+        WHERE p.user_id = u.id
+    ) AS profile,
+
+    -- roles JSON
+    (
+        SELECT COALESCE(
+            json_agg(json_build_object('id', r.id, 'name', r.name)),
+            '[]'
+        )::json
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
+        WHERE ur.user_id = u.id
+    ) AS roles
+
 FROM users u
-LEFT JOIN user_roles ur ON u.id = ur.user_id
-LEFT JOIN roles r ON ur.role_id = r.id
 WHERE u.id = $1 AND u.is_deleted = false
-GROUP BY u.id
 `
 
 type GetUserByIDRow struct {
 	ID           pgtype.UUID        `json:"id"`
-	Name         string             `json:"name"`
 	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	IsActive     pgtype.Bool        `json:"is_active"`
-	IsVerified   pgtype.Bool        `json:"is_verified"`
+	PasswordHash pgtype.Text        `json:"password_hash"`
+	IsVerified   bool               `json:"is_verified"`
 	TokenVersion int32              `json:"token_version"`
 	RefreshToken pgtype.Text        `json:"refresh_token"`
-	IsDeleted    pgtype.Bool        `json:"is_deleted"`
+	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Profile      []byte             `json:"profile"`
 	Roles        []byte             `json:"roles"`
 }
 
@@ -192,17 +205,15 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDR
 	var i GetUserByIDRow
 	err := row.Scan(
 		&i.ID,
-		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
-		&i.AvatarUrl,
-		&i.IsActive,
 		&i.IsVerified,
 		&i.TokenVersion,
 		&i.RefreshToken,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Profile,
 		&i.Roles,
 	)
 	return i, err
@@ -210,44 +221,56 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDR
 
 const getUsers = `-- name: GetUsers :many
 SELECT
-    u.id, 
-    u.name, 
-    u.email, 
-    u.password_hash, 
-    u.avatar_url,
-    u.is_active, 
-    u.is_verified, 
-    u.token_version, 
-    u.refresh_token, 
+    u.id,
+    u.email,
+    u.password_hash,
+    u.is_verified,
+    u.token_version,
+    u.refresh_token,
     u.is_deleted,
-    u.created_at, 
+    u.created_at,
     u.updated_at,
-    COALESCE(
-        json_agg(
-            json_build_object('id', r.id, 'name', r.name)
-        ) FILTER (WHERE r.id IS NOT NULL),
-        '[]'
-    )::json AS roles
+
+    (
+        SELECT json_build_object(
+            'display_name', p.display_name,
+            'full_name', p.full_name,
+            'avatar_url', p.avatar_url,
+            'bio', p.bio,
+            'location', p.location,
+            'website', p.website,
+            'country_code', p.country_code,
+            'phone', p.phone
+        )
+        FROM user_profiles p
+        WHERE p.user_id = u.id
+    ) AS profile,
+
+    (
+        SELECT COALESCE(
+            json_agg(json_build_object('id', r.id, 'name', r.name)),
+            '[]'
+        )::json
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
+        WHERE ur.user_id = u.id
+    ) AS roles
+
 FROM users u
-LEFT JOIN user_roles ur ON u.id = ur.user_id
-LEFT JOIN roles r ON ur.role_id = r.id
 WHERE u.is_deleted = false
-GROUP BY u.id
 `
 
 type GetUsersRow struct {
 	ID           pgtype.UUID        `json:"id"`
-	Name         string             `json:"name"`
 	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	IsActive     pgtype.Bool        `json:"is_active"`
-	IsVerified   pgtype.Bool        `json:"is_verified"`
+	PasswordHash pgtype.Text        `json:"password_hash"`
+	IsVerified   bool               `json:"is_verified"`
 	TokenVersion int32              `json:"token_version"`
 	RefreshToken pgtype.Text        `json:"refresh_token"`
-	IsDeleted    pgtype.Bool        `json:"is_deleted"`
+	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Profile      []byte             `json:"profile"`
 	Roles        []byte             `json:"roles"`
 }
 
@@ -262,17 +285,15 @@ func (q *Queries) GetUsers(ctx context.Context) ([]GetUsersRow, error) {
 		var i GetUsersRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Name,
 			&i.Email,
 			&i.PasswordHash,
-			&i.AvatarUrl,
-			&i.IsActive,
 			&i.IsVerified,
 			&i.TokenVersion,
 			&i.RefreshToken,
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Profile,
 			&i.Roles,
 		); err != nil {
 			return nil, err
@@ -288,8 +309,7 @@ func (q *Queries) GetUsers(ctx context.Context) ([]GetUsersRow, error) {
 const restoreUser = `-- name: RestoreUser :exec
 UPDATE users
 SET
-    is_deleted = false,
-    updated_at = now()
+    is_deleted = false
 WHERE id = $1
 `
 
@@ -298,99 +318,33 @@ func (q *Queries) RestoreUser(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
-const updateUser = `-- name: UpdateUser :one
+const updateTokenVersion = `-- name: UpdateTokenVersion :exec
 UPDATE users
-SET 
-    name = $1, 
-    avatar_url = $2, 
-    is_active = $3,
-    is_verified = $4,
-    updated_at = now()
-WHERE users.id = $5 AND users.is_deleted = false 
-RETURNING 
-    users.id, 
-    users.name, 
-    users.email, 
-    users.password_hash, 
-    users.avatar_url, 
-    users.is_active, 
-    users.is_verified, 
-    users.token_version, 
-    users.refresh_token,
-    users.is_deleted, 
-    users.created_at, 
-    users.updated_at,
-    (
-        SELECT COALESCE(json_agg(json_build_object('id', roles.id, 'name', roles.name)), '[]')::json
-        FROM user_roles
-        JOIN roles ON user_roles.role_id = roles.id
-        WHERE user_roles.user_id = users.id
-    ) AS roles
+SET token_version = $2
+WHERE id = $1 AND is_deleted = false
 `
 
-type UpdateUserParams struct {
-	Name       string      `json:"name"`
-	AvatarUrl  pgtype.Text `json:"avatar_url"`
-	IsActive   pgtype.Bool `json:"is_active"`
-	IsVerified pgtype.Bool `json:"is_verified"`
-	ID         pgtype.UUID `json:"id"`
+type UpdateTokenVersionParams struct {
+	ID           pgtype.UUID `json:"id"`
+	TokenVersion int32       `json:"token_version"`
 }
 
-type UpdateUserRow struct {
-	ID           pgtype.UUID        `json:"id"`
-	Name         string             `json:"name"`
-	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	IsActive     pgtype.Bool        `json:"is_active"`
-	IsVerified   pgtype.Bool        `json:"is_verified"`
-	TokenVersion int32              `json:"token_version"`
-	RefreshToken pgtype.Text        `json:"refresh_token"`
-	IsDeleted    pgtype.Bool        `json:"is_deleted"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	Roles        []byte             `json:"roles"`
-}
-
-func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (UpdateUserRow, error) {
-	row := q.db.QueryRow(ctx, updateUser,
-		arg.Name,
-		arg.AvatarUrl,
-		arg.IsActive,
-		arg.IsVerified,
-		arg.ID,
-	)
-	var i UpdateUserRow
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Email,
-		&i.PasswordHash,
-		&i.AvatarUrl,
-		&i.IsActive,
-		&i.IsVerified,
-		&i.TokenVersion,
-		&i.RefreshToken,
-		&i.IsDeleted,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Roles,
-	)
-	return i, err
+func (q *Queries) UpdateTokenVersion(ctx context.Context, arg UpdateTokenVersionParams) error {
+	_, err := q.db.Exec(ctx, updateTokenVersion, arg.ID, arg.TokenVersion)
+	return err
 }
 
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
 SET
-    password_hash = $2,
-    updated_at = now()
+    password_hash = $2
 WHERE id = $1
   AND is_deleted = false
 `
 
 type UpdateUserPasswordParams struct {
 	ID           pgtype.UUID `json:"id"`
-	PasswordHash string      `json:"password_hash"`
+	PasswordHash pgtype.Text `json:"password_hash"`
 }
 
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
@@ -398,11 +352,137 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 	return err
 }
 
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE user_profiles
+SET
+    display_name = $1,
+    full_name = $2,
+    avatar_url = $3,
+    bio = $4,
+    location = $5,
+    website = $6,
+    country_code = $7,
+    phone = $8,
+    updated_at = now()
+WHERE user_id = $9
+RETURNING user_id, display_name, full_name, avatar_url, bio, location, website, country_code, phone, created_at, updated_at
+`
+
+type UpdateUserProfileParams struct {
+	DisplayName pgtype.Text `json:"display_name"`
+	FullName    pgtype.Text `json:"full_name"`
+	AvatarUrl   pgtype.Text `json:"avatar_url"`
+	Bio         pgtype.Text `json:"bio"`
+	Location    pgtype.Text `json:"location"`
+	Website     pgtype.Text `json:"website"`
+	CountryCode pgtype.Text `json:"country_code"`
+	Phone       pgtype.Text `json:"phone"`
+	UserID      pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UserProfile, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile,
+		arg.DisplayName,
+		arg.FullName,
+		arg.AvatarUrl,
+		arg.Bio,
+		arg.Location,
+		arg.Website,
+		arg.CountryCode,
+		arg.Phone,
+		arg.UserID,
+	)
+	var i UserProfile
+	err := row.Scan(
+		&i.UserID,
+		&i.DisplayName,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.Bio,
+		&i.Location,
+		&i.Website,
+		&i.CountryCode,
+		&i.Phone,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateUserRefreshToken = `-- name: UpdateUserRefreshToken :exec
+UPDATE users
+SET
+    refresh_token = $2
+WHERE id = $1
+  AND is_deleted = false
+`
+
+type UpdateUserRefreshTokenParams struct {
+	ID           pgtype.UUID `json:"id"`
+	RefreshToken pgtype.Text `json:"refresh_token"`
+}
+
+func (q *Queries) UpdateUserRefreshToken(ctx context.Context, arg UpdateUserRefreshTokenParams) error {
+	_, err := q.db.Exec(ctx, updateUserRefreshToken, arg.ID, arg.RefreshToken)
+	return err
+}
+
+const upsertUser = `-- name: UpsertUser :one
+INSERT INTO users (
+    email,
+    password_hash,
+    google_id,
+    auth_provider,
+    is_verified
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+ON CONFLICT (email) 
+DO UPDATE SET
+    google_id = EXCLUDED.google_id,
+    auth_provider = EXCLUDED.auth_provider,
+    is_verified = users.is_verified OR EXCLUDED.is_verified,
+    updated_at = now()
+RETURNING id, email, password_hash, google_id, auth_provider, is_verified, is_deleted, token_version, refresh_token, created_at, updated_at
+`
+
+type UpsertUserParams struct {
+	Email        string      `json:"email"`
+	PasswordHash pgtype.Text `json:"password_hash"`
+	GoogleID     pgtype.Text `json:"google_id"`
+	AuthProvider string      `json:"auth_provider"`
+	IsVerified   bool        `json:"is_verified"`
+}
+
+func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, upsertUser,
+		arg.Email,
+		arg.PasswordHash,
+		arg.GoogleID,
+		arg.AuthProvider,
+		arg.IsVerified,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.GoogleID,
+		&i.AuthProvider,
+		&i.IsVerified,
+		&i.IsDeleted,
+		&i.TokenVersion,
+		&i.RefreshToken,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const verifyUser = `-- name: VerifyUser :exec
 UPDATE users
 SET
-    is_verified = true,
-    updated_at = now()
+    is_verified = true
 WHERE id = $1
   AND is_deleted = false
 `

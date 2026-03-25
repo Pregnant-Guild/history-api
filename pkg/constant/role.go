@@ -22,6 +22,13 @@ func CheckValidRole(r Role) bool {
 	return r == ADMIN || r == MOD || r == HISTORIAN || r == USER || r == BANNED
 }
 
-func (r Role) ToSlice() []string {
-	return []string{r.String()}
+func ParseRole(s string) (Role, bool) {
+	r := Role(s)
+	if CheckValidRole(r) {
+		return r, true
+	}
+	return "", false
+}
+func (r Role) ToSlice() []Role {
+	return []Role{r}
 }

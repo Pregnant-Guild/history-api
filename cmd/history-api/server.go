@@ -1,13 +1,22 @@
 package main
 
 import (
-	// "history-api/internal/routes"
-	// "history-api/internal/services"
+	"database/sql"
+	_ "embed"
+	"history-api/docs"
+	"history-api/internal/controllers"
+	"history-api/internal/gen/sqlc"
+	"history-api/internal/repositories"
+	"history-api/internal/routes"
+	"history-api/internal/services"
+	"history-api/pkg/cache"
+	"os"
 
 	swagger "github.com/gofiber/contrib/v3/swaggerui"
+	middleware "github.com/gofiber/contrib/v3/zerolog"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
-	"github.com/gofiber/fiber/v3/middleware/logger"
+	"github.com/rs/zerolog"
 )
 
 var (
@@ -27,17 +36,21 @@ func NewHttpServer() *FiberServer {
 	}
 	cfg := swagger.Config{
 		BasePath: "/",
-		FilePath: "./docs/swagger.json",
+		FileContent: docs.SwaggerJSON,
 		Path:     "swagger",
 		Title:    "Swagger API Docs",
 	}
 
 	server.App.Use(swagger.New(cfg))
-	server.App.Use(logger.New())
+
+	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	server.App.Use(middleware.New(middleware.Config{
+		Logger: &logger,
+	}))
 	return server
 }
 
-func (s *FiberServer) RegisterFiberRoutes() {
+func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.Cache) {
 	// Apply CORS middleware
 	s.App.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -47,9 +60,21 @@ func (s *FiberServer) RegisterFiberRoutes() {
 		MaxAge:           300,
 	}))
 
-	// routes.UserRoutes(s.App)
-	// routes.AuthRoutes(s.App)
-	// routes.MediaRoute(s.App)
-	// routes.NotFoundRoute(s.App)
+	// repo setup
+	userRepo := repositories.NewUserRepository(sqlPg, redis)
+	roleRepo := repositories.NewRoleRepository(sqlPg, redis)
+	tileRepo := repositories.NewTileRepository(sqlTile, redis)
 
+	// service setup
+	authService := services.NewAuthService(userRepo, roleRepo)
+	tileService := services.NewTileService(tileRepo)
+
+	// controller setup
+	authController := controllers.NewAuthController(authService)
+	tileController := controllers.NewTileController(tileService)
+
+	// route setup
+	routes.AuthRoutes(s.App, authController)
+	routes.TileRoutes(s.App, tileController)
+	routes.NotFoundRoute(s.App)
 }

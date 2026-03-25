@@ -2,18 +2,16 @@ package main
 
 import (
 	"context"
-	// _ "history-api/docs"
-	"history-api/internal/gen/sqlc"
+	"fmt"
+	_ "history-api/docs"
 	"history-api/pkg/cache"
 	"history-api/pkg/config"
-	_ "history-api/pkg/log"
-
-	"fmt"
 	"history-api/pkg/database"
+	_ "history-api/pkg/log"
+	"history-api/pkg/mbtiles"
 	"os/signal"
 	"syscall"
 	"time"
-
 	"github.com/rs/zerolog/log"
 )
 
@@ -46,15 +44,21 @@ func StartServer() {
 		log.Error().Msg(err.Error())
 		panic(err)
 	}
-	pool, err := database.Connect()
-		if err != nil {
+	poolPg, err := database.NewPostgresqlDB()
+	if err != nil {
 		log.Error().Msg(err.Error())
 		panic(err)
 	}
-	defer pool.Close()
-	queries := sqlc.New(pool)
+	defer poolPg.Close()
 
-	err = cache.Connect()
+	sqlTile, err := mbtiles.NewMBTilesDB("data/map.mbtiles")
+	if err != nil {
+		log.Error().Msg(err.Error())
+		panic(err)
+	}
+	defer sqlTile.Close()
+
+	redisClient, err := cache.NewRedisClient()
 	if err != nil {
 		log.Error().Msg(err.Error())
 		panic(err)
@@ -71,7 +75,7 @@ func StartServer() {
 	}
 
 	serverHttp := NewHttpServer()
-	serverHttp.RegisterFiberRoutes()
+	serverHttp.SetupServer(poolPg, sqlTile, redisClient)
 	Singleton = serverHttp
 
 	done := make(chan bool, 1)
@@ -90,15 +94,25 @@ func StartServer() {
 	log.Info().Msg("Graceful shutdown complete.")
 }
 
-// @title Firefly Manager API
-// @version 1.0
-// @description API to update Firefly Manager data
-// @host localhost:3344
-// @BasePath /
+// @title           History API
+// @version         1.0
+// @description     This is a sample server for History API.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    http://www.swagger.io/support
+// @contact.email  support@swagger.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:3344
+// @BasePath  /
 
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
+// @description Type "Bearer " followed by a space and JWT token.
 func main() {
 	StartServer()
 }

@@ -1,18 +1,18 @@
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT,
     google_id VARCHAR(255) UNIQUE,
     auth_provider VARCHAR(50) NOT NULL DEFAULT 'local',
-    is_verified BOOLEAN DEFAULT false,
+    is_verified BOOLEAN NOT NULL DEFAULT false,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
     token_version INT NOT NULL DEFAULT 1,
     refresh_token TEXT,
-    is_deleted BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE user_profiles (
+CREATE TABLE IF NOT EXISTS user_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     display_name TEXT,
     full_name TEXT,
@@ -26,21 +26,10 @@ CREATE TABLE user_profiles (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE user_verifications (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    verify_type SMALLINT NOT NULL, -- 1 = ID_CARD, 2 = EDUCATION, 3 = EXPERT
-    document_url TEXT NOT NULL,
-    status SMALLINT NOT NULL DEFAULT 1, -- 1 pending, 2 approved, 3 rejected
-    reviewed_by UUID REFERENCES users(id),
-    reviewed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
 CREATE TABLE IF NOT EXISTS roles (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     name TEXT UNIQUE NOT NULL,
-    is_deleted BOOLEAN DEFAULT false,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -51,10 +40,22 @@ CREATE TABLE IF NOT EXISTS user_roles (
     PRIMARY KEY (user_id, role_id)
 );
 
+CREATE TABLE IF NOT EXISTS user_verifications (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    verify_type SMALLINT NOT NULL, -- 1 = ID_CARD, 2 = EDUCATION, 3 = EXPERT
+    document_url TEXT NOT NULL,
+    status SMALLINT NOT NULL DEFAULT 1, -- 1 pending, 2 approved, 3 rejected
+    reviewed_by UUID REFERENCES users(id),
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS user_tokens (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token VARCHAR(255) NOT NULL UNIQUE, --1 = PasswordReset, 2 = EmailVerify, 3 = MagicLink, 4 = RefreshToken  
+    token VARCHAR(255) NOT NULL UNIQUE,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
     token_type SMALLINT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now()

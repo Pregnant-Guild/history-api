@@ -11,24 +11,37 @@ import (
 type Role struct {
 	ID        pgtype.UUID        `json:"id"`
 	Name      string             `json:"name"`
-	IsDeleted pgtype.Bool        `json:"is_deleted"`
+	IsDeleted bool               `json:"is_deleted"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {
 	ID           pgtype.UUID        `json:"id"`
-	Name         string             `json:"name"`
 	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	IsActive     pgtype.Bool        `json:"is_active"`
-	IsVerified   pgtype.Bool        `json:"is_verified"`
+	PasswordHash pgtype.Text        `json:"password_hash"`
+	GoogleID     pgtype.Text        `json:"google_id"`
+	AuthProvider string             `json:"auth_provider"`
+	IsVerified   bool               `json:"is_verified"`
+	IsDeleted    bool               `json:"is_deleted"`
 	TokenVersion int32              `json:"token_version"`
 	RefreshToken pgtype.Text        `json:"refresh_token"`
-	IsDeleted    pgtype.Bool        `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserProfile struct {
+	UserID      pgtype.UUID        `json:"user_id"`
+	DisplayName pgtype.Text        `json:"display_name"`
+	FullName    pgtype.Text        `json:"full_name"`
+	AvatarUrl   pgtype.Text        `json:"avatar_url"`
+	Bio         pgtype.Text        `json:"bio"`
+	Location    pgtype.Text        `json:"location"`
+	Website     pgtype.Text        `json:"website"`
+	CountryCode pgtype.Text        `json:"country_code"`
+	Phone       pgtype.Text        `json:"phone"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type UserRole struct {
@@ -40,7 +53,19 @@ type UserToken struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
 	Token     string             `json:"token"`
+	IsDeleted bool               `json:"is_deleted"`
 	TokenType int16              `json:"token_type"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type UserVerification struct {
+	ID          pgtype.UUID        `json:"id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	VerifyType  int16              `json:"verify_type"`
+	DocumentUrl string             `json:"document_url"`
+	Status      int16              `json:"status"`
+	ReviewedBy  pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt  pgtype.Timestamptz `json:"reviewed_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }

@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT,
     google_id VARCHAR(255) UNIQUE,
     auth_provider VARCHAR(50) NOT NULL DEFAULT 'local',
     is_verified BOOLEAN NOT NULL DEFAULT false,

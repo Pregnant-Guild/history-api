@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgis/postgis:18-3.6
+    container_name: history_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: history
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: history_map
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U history -d history_map"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  cache:
+    image: redis:8.6.1-alpine
+    container_name: history_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+volumes:
+  pg_data:

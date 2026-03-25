@@ -1,6 +1,10 @@
 package convert
 
-import "github.com/jackc/pgx/v5/pgtype"
+import (
+	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
+)
 
 func UUIDToString(v pgtype.UUID) string {
 	if v.Valid {
@@ -23,10 +27,10 @@ func BoolVal(v pgtype.Bool) bool {
 	return false
 }
 
-func TimeToPtr(v pgtype.Timestamptz) *string {
-	if v.Valid {
-		t := v.Time.Format("2006-01-02T15:04:05Z07:00")
-		return &t
+func TimeToPtr(v pgtype.Timestamptz) *time.Time {
+	if !v.Valid {
+		return nil
 	}
-	return nil
+	t := v.Time
+	return &t
 }

@@ -1,42 +1,45 @@
--- name: CreateUser :one
+-- name: UpsertUser :one
 INSERT INTO users (
-    name,
     email,
     password_hash,
+    google_id,
+    auth_provider,
+    is_verified
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+ON CONFLICT (email) 
+DO UPDATE SET
+    google_id = EXCLUDED.google_id,
+    auth_provider = EXCLUDED.auth_provider,
+    is_verified = users.is_verified OR EXCLUDED.is_verified,
+    updated_at = now()
+RETURNING *;
+
+-- name: CreateUserProfile :one
+INSERT INTO user_profiles (
+    user_id,
+    display_name,
     avatar_url
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3
 )
 RETURNING *;
 
--- name: UpdateUser :one
-UPDATE users
-SET 
-    name = $1, 
-    avatar_url = $2, 
-    is_active = $3,
-    is_verified = $4,
+-- name: UpdateUserProfile :one
+UPDATE user_profiles
+SET
+    display_name = $1,
+    full_name = $2,
+    avatar_url = $3,
+    bio = $4,
+    location = $5,
+    website = $6,
+    country_code = $7,
+    phone = $8,
     updated_at = now()
-WHERE users.id = $5 AND users.is_deleted = false 
-RETURNING 
-    users.id, 
-    users.name, 
-    users.email, 
-    users.password_hash, 
-    users.avatar_url, 
-    users.is_active, 
-    users.is_verified, 
-    users.token_version, 
-    users.refresh_token,
-    users.is_deleted, 
-    users.created_at, 
-    users.updated_at,
-    (
-        SELECT COALESCE(json_agg(json_build_object('id', roles.id, 'name', roles.name)), '[]')::json
-        FROM user_roles
-        JOIN roles ON user_roles.role_id = roles.id
-        WHERE user_roles.user_id = users.id
-    ) AS roles;
+WHERE user_id = $9
+RETURNING *;
 
 -- name: UpdateUserPassword :exec
 UPDATE users
@@ -51,7 +54,6 @@ SET
     refresh_token = $2
 WHERE id = $1
   AND is_deleted = false;
-
 
 -- name: VerifyUser :exec
 UPDATE users
@@ -72,86 +74,133 @@ SET
     is_deleted = false
 WHERE id = $1;
 
--- name: ExistsUserByEmail :one
-SELECT EXISTS (
-    SELECT 1 FROM users
-    WHERE email = $1
-      AND is_deleted = false
-);
-
--- name: GetUsers :many
-SELECT
-    u.id, 
-    u.name, 
-    u.email, 
-    u.password_hash, 
-    u.avatar_url,
-    u.is_active, 
-    u.is_verified, 
-    u.token_version, 
-    u.refresh_token, 
-    u.is_deleted,
-    u.created_at, 
-    u.updated_at,
-    COALESCE(
-        json_agg(
-            json_build_object('id', r.id, 'name', r.name)
-        ) FILTER (WHERE r.id IS NOT NULL),
-        '[]'
-    )::json AS roles
-FROM users u
-LEFT JOIN user_roles ur ON u.id = ur.user_id
-LEFT JOIN roles r ON ur.role_id = r.id
-WHERE u.is_deleted = false
-GROUP BY u.id;
-
 -- name: GetUserByID :one
 SELECT
-    u.id, 
-    u.name, 
-    u.email, 
-    u.password_hash, 
-    u.avatar_url,
-    u.is_active, 
-    u.is_verified, 
-    u.token_version, 
+    u.id,
+    u.email,
+    u.password_hash,
+    u.is_verified,
+    u.token_version,
     u.refresh_token,
     u.is_deleted,
-    u.created_at, 
+    u.created_at,
     u.updated_at,
-    COALESCE(
-        json_agg(
-            json_build_object('id', r.id, 'name', r.name)
-        ) FILTER (WHERE r.id IS NOT NULL),
-        '[]'
-    )::json AS roles
+
+    -- profile JSON
+    (
+        SELECT json_build_object(
+            'display_name', p.display_name,
+            'full_name', p.full_name,
+            'avatar_url', p.avatar_url,
+            'bio', p.bio,
+            'location', p.location,
+            'website', p.website,
+            'country_code', p.country_code,
+            'phone', p.phone
+        )
+        FROM user_profiles p
+        WHERE p.user_id = u.id
+    ) AS profile,
+
+    -- roles JSON
+    (
+        SELECT COALESCE(
+            json_agg(json_build_object('id', r.id, 'name', r.name)),
+            '[]'
+        )::json
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
+        WHERE ur.user_id = u.id
+    ) AS roles
+
 FROM users u
-LEFT JOIN user_roles ur ON u.id = ur.user_id
-LEFT JOIN roles r ON ur.role_id = r.id
-WHERE u.id = $1 AND u.is_deleted = false
-GROUP BY u.id;
+WHERE u.id = $1 AND u.is_deleted = false;
+
+-- name: GetTokenVersion :one
+SELECT token_version
+FROM users
+WHERE id = $1 AND is_deleted = false;
+
+-- name: UpdateTokenVersion :exec
+UPDATE users
+SET token_version = $2
+WHERE id = $1 AND is_deleted = false;
 
 -- name: GetUserByEmail :one
 SELECT
-    u.id, 
-    u.name, 
-    u.email, 
-    u.password_hash, 
-    u.avatar_url,
-    u.is_active, 
-    u.is_verified, 
-    u.token_version, 
+    u.id,
+    u.email,
+    u.password_hash,
+    u.is_verified,
+    u.token_version,
     u.is_deleted,
-    u.created_at, 
+    u.created_at,
     u.updated_at,
-    COALESCE(
-        json_agg(
-            json_build_object('id', r.id, 'name', r.name)
-        ) FILTER (WHERE r.id IS NOT NULL),
-        '[]'
-    )::json AS roles
+
+    (
+        SELECT json_build_object(
+            'display_name', p.display_name,
+            'full_name', p.full_name,
+            'avatar_url', p.avatar_url,
+            'bio', p.bio,
+            'location', p.location,
+            'website', p.website,
+            'country_code', p.country_code,
+            'phone', p.phone
+        )
+        FROM user_profiles p
+        WHERE p.user_id = u.id
+    ) AS profile,
+
+    (
+        SELECT COALESCE(
+            json_agg(json_build_object('id', r.id, 'name', r.name)),
+            '[]'
+        )::json
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
+        WHERE ur.user_id = u.id
+    ) AS roles
+
 FROM users u
-LEFT JOIN user_roles ur ON u.id = ur.user_id
-LEFT JOIN roles r ON ur.role_id = r.id
-WHERE u.email = $1 AND u.is_deleted = false
-GROUP BY u.id;
+WHERE u.email = $1 AND u.is_deleted = false;
+
+-- name: GetUsers :many
+SELECT
+    u.id,
+    u.email,
+    u.password_hash,
+    u.is_verified,
+    u.token_version,
+    u.refresh_token,
+    u.is_deleted,
+    u.created_at,
+    u.updated_at,
+
+    (
+        SELECT json_build_object(
+            'display_name', p.display_name,
+            'full_name', p.full_name,
+            'avatar_url', p.avatar_url,
+            'bio', p.bio,
+            'location', p.location,
+            'website', p.website,
+            'country_code', p.country_code,
+            'phone', p.phone
+        )
+        FROM user_profiles p
+        WHERE p.user_id = u.id
+    ) AS profile,
+
+    (
+        SELECT COALESCE(
+            json_agg(json_build_object('id', r.id, 'name', r.name)),
+            '[]'
+        )::json
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
+        WHERE ur.user_id = u.id
+    ) AS roles
+
+FROM users u
+WHERE u.is_deleted = false;

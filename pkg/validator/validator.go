@@ -41,8 +41,18 @@ func formatValidationError(err error) []ErrorResponse {
 			element.FailedField = fieldError.Field()
 			element.Tag = fieldError.Tag()
 			element.Value = fieldError.Param()
-			element.Message = "Field " + fieldError.Field() + " failed validation on tag '" + fieldError.Tag() + "'"
-			
+			switch fieldError.Tag() {
+			case "required":
+				element.Message = fieldError.Field() + " is required"
+			case "min":
+				element.Message = fieldError.Field() + " must be at least " + fieldError.Param() + " characters"
+			case "max":
+				element.Message = fieldError.Field() + " must be at most " + fieldError.Param() + " characters"
+			case "email":
+				element.Message = "Invalid email format"
+			default:
+				element.Message = fieldError.Error()
+			}
 			errorsList = append(errorsList, element)
 		}
 	}

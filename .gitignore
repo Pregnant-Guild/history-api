@@ -3,3 +3,5 @@ pg_data
 .idea
 *.log
 *.env
+*.env.dev
+build

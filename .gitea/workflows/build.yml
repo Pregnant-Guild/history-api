@@ -1,0 +1,40 @@
+name: Build and Release
+run-name: ${{ gitea.actor }} build 🚀
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    container:
+      image: azenkain/go-node:latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          mkdir -p assets/resources
+          printf "%s" "${{ secrets.ENV_FILE }}" > assets/resources/.env
+
+      - name: Download Go dependencies
+        run: go mod download
+
+      - name: Build for linux (embed env)
+        run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o build/history-api ./cmd/history-api
+
+      - name: Stop and remove old containers
+        run: |
+          docker compose down || true
+
+      - name: Remove unused Docker resources
+        run: |
+          docker system prune -a --volumes -f
+
+      - name: Build and restart containers
+        run: |
+          docker compose pull
+          docker compose --env-file ./assets/resources/.env up -d --build 

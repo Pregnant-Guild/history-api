@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Connect() (*pgxpool.Pool, error) {
+func NewPostgresqlDB() (*pgxpool.Pool, error) {
 	ctx := context.Background()
 	connectionURI, err := config.GetConfig("PGX_CONNECTION_URI")
 	if err != nil {
