@@ -28,13 +28,13 @@ jobs:
 
       - name: Stop and remove old containers
         run: |
-          docker compose down || true
+          docker compose down --remove-orphans || true
 
-      - name: Remove unused Docker resources
+      - name: Clean up only this project images
         run: |
-          docker system prune -a --volumes -f
+          docker image prune -f
 
       - name: Build and restart containers
         run: |
-          docker compose pull
-          docker compose --env-file ./assets/resources/.env up -d --build 
+          # Đảm bảo file .env tồn tại trước khi chạy
+          docker compose --env-file ./assets/resources/.env up -d --build
