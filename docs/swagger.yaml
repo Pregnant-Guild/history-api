@@ -41,7 +41,7 @@ definitions:
       status:
         type: boolean
     type: object
-host: localhost:3344
+host: history-api.kain.id.vn
 info:
   contact:
     email: support@swagger.io
@@ -193,6 +193,9 @@ paths:
       summary: Get tile metadata
       tags:
       - Tile
+schemes:
+- https
+- http
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer " followed by a space and JWT token.

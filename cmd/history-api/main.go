@@ -106,8 +106,9 @@ func StartServer() {
 // @license.name  Apache 2.0
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
-// @host      localhost:3344
+// @host      history-api.kain.id.vn
 // @BasePath  /
+// @schemes   https http
 
 // @securityDefinitions.apikey BearerAuth
 // @in header
