@@ -17,14 +17,6 @@ jobs:
           mkdir -p assets/resources
           printf "%s" "${{ secrets.ENV_FILE }}" > assets/resources/.env
 
-      - name: Stop and remove old containers
-        run: |
-          docker compose down || true
-
-      - name: Remove unused Docker resources
-        run: |
-          docker system prune -a --volumes -f
-
       - name: Deploy to Container
         run: |
           docker compose --env-file ./assets/resources/.env up -d --build --remove-orphans
