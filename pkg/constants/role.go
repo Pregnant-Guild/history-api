@@ -1,4 +1,4 @@
-package constant
+package constants
 
 type Role string
 
@@ -18,9 +18,14 @@ func (r Role) Compare(other Role) bool {
 	return r == other
 }
 
+func (r Role) IsValid() bool {
+	return CheckValidRole(r)
+}
+
 func CheckValidRole(r Role) bool {
 	return r == ADMIN || r == MOD || r == HISTORIAN || r == USER || r == BANNED
 }
+
 
 func ParseRole(s string) (Role, bool) {
 	r := Role(s)

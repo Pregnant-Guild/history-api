@@ -11,11 +11,14 @@ WHERE name = $1 AND is_deleted = false;
 SELECT id, name, is_deleted, created_at, updated_at  FROM roles
 WHERE id = $1 AND is_deleted = false;
 
+-- name: GetRolesByIDs :many
+SELECT id, name, is_deleted, created_at, updated_at
+FROM roles
+WHERE id = ANY($1::uuid[]) AND is_deleted = false;
+
 -- name: AddUserRole :exec
 INSERT INTO user_roles (user_id, role_id)
-SELECT $1, r.id
-FROM roles r
-WHERE r.name = $2
+SELECT $1, unnest($2::uuid[])
 ON CONFLICT DO NOTHING;
 
 -- name: RemoveUserRole :exec

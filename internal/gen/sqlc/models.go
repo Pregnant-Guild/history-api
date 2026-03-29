@@ -22,7 +22,6 @@ type User struct {
 	PasswordHash pgtype.Text        `json:"password_hash"`
 	GoogleID     pgtype.Text        `json:"google_id"`
 	AuthProvider string             `json:"auth_provider"`
-	IsVerified   bool               `json:"is_verified"`
 	IsDeleted    bool               `json:"is_deleted"`
 	TokenVersion int32              `json:"token_version"`
 	RefreshToken pgtype.Text        `json:"refresh_token"`
@@ -47,16 +46,6 @@ type UserProfile struct {
 type UserRole struct {
 	UserID pgtype.UUID `json:"user_id"`
 	RoleID pgtype.UUID `json:"role_id"`
-}
-
-type UserToken struct {
-	ID        pgtype.UUID        `json:"id"`
-	UserID    pgtype.UUID        `json:"user_id"`
-	Token     string             `json:"token"`
-	IsDeleted bool               `json:"is_deleted"`
-	TokenType int16              `json:"token_type"`
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type UserVerification struct {

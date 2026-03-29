@@ -13,6 +13,15 @@ func UUIDToString(v pgtype.UUID) string {
 	return ""
 }
 
+func StringToUUID(s string) (pgtype.UUID, error) {
+	var pgId pgtype.UUID
+	err := pgId.Scan(s)
+	if err != nil {
+		return pgtype.UUID{}, err
+	}
+	return pgId, nil
+}
+
 func TextToString(v pgtype.Text) string {
 	if v.Valid {
 		return v.String

@@ -1,6 +1,6 @@
 DB_URL ?= postgres://history:secret@localhost:5432/history_map?sslmode=disable
-APP_DIR = cmd/history-api
-MAIN_APP = ./cmd/history-api/
+APP_DIR = cmd/api
+MAIN_APP = ./cmd/api/
 MAIN_FILE = $(APP_DIR)/main.go
 DOCS_DIR = docs
 

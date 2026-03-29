@@ -13,19 +13,17 @@ import (
 
 const addUserRole = `-- name: AddUserRole :exec
 INSERT INTO user_roles (user_id, role_id)
-SELECT $1, r.id
-FROM roles r
-WHERE r.name = $2
+SELECT $1, unnest($2::uuid[])
 ON CONFLICT DO NOTHING
 `
 
 type AddUserRoleParams struct {
-	UserID pgtype.UUID `json:"user_id"`
-	Name   string      `json:"name"`
+	UserID  pgtype.UUID   `json:"user_id"`
+	Column2 []pgtype.UUID `json:"column_2"`
 }
 
 func (q *Queries) AddUserRole(ctx context.Context, arg AddUserRoleParams) error {
-	_, err := q.db.Exec(ctx, addUserRole, arg.UserID, arg.Name)
+	_, err := q.db.Exec(ctx, addUserRole, arg.UserID, arg.Column2)
 	return err
 }
 
@@ -105,6 +103,38 @@ WHERE is_deleted = false
 
 func (q *Queries) GetRoles(ctx context.Context) ([]Role, error) {
 	rows, err := q.db.Query(ctx, getRoles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Role{}
+	for rows.Next() {
+		var i Role
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRolesByIDs = `-- name: GetRolesByIDs :many
+SELECT id, name, is_deleted, created_at, updated_at
+FROM roles
+WHERE id = ANY($1::uuid[]) AND is_deleted = false
+`
+
+func (q *Queries) GetRolesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Role, error) {
+	rows, err := q.db.Query(ctx, getRolesByIDs, dollar_1)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package constant
+package constants
 
 type StatusType int16
 

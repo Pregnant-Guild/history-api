@@ -34,3 +34,11 @@ func GetConfig(config string) (string, error) {
 
 	return data, nil
 }
+
+func GetConfigWithDefault(config, defaultValue string) string {
+	var data string = os.Getenv(config)
+	if data == "" {
+		return defaultValue
+	}
+	return data
+}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"history-api/pkg/cache"
+	"history-api/pkg/constants"
 	"time"
 )
 
@@ -50,7 +51,7 @@ func (r *tileRepository) GetMetadata(ctx context.Context) (map[string]string, er
 		metadata[name] = value
 	}
 
-	_ = r.c.Set(ctx, cacheId, metadata, 10*time.Minute)
+	_ = r.c.Set(ctx, cacheId, metadata, constants.NormalCacheDuration)
 
 	return metadata, nil
 }

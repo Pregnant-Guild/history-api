@@ -5,18 +5,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"history-api/pkg/config"
+	"history-api/pkg/constants"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
 type Cache interface {
-    Set(ctx context.Context, key string, value any, ttl time.Duration) error
-    Get(ctx context.Context, key string, dest any) error
-    Del(ctx context.Context, keys ...string) error
-    DelByPattern(ctx context.Context, pattern string) error
-    MGet(ctx context.Context, keys ...string) [][]byte
-    MSet(ctx context.Context, pairs map[string]any, ttl time.Duration) error
+	Set(ctx context.Context, key string, value any, ttl time.Duration) error
+	Get(ctx context.Context, key string, dest any) error
+	Del(ctx context.Context, keys ...string) error
+	DelByPattern(ctx context.Context, pattern string) error
+	MGet(ctx context.Context, keys ...string) [][]byte
+	MSet(ctx context.Context, pairs map[string]any, ttl time.Duration) error
+	Exists(ctx context.Context, key string) (bool, error)
+	GetRawClient() *redis.Client
+	PublishTask(ctx context.Context, streamName string, taskType constants.TaskType, payload any) error
 }
 
 type RedisClient struct {
@@ -49,33 +53,45 @@ func NewRedisClient() (Cache, error) {
 	return &RedisClient{client: rdb}, nil
 }
 
+func (r *RedisClient) GetRawClient() *redis.Client {
+	return r.client
+}
+
+func (r *RedisClient) Exists(ctx context.Context, key string) (bool, error) {
+	count, err := r.client.Exists(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 func (r *RedisClient) Del(ctx context.Context, keys ...string) error {
-    if len(keys) == 0 {
-        return nil
-    }
-    return r.client.Del(ctx, keys...).Err()
+	if len(keys) == 0 {
+		return nil
+	}
+	return r.client.Del(ctx, keys...).Err()
 }
 
 func (r *RedisClient) DelByPattern(ctx context.Context, pattern string) error {
-    var cursor uint64
-    for {
-        keys, nextCursor, err := r.client.Scan(ctx, cursor, pattern, 100).Result()
-        if err != nil {
-            return fmt.Errorf("error scanning keys with pattern %s: %v", pattern, err)
-        }
+	var cursor uint64
+	for {
+		keys, nextCursor, err := r.client.Scan(ctx, cursor, pattern, 1000).Result()
+		if err != nil {
+			return fmt.Errorf("error scanning keys with pattern %s: %v", pattern, err)
+		}
 
-        if len(keys) > 0 {
-            if err := r.client.Del(ctx, keys...).Err(); err != nil {
-                return fmt.Errorf("error deleting keys during scan: %v", err)
+		if len(keys) > 0 {
+			if err := r.client.Unlink(ctx, keys...).Err(); err != nil {
+                return fmt.Errorf("error unlinking keys during scan: %v", err)
             }
-        }
+		}
 
-        cursor = nextCursor
-        if cursor == 0 {
-            break
-        }
-    }
-    return nil
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+	return nil
 }
 
 func (r *RedisClient) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
@@ -119,6 +135,21 @@ func (r *RedisClient) MGet(ctx context.Context, keys ...string) [][]byte {
 		}
 	}
 	return results
+}
+
+func (r *RedisClient) PublishTask(ctx context.Context, streamName string, taskType constants.TaskType, payload any) error {
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	return r.client.XAdd(ctx, &redis.XAddArgs{
+		Stream: streamName,
+		Values: map[string]interface{}{
+			"task_type": taskType.String(),
+			"payload":   string(payloadBytes),
+		},
+	}).Err()
 }
 
 func GetMultiple[T any](ctx context.Context, c Cache, keys []string) ([]T, error) {

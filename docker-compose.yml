@@ -13,44 +13,43 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 5
     networks:
       - history-api-project
 
   cache:
-    image: redis:8.6.1-alpine
+    image: redis:8.6.2-alpine
     container_name: history_redis
     restart: unless-stopped
     networks:
       - history-api-project
 
   migrate:
-    build:
-      context: .
-      dockerfile_inline: |
-        FROM migrate/migrate
-        COPY db/migrations /migrations
+    image: migrate/migrate
     container_name: history_migrate
+    volumes:
+      - ./db/migrations:/migrations:ro
     depends_on:
       db:
         condition: service_healthy
     env_file:
       - ./assets/resources/.env
-    entrypoint: 
+    entrypoint:
       - sh
       - -c
       - |
-        DB_URL="postgres://$${POSTGRES_USER}:$${POSTGRES_PASSWORD}@db:5432/$${POSTGRES_DB}?sslmode=disable"
-        # Thêm ls để kiểm tra chắc chắn lúc chạy
-        ls /migrations
-        /migrate -path /migrations -database "$$DB_URL" up || \
-        (/migrate -path /migrations -database "$$DB_URL" force 8 && \
-         /migrate -path /migrations -database "$$DB_URL" up)
+        DB_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable"
+        
+        echo "Running migrations..."
+        # We skip the 'version' check loop because 'depends_on' 
+        # with 'service_healthy' already handles the wait.
+        /migrate -path /migrations -database "$$DB_URL" up
     networks:
       - history-api-project
+
   app:
     build: .
     container_name: history_app
@@ -58,13 +57,32 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      db:
+        condition: service_healthy
       cache:
         condition: service_started
+    env_file:
+      - ./assets/resources/.env
     ports:
       - "3344:3344"
     networks:
       - history-api-project
 
+  worker:
+    build: .
+    container_name: history_worker
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+    env_file:
+      - ./assets/resources/.env
+    command: ["./email-worker"]
+    networks:
+      - history-api-project
+      
 volumes:
   pg_data:
 

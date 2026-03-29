@@ -1,26 +1,42 @@
 package request
 
-import "history-api/pkg/constant"
-
-type CreateUserDto struct {
-	Username      string          `json:"username" validate:"required"`
-	Password      string          `json:"password" validate:"required"`
-	DiscordUserId string          `json:"discord_user_id" validate:"required"`
-	Role          []constant.Role `json:"role" validate:"required"`
+type UpdateProfileDto struct {
+	DisplayName string `json:"display_name" validate:"omitempty,min=2,max=50"`
+	FullName    string `json:"full_name" validate:"omitempty,min=2,max=100"`
+	AvatarUrl   string `json:"avatar_url" validate:"omitempty,url"`
+	Bio         string `json:"bio" validate:"omitempty,max=255"`
+	Location    string `json:"location" validate:"omitempty,max=100"`
+	Website     string `json:"website" validate:"omitempty,url"`
+	CountryCode string `json:"country_code" validate:"omitempty,len=2"`
+	Phone       string `json:"phone" validate:"omitempty,min=8,max=20"`
 }
 
-type UpdateUserDto struct {
-	Password      *string          `json:"password" validate:"omitempty"`
-	DiscordUserId *string          `json:"discord_user_id" validate:"omitempty"`
-	Role          *[]constant.Role `json:"role" validate:"omitempty"`
+type ChangePasswordDto struct {
+	OldPassword string `json:"old_password" validate:"required,min=8,max=64"`
+	NewPassword string `json:"new_password" validate:"required,min=8,max=64,nefield=OldPassword"`
+}
+
+type ChangeRoleDto struct {
+	UserID string   `json:"user_id" validate:"required,uuid"`
+	Roles  []string `json:"role_ids" validate:"required,min=1,dive,required,uuid"`
+}
+
+type GetAllUserDto struct {
+	CursorPaginationDto
+	IsDeleted *bool    `json:"is_deleted" query:"is_deleted" validate:"omitempty"`
+	RoleIDs   []string `json:"role_ids" query:"role_ids" validate:"omitempty,dive,uuid"`
+}
+
+type CursorPaginationDto struct {
+	Cursor string `json:"cursor" query:"cursor" validate:"omitempty,uuid"`
+	Limit  int    `json:"limit" query:"limit" validate:"required,min=1,max=100"`
+	Sort   string `json:"sort" query:"sort" validate:"omitempty,oneof=created_at updated_at email display_name"`
+	Order  string `json:"order" query:"order" validate:"omitempty,oneof=asc desc"`
 }
 
 type SearchUserDto struct {
-	Username      *string          `query:"username" validate:"omitempty"`
-	DiscordUserId *string          `query:"discord_user_id" validate:"omitempty"`
-	Role          *[]constant.Role `query:"role" validate:"omitempty"`
-	SortBy        string           `query:"sort_by" default:"created_at" validate:"oneof=created_at updated_at"`
-	Order         string           `query:"order" default:"desc" validate:"oneof=asc desc"`
-	Page          int              `query:"page" default:"1" validate:"min=1"`
-	Limit         int              `query:"limit" default:"10" validate:"min=1,max=100"`
+	CursorPaginationDto
+	Search    string   `json:"search" query:"search" validate:"omitempty,min=2,max=200"`
+	IsDeleted *bool    `json:"is_deleted" query:"is_deleted" validate:"omitempty"`
+	RoleIDs   []string `json:"role_ids" query:"role_ids" validate:"omitempty,dive,uuid"`
 }

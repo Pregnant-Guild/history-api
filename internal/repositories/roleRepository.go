@@ -2,19 +2,22 @@ package repositories
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/pkg/cache"
+	"history-api/pkg/constants"
 	"history-api/pkg/convert"
 )
 
 type RoleRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.RoleEntity, error)
+	GetByIDs(ctx context.Context, ids []string) ([]*models.RoleEntity, error)
 	GetByname(ctx context.Context, name string) (*models.RoleEntity, error)
 	All(ctx context.Context) ([]*models.RoleEntity, error)
 	Create(ctx context.Context, name string) (*models.RoleEntity, error)
@@ -39,6 +42,56 @@ func NewRoleRepository(db sqlc.DBTX, c cache.Cache) RoleRepository {
 	}
 }
 
+func (r *roleRepository) generateQueryKey(prefix string, params any) string {
+	b, _ := json.Marshal(params)
+	hash := fmt.Sprintf("%x", md5.Sum(b))
+	return fmt.Sprintf("%s:%s", prefix, hash)
+}
+
+func (r *roleRepository) getByIDsWithFallback(ctx context.Context, ids []string) ([]*models.RoleEntity, error) {
+	if len(ids) == 0 {
+		return []*models.RoleEntity{}, nil
+	}
+	keys := make([]string, len(ids))
+	for i, id := range ids {
+		keys[i] = fmt.Sprintf("role:id:%s", id)
+	}
+	raws := r.c.MGet(ctx, keys...)
+
+	var roles []*models.RoleEntity
+	missingRolesToCache := make(map[string]any)
+
+	for i, b := range raws {
+		if len(b) > 0 {
+			var u models.RoleEntity
+			if err := json.Unmarshal(b, &u); err == nil {
+				roles = append(roles, &u)
+			}
+		} else {
+			pgId := pgtype.UUID{}
+			err := pgId.Scan(ids[i])
+			if err != nil {
+				continue
+			}
+			dbRole, err := r.GetByID(ctx, pgId)
+			if err == nil && dbRole != nil {
+				roles = append(roles, dbRole)
+				missingRolesToCache[keys[i]] = dbRole
+			}
+		}
+	}
+
+	if len(missingRolesToCache) > 0 {
+		_ = r.c.MSet(ctx, missingRolesToCache, constants.NormalCacheDuration)
+	}
+
+	return roles, nil
+}
+
+func (r *roleRepository) GetByIDs(ctx context.Context, ids []string) ([]*models.RoleEntity, error) {
+	return r.getByIDsWithFallback(ctx, ids)
+}
+
 func (r *roleRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.RoleEntity, error) {
 	cacheId := fmt.Sprintf("role:id:%s", convert.UUIDToString(id))
 	var role models.RoleEntity
@@ -59,7 +112,7 @@ func (r *roleRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.R
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Set(ctx, cacheId, role, 5*time.Minute)
+	_ = r.c.Set(ctx, cacheId, role, constants.NormalCacheDuration)
 
 	return &role, nil
 }
@@ -83,7 +136,7 @@ func (r *roleRepository) GetByname(ctx context.Context, name string) (*models.Ro
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
 
-	_ = r.c.Set(ctx, cacheId, role, 5*time.Minute)
+	_ = r.c.Set(ctx, cacheId, role, constants.NormalCacheDuration)
 
 	return &role, nil
 }
@@ -104,7 +157,7 @@ func (r *roleRepository) Create(ctx context.Context, name string) (*models.RoleE
 		fmt.Sprintf("role:name:%s", name):                       role,
 		fmt.Sprintf("role:id:%s", convert.UUIDToString(row.ID)): role,
 	}
-	_ = r.c.MSet(ctx, mapCache, 5*time.Minute)
+	_ = r.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 	return &role, nil
 }
 
@@ -125,7 +178,7 @@ func (r *roleRepository) Update(ctx context.Context, params sqlc.UpdateRoleParam
 		fmt.Sprintf("role:name:%s", row.Name):                   role,
 		fmt.Sprintf("role:id:%s", convert.UUIDToString(row.ID)): role,
 	}
-	_ = r.c.MSet(ctx, mapCache, 5*time.Minute)
+	_ = r.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 	return &role, nil
 }
 

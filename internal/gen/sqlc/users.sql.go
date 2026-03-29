@@ -77,7 +77,6 @@ SELECT
     u.id,
     u.email,
     u.password_hash,
-    u.is_verified,
     u.token_version,
     u.is_deleted,
     u.created_at,
@@ -116,7 +115,6 @@ type GetUserByEmailRow struct {
 	ID           pgtype.UUID        `json:"id"`
 	Email        string             `json:"email"`
 	PasswordHash pgtype.Text        `json:"password_hash"`
-	IsVerified   bool               `json:"is_verified"`
 	TokenVersion int32              `json:"token_version"`
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
@@ -132,7 +130,6 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
-		&i.IsVerified,
 		&i.TokenVersion,
 		&i.IsDeleted,
 		&i.CreatedAt,
@@ -148,7 +145,6 @@ SELECT
     u.id,
     u.email,
     u.password_hash,
-    u.is_verified,
     u.token_version,
     u.refresh_token,
     u.is_deleted,
@@ -190,7 +186,6 @@ type GetUserByIDRow struct {
 	ID           pgtype.UUID        `json:"id"`
 	Email        string             `json:"email"`
 	PasswordHash pgtype.Text        `json:"password_hash"`
-	IsVerified   bool               `json:"is_verified"`
 	TokenVersion int32              `json:"token_version"`
 	RefreshToken pgtype.Text        `json:"refresh_token"`
 	IsDeleted    bool               `json:"is_deleted"`
@@ -207,7 +202,79 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDR
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
-		&i.IsVerified,
+		&i.TokenVersion,
+		&i.RefreshToken,
+		&i.IsDeleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Profile,
+		&i.Roles,
+	)
+	return i, err
+}
+
+const getUserByIDWithoutDeleted = `-- name: GetUserByIDWithoutDeleted :one
+SELECT
+    u.id,
+    u.email,
+    u.password_hash,
+    u.token_version,
+    u.refresh_token,
+    u.is_deleted,
+    u.created_at,
+    u.updated_at,
+
+    -- profile JSON
+    (
+        SELECT json_build_object(
+            'display_name', p.display_name,
+            'full_name', p.full_name,
+            'avatar_url', p.avatar_url,
+            'bio', p.bio,
+            'location', p.location,
+            'website', p.website,
+            'country_code', p.country_code,
+            'phone', p.phone
+        )
+        FROM user_profiles p
+        WHERE p.user_id = u.id
+    ) AS profile,
+
+    -- roles JSON
+    (
+        SELECT COALESCE(
+            json_agg(json_build_object('id', r.id, 'name', r.name)),
+            '[]'
+        )::json
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
+        WHERE ur.user_id = u.id
+    ) AS roles
+
+FROM users u
+WHERE u.id = $1
+`
+
+type GetUserByIDWithoutDeletedRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Email        string             `json:"email"`
+	PasswordHash pgtype.Text        `json:"password_hash"`
+	TokenVersion int32              `json:"token_version"`
+	RefreshToken pgtype.Text        `json:"refresh_token"`
+	IsDeleted    bool               `json:"is_deleted"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Profile      []byte             `json:"profile"`
+	Roles        []byte             `json:"roles"`
+}
+
+func (q *Queries) GetUserByIDWithoutDeleted(ctx context.Context, id pgtype.UUID) (GetUserByIDWithoutDeletedRow, error) {
+	row := q.db.QueryRow(ctx, getUserByIDWithoutDeleted, id)
+	var i GetUserByIDWithoutDeletedRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
 		&i.TokenVersion,
 		&i.RefreshToken,
 		&i.IsDeleted,
@@ -224,7 +291,127 @@ SELECT
     u.id,
     u.email,
     u.password_hash,
-    u.is_verified,
+    u.token_version,
+    u.refresh_token,
+    u.is_deleted,
+    u.created_at,
+    u.updated_at,
+
+    -- profile JSON
+    (
+        SELECT json_build_object(
+            'display_name', p.display_name,
+            'full_name', p.full_name,
+            'avatar_url', p.avatar_url,
+            'bio', p.bio,
+            'location', p.location,
+            'website', p.website,
+            'country_code', p.country_code,
+            'phone', p.phone
+        )
+        FROM user_profiles p
+        WHERE p.user_id = u.id
+    ) AS profile,
+
+    -- roles JSON
+    (
+        SELECT COALESCE(
+            json_agg(json_build_object('id', r.id, 'name', r.name)),
+            '[]'
+        )::json
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
+        WHERE ur.user_id = u.id
+    ) AS roles
+
+FROM users u
+WHERE 
+    ($1::uuid IS NULL OR u.id > $1::uuid)
+    AND ($2::boolean IS NULL OR u.is_deleted = $2::boolean)
+    AND (
+        $3::uuid[] IS NULL OR 
+        EXISTS (
+            SELECT 1 FROM user_roles ur2 
+            WHERE ur2.user_id = u.id AND ur2.role_id = ANY($3::uuid[])
+        )
+    )
+ORDER BY u.id ASC
+LIMIT $4
+`
+
+type GetUsersParams struct {
+	Cursor    pgtype.UUID   `json:"cursor"`
+	IsDeleted pgtype.Bool   `json:"is_deleted"`
+	RoleIds   []pgtype.UUID `json:"role_ids"`
+	Limit     int32         `json:"limit"`
+}
+
+type GetUsersRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Email        string             `json:"email"`
+	PasswordHash pgtype.Text        `json:"password_hash"`
+	TokenVersion int32              `json:"token_version"`
+	RefreshToken pgtype.Text        `json:"refresh_token"`
+	IsDeleted    bool               `json:"is_deleted"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Profile      []byte             `json:"profile"`
+	Roles        []byte             `json:"roles"`
+}
+
+func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
+	rows, err := q.db.Query(ctx, getUsers,
+		arg.Cursor,
+		arg.IsDeleted,
+		arg.RoleIds,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetUsersRow{}
+	for rows.Next() {
+		var i GetUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.PasswordHash,
+			&i.TokenVersion,
+			&i.RefreshToken,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Profile,
+			&i.Roles,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const restoreUser = `-- name: RestoreUser :exec
+UPDATE users
+SET
+    is_deleted = false
+WHERE id = $1
+`
+
+func (q *Queries) RestoreUser(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, restoreUser, id)
+	return err
+}
+
+const searchUsers = `-- name: SearchUsers :many
+SELECT
+    u.id,
+    u.email,
+    u.password_hash,
     u.token_version,
     u.refresh_token,
     u.is_deleted,
@@ -257,14 +444,44 @@ SELECT
     ) AS roles
 
 FROM users u
-WHERE u.is_deleted = false
+WHERE 
+    ($1::uuid IS NULL OR u.id > $1::uuid)
+    
+    AND ($2::boolean IS NULL OR u.is_deleted = $2::boolean)
+    AND (
+        $3::uuid[] IS NULL OR 
+        EXISTS (
+            SELECT 1 FROM user_roles ur2 
+            WHERE ur2.user_id = u.id AND ur2.role_id = ANY($3::uuid[])
+        )
+    )
+    
+    AND ($4::uuid IS NULL OR u.id = $4::uuid)
+    AND (
+        $5::text IS NULL OR 
+        u.email ILIKE '%' || $5::text || '%' OR
+        EXISTS (
+            SELECT 1 FROM user_profiles p 
+            WHERE p.user_id = u.id AND p.display_name ILIKE '%' || $5::text || '%'
+        )
+    )
+ORDER BY u.id ASC
+LIMIT $6
 `
 
-type GetUsersRow struct {
+type SearchUsersParams struct {
+	Cursor     pgtype.UUID   `json:"cursor"`
+	IsDeleted  pgtype.Bool   `json:"is_deleted"`
+	RoleIds    []pgtype.UUID `json:"role_ids"`
+	SearchID   pgtype.UUID   `json:"search_id"`
+	SearchText pgtype.Text   `json:"search_text"`
+	Limit      int32         `json:"limit"`
+}
+
+type SearchUsersRow struct {
 	ID           pgtype.UUID        `json:"id"`
 	Email        string             `json:"email"`
 	PasswordHash pgtype.Text        `json:"password_hash"`
-	IsVerified   bool               `json:"is_verified"`
 	TokenVersion int32              `json:"token_version"`
 	RefreshToken pgtype.Text        `json:"refresh_token"`
 	IsDeleted    bool               `json:"is_deleted"`
@@ -274,20 +491,26 @@ type GetUsersRow struct {
 	Roles        []byte             `json:"roles"`
 }
 
-func (q *Queries) GetUsers(ctx context.Context) ([]GetUsersRow, error) {
-	rows, err := q.db.Query(ctx, getUsers)
+func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]SearchUsersRow, error) {
+	rows, err := q.db.Query(ctx, searchUsers,
+		arg.Cursor,
+		arg.IsDeleted,
+		arg.RoleIds,
+		arg.SearchID,
+		arg.SearchText,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetUsersRow{}
+	items := []SearchUsersRow{}
 	for rows.Next() {
-		var i GetUsersRow
+		var i SearchUsersRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
 			&i.PasswordHash,
-			&i.IsVerified,
 			&i.TokenVersion,
 			&i.RefreshToken,
 			&i.IsDeleted,
@@ -304,18 +527,6 @@ func (q *Queries) GetUsers(ctx context.Context) ([]GetUsersRow, error) {
 		return nil, err
 	}
 	return items, nil
-}
-
-const restoreUser = `-- name: RestoreUser :exec
-UPDATE users
-SET
-    is_deleted = false
-WHERE id = $1
-`
-
-func (q *Queries) RestoreUser(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, restoreUser, id)
-	return err
 }
 
 const updateTokenVersion = `-- name: UpdateTokenVersion :exec
@@ -432,18 +643,15 @@ INSERT INTO users (
     email,
     password_hash,
     google_id,
-    auth_provider,
-    is_verified
+    auth_provider
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4
 )
 ON CONFLICT (email) 
 DO UPDATE SET
     google_id = EXCLUDED.google_id,
-    auth_provider = EXCLUDED.auth_provider,
-    is_verified = users.is_verified OR EXCLUDED.is_verified,
-    updated_at = now()
-RETURNING id, email, password_hash, google_id, auth_provider, is_verified, is_deleted, token_version, refresh_token, created_at, updated_at
+    auth_provider = EXCLUDED.auth_provider
+RETURNING id, email, password_hash, google_id, auth_provider, is_deleted, token_version, refresh_token, created_at, updated_at
 `
 
 type UpsertUserParams struct {
@@ -451,7 +659,6 @@ type UpsertUserParams struct {
 	PasswordHash pgtype.Text `json:"password_hash"`
 	GoogleID     pgtype.Text `json:"google_id"`
 	AuthProvider string      `json:"auth_provider"`
-	IsVerified   bool        `json:"is_verified"`
 }
 
 func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, error) {
@@ -460,7 +667,6 @@ func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, e
 		arg.PasswordHash,
 		arg.GoogleID,
 		arg.AuthProvider,
-		arg.IsVerified,
 	)
 	var i User
 	err := row.Scan(
@@ -469,7 +675,6 @@ func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, e
 		&i.PasswordHash,
 		&i.GoogleID,
 		&i.AuthProvider,
-		&i.IsVerified,
 		&i.IsDeleted,
 		&i.TokenVersion,
 		&i.RefreshToken,
@@ -477,17 +682,4 @@ func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, e
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const verifyUser = `-- name: VerifyUser :exec
-UPDATE users
-SET
-    is_verified = true
-WHERE id = $1
-  AND is_deleted = false
-`
-
-func (q *Queries) VerifyUser(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, verifyUser, id)
-	return err
 }

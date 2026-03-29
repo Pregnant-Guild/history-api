@@ -2,21 +2,25 @@ package repositories
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/pkg/cache"
+	"history-api/pkg/constants"
 	"history-api/pkg/convert"
 )
 
 type UserRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.UserEntity, error)
+	GetByIDWithoutDeleted(ctx context.Context, id pgtype.UUID) (*models.UserEntity, error)
 	GetByEmail(ctx context.Context, email string) (*models.UserEntity, error)
-	All(ctx context.Context) ([]*models.UserEntity, error)
+	All(ctx context.Context, params sqlc.GetUsersParams) ([]*models.UserEntity, error)
+	Search(ctx context.Context, params sqlc.SearchUsersParams) ([]*models.UserEntity, error)
 	UpsertUser(ctx context.Context, params sqlc.UpsertUserParams) (*models.UserEntity, error)
 	CreateProfile(ctx context.Context, params sqlc.CreateUserProfileParams) (*models.UserProfileSimple, error)
 	UpdateProfile(ctx context.Context, params sqlc.UpdateUserProfileParams) (*models.UserEntity, error)
@@ -24,7 +28,6 @@ type UserRepository interface {
 	UpdateRefreshToken(ctx context.Context, params sqlc.UpdateUserRefreshTokenParams) error
 	GetTokenVersion(ctx context.Context, id pgtype.UUID) (int32, error)
 	UpdateTokenVersion(ctx context.Context, params sqlc.UpdateTokenVersionParams) error
-	Verify(ctx context.Context, id pgtype.UUID) error
 	Delete(ctx context.Context, id pgtype.UUID) error
 	Restore(ctx context.Context, id pgtype.UUID) error
 }
@@ -39,6 +42,52 @@ func NewUserRepository(db sqlc.DBTX, c cache.Cache) UserRepository {
 		q: sqlc.New(db),
 		c: c,
 	}
+}
+
+func (r *userRepository) generateQueryKey(prefix string, params any) string {
+	b, _ := json.Marshal(params)
+	hash := fmt.Sprintf("%x", md5.Sum(b))
+	return fmt.Sprintf("%s:%s", prefix, hash)
+}
+
+func (r *userRepository) getByIDsWithFallback(ctx context.Context, ids []string) ([]*models.UserEntity, error) {
+	if len(ids) == 0 {
+		return []*models.UserEntity{}, nil
+	}
+	keys := make([]string, len(ids))
+	for i, id := range ids {
+		keys[i] = fmt.Sprintf("user:id:%s", id)
+	}
+	raws := r.c.MGet(ctx, keys...)
+
+	var users []*models.UserEntity
+	missingUsersToCache := make(map[string]any)
+
+	for i, b := range raws {
+		if len(b) > 0 {
+			var u models.UserEntity
+			if err := json.Unmarshal(b, &u); err == nil {
+				users = append(users, &u)
+			}
+		} else {
+			pgId := pgtype.UUID{}
+			err := pgId.Scan(ids[i])
+			if err != nil {
+				continue
+			}
+			dbUser, err := r.GetByID(ctx, pgId)
+			if err == nil && dbUser != nil {
+				users = append(users, dbUser)
+				missingUsersToCache[keys[i]] = dbUser
+			}
+		}
+	}
+
+	if len(missingUsersToCache) > 0 {
+		_ = r.c.MSet(ctx, missingUsersToCache, constants.NormalCacheDuration)
+	}
+
+	return users, nil
 }
 
 func (r *userRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.UserEntity, error) {
@@ -58,7 +107,6 @@ func (r *userRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.U
 		ID:           convert.UUIDToString(row.ID),
 		Email:        row.Email,
 		PasswordHash: convert.TextToString(row.PasswordHash),
-		IsVerified:   row.IsVerified,
 		TokenVersion: row.TokenVersion,
 		IsDeleted:    row.IsDeleted,
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
@@ -73,7 +121,43 @@ func (r *userRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.U
 		return nil, err
 	}
 
-	_ = r.c.Set(ctx, cacheId, user, 5*time.Minute)
+	_ = r.c.Set(ctx, cacheId, user, constants.NormalCacheDuration)
+
+	return &user, nil
+}
+
+func (r *userRepository) GetByIDWithoutDeleted(ctx context.Context, id pgtype.UUID) (*models.UserEntity, error) {
+	cacheId := fmt.Sprintf("user:deleted:id:%s", convert.UUIDToString(id))
+	var user models.UserEntity
+	err := r.c.Get(ctx, cacheId, &user)
+	if err == nil {
+		return &user, nil
+	}
+
+	row, err := r.q.GetUserByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	user = models.UserEntity{
+		ID:           convert.UUIDToString(row.ID),
+		Email:        row.Email,
+		PasswordHash: convert.TextToString(row.PasswordHash),
+		TokenVersion: row.TokenVersion,
+		IsDeleted:    row.IsDeleted,
+		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
+		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+	}
+
+	if err := user.ParseRoles(row.Roles); err != nil {
+		return nil, err
+	}
+
+	if err := user.ParseProfile(row.Profile); err != nil {
+		return nil, err
+	}
+
+	_ = r.c.Set(ctx, cacheId, user, constants.NormalCacheDuration)
 
 	return &user, nil
 }
@@ -96,7 +180,6 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*models.
 		ID:           convert.UUIDToString(row.ID),
 		Email:        row.Email,
 		PasswordHash: convert.TextToString(row.PasswordHash),
-		IsVerified:   row.IsVerified,
 		TokenVersion: row.TokenVersion,
 		IsDeleted:    row.IsDeleted,
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
@@ -111,7 +194,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*models.
 		return nil, err
 	}
 
-	_ = r.c.Set(ctx, cacheId, user, 5*time.Minute)
+	_ = r.c.Set(ctx, cacheId, user, constants.NormalCacheDuration)
 
 	return &user, nil
 }
@@ -121,12 +204,17 @@ func (r *userRepository) UpsertUser(ctx context.Context, params sqlc.UpsertUserP
 	if err != nil {
 		return nil, err
 	}
+	go func() {
+		bgCtx := context.Background()
+
+		_ = r.c.DelByPattern(bgCtx, "user:all*")
+		_ = r.c.DelByPattern(bgCtx, "user:search*")
+	}()
 
 	return &models.UserEntity{
 		ID:           convert.UUIDToString(row.ID),
 		Email:        row.Email,
 		PasswordHash: convert.TextToString(row.PasswordHash),
-		IsVerified:   row.IsVerified,
 		TokenVersion: row.TokenVersion,
 		IsDeleted:    row.IsDeleted,
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
@@ -161,7 +249,7 @@ func (r *userRepository) UpdateProfile(ctx context.Context, params sqlc.UpdateUs
 		fmt.Sprintf("user:email:%s", user.Email): user,
 		fmt.Sprintf("user:id:%s", user.ID):       user,
 	}
-	_ = r.c.MSet(ctx, mapCache, 5*time.Minute)
+	_ = r.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 	return user, nil
 }
 
@@ -183,19 +271,27 @@ func (r *userRepository) CreateProfile(ctx context.Context, params sqlc.CreateUs
 	}, nil
 }
 
-func (r *userRepository) All(ctx context.Context) ([]*models.UserEntity, error) {
-	rows, err := r.q.GetUsers(ctx)
+func (r *userRepository) All(ctx context.Context, params sqlc.GetUsersParams) ([]*models.UserEntity, error) {
+	queryKey := r.generateQueryKey("user:all", params)
+
+	var cachedIDs []string
+	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+		return r.getByIDsWithFallback(ctx, cachedIDs)
+	}
+	rows, err := r.q.GetUsers(ctx, params)
 	if err != nil {
 		return nil, err
 	}
 
 	var users []*models.UserEntity
+	var ids []string
+	usersToCache := make(map[string]any)
+
 	for _, row := range rows {
 		user := &models.UserEntity{
 			ID:           convert.UUIDToString(row.ID),
 			Email:        row.Email,
 			PasswordHash: convert.TextToString(row.PasswordHash),
-			IsVerified:   row.IsVerified,
 			TokenVersion: row.TokenVersion,
 			IsDeleted:    row.IsDeleted,
 			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
@@ -205,44 +301,75 @@ func (r *userRepository) All(ctx context.Context) ([]*models.UserEntity, error) 
 		if err := user.ParseRoles(row.Roles); err != nil {
 			return nil, err
 		}
-
 		if err := user.ParseProfile(row.Profile); err != nil {
 			return nil, err
 		}
 
 		users = append(users, user)
+		ids = append(ids, user.ID)
+
+		usersToCache[fmt.Sprintf("user:id:%s", user.ID)] = user
+	}
+
+	if len(usersToCache) > 0 {
+		_ = r.c.MSet(ctx, usersToCache, constants.NormalCacheDuration)
+	}
+
+	if len(ids) > 0 {
+		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 	}
 
 	return users, nil
 }
 
-func (r *userRepository) Verify(ctx context.Context, id pgtype.UUID) error {
-	user, err := r.GetByID(ctx, id)
-	if err != nil {
-		return err
+func (r *userRepository) Search(ctx context.Context, params sqlc.SearchUsersParams) ([]*models.UserEntity, error) {
+	queryKey := r.generateQueryKey("user:search", params)
+
+	var cachedIDs []string
+	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
-	err = r.q.VerifyUser(ctx, id)
+	rows, err := r.q.SearchUsers(ctx, params)
 	if err != nil {
-		return err
-	}
-	err = r.q.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
-		ID:           id,
-		TokenVersion: user.TokenVersion + 1,
-	})
-	if err != nil {
-		return err
+		return nil, err
 	}
 
-	user.IsVerified = true
-	user.TokenVersion += 1
+	var users []*models.UserEntity
+	var ids []string
+	usersToCache := make(map[string]any)
 
-	mapCache := map[string]any{
-		fmt.Sprintf("user:email:%s", user.Email): user,
-		fmt.Sprintf("user:id:%s", user.ID):       user,
+	for _, row := range rows {
+		user := &models.UserEntity{
+			ID:           convert.UUIDToString(row.ID),
+			Email:        row.Email,
+			PasswordHash: convert.TextToString(row.PasswordHash),
+			TokenVersion: row.TokenVersion,
+			IsDeleted:    row.IsDeleted,
+			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
+			UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+		}
+
+		if err := user.ParseRoles(row.Roles); err != nil {
+			return nil, err
+		}
+		if err := user.ParseProfile(row.Profile); err != nil {
+			return nil, err
+		}
+
+		users = append(users, user)
+		ids = append(ids, user.ID)
+		usersToCache[fmt.Sprintf("user:id:%s", user.ID)] = user
 	}
-	_ = r.c.MSet(ctx, mapCache, 5*time.Minute)
-	return nil
+
+	if len(usersToCache) > 0 {
+		_ = r.c.MSet(ctx, usersToCache, constants.NormalCacheDuration)
+	}
+	if len(ids) > 0 {
+		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
+	}
+
+	return users, nil
 }
 
 func (r *userRepository) Delete(ctx context.Context, id pgtype.UUID) error {
@@ -288,7 +415,7 @@ func (r *userRepository) GetTokenVersion(ctx context.Context, id pgtype.UUID) (i
 		return 0, err
 	}
 
-	_ = r.c.Set(ctx, cacheId, raw, 5*time.Minute)
+	_ = r.c.Set(ctx, cacheId, raw, constants.NormalCacheDuration)
 	return raw, nil
 }
 
@@ -299,7 +426,7 @@ func (r *userRepository) UpdateTokenVersion(ctx context.Context, params sqlc.Upd
 	}
 
 	cacheId := fmt.Sprintf("user:token:%s", convert.UUIDToString(params.ID))
-	_ = r.c.Set(ctx, cacheId, params.TokenVersion, 5*time.Minute)
+	_ = r.c.Set(ctx, cacheId, params.TokenVersion, constants.NormalCacheDuration)
 	return nil
 }
 
@@ -328,7 +455,7 @@ func (r *userRepository) UpdatePassword(ctx context.Context, params sqlc.UpdateU
 		fmt.Sprintf("user:token:%s", user.ID):    user.TokenVersion,
 	}
 
-	_ = r.c.MSet(ctx, mapCache, 5*time.Minute)
+	_ = r.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 	return nil
 }
 
@@ -349,6 +476,6 @@ func (r *userRepository) UpdateRefreshToken(ctx context.Context, params sqlc.Upd
 		fmt.Sprintf("user:token:%s", user.ID):    user.TokenVersion,
 	}
 
-	_ = r.c.MSet(ctx, mapCache, 5*time.Minute)
+	_ = r.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 	return nil
 }

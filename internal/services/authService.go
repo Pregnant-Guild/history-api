@@ -2,19 +2,25 @@ package services
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/internal/repositories"
+	"history-api/pkg/cache"
 	"history-api/pkg/config"
-	"history-api/pkg/constant"
+	"history-api/pkg/constants"
+	"history-api/pkg/convert"
+	"math/big"
 
 	"slices"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -22,29 +28,35 @@ import (
 type AuthService interface {
 	Signin(ctx context.Context, dto *request.SignInDto) (*response.AuthResponse, error)
 	Signup(ctx context.Context, dto *request.SignUpDto) (*response.AuthResponse, error)
-	ForgotPassword(ctx context.Context) error
-	VerifyToken(ctx context.Context) error
-	CreateToken(ctx context.Context) error
-	SigninWith3rd(ctx context.Context) error
+	ForgotPassword(ctx context.Context, dto *request.ForgotPasswordDto) error
+	VerifyToken(ctx context.Context, dto *request.VerifyTokenDto) (*response.VerifyTokenResponse, error)
+	CreateToken(ctx context.Context, dto *request.CreateTokenDto) error
+	SigninWith3rd(ctx context.Context, dto *request.SigninWith3rdDto) error
 	RefreshToken(ctx context.Context, id string) (*response.AuthResponse, error)
 }
 
 type authService struct {
-	userRepo repositories.UserRepository
-	roleRepo repositories.RoleRepository
+	userRepo  repositories.UserRepository
+	roleRepo  repositories.RoleRepository
+	tokenRepo repositories.TokenRepository
+	c         cache.Cache
 }
 
 func NewAuthService(
 	userRepo repositories.UserRepository,
 	roleRepo repositories.RoleRepository,
+	tokenRepo repositories.TokenRepository,
+	c cache.Cache,
 ) AuthService {
 	return &authService{
-		userRepo: userRepo,
-		roleRepo: roleRepo,
+		userRepo:  userRepo,
+		roleRepo:  roleRepo,
+		tokenRepo: tokenRepo,
+		c:         c,
 	}
 }
 
-func (a *authService) genToken(Uid string, role []constant.Role) (*response.AuthResponse, error) {
+func (a *authService) genToken(user *models.UserEntity) (*response.AuthResponse, error) {
 	jwtSecret, err := config.GetConfig("JWT_SECRET")
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "missing JWT_SECRET in environment")
@@ -59,18 +71,20 @@ func (a *authService) genToken(Uid string, role []constant.Role) (*response.Auth
 	}
 
 	claimsAccess := &response.JWTClaims{
-		UId:   Uid,
-		Roles: role,
+		UId:          user.ID,
+		Roles:        models.RolesEntityToRoleConstant(user.Roles),
+		TokenVersion: user.TokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(constants.AccessTokenDuration)),
 		},
 	}
 
 	claimsRefresh := &response.JWTClaims{
-		UId:   Uid,
-		Roles: role,
+		UId:          user.ID,
+		Roles:        models.RolesEntityToRoleConstant(user.Roles),
+		TokenVersion: user.TokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * 24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(constants.RefreshTokenDuration)),
 		},
 	}
 
@@ -102,11 +116,11 @@ func (a *authService) saveNewRefreshToken(ctx context.Context, params sqlc.Updat
 }
 
 func (a *authService) Signin(ctx context.Context, dto *request.SignInDto) (*response.AuthResponse, error) {
-	if !constant.EMAIL_REGEX.MatchString(dto.Email) {
+	if !constants.EMAIL_REGEX.MatchString(dto.Email) {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid email")
 	}
 
-	err := constant.ValidatePassword(dto.Password)
+	err := constants.ValidatePassword(dto.Password)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
@@ -120,13 +134,12 @@ func (a *authService) Signin(ctx context.Context, dto *request.SignInDto) (*resp
 		return nil, fiber.NewError(fiber.StatusUnauthorized, "Invalid identity or password!")
 	}
 
-	data, err := a.genToken(user.ID, models.RolesEntityToRoleConstant(user.Roles))
+	data, err := a.genToken(user)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 
 	}
-	var pgID pgtype.UUID
-	err = pgID.Scan(user.ID)
+	pgID, err := convert.StringToUUID(user.ID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -160,11 +173,11 @@ func (a *authService) RefreshToken(ctx context.Context, id string) (*response.Au
 	}
 	roles := models.RolesEntityToRoleConstant(user.Roles)
 
-	if slices.Contains(roles, constant.BANNED) {
+	if slices.Contains(roles, constants.BANNED) {
 		return nil, fiber.NewError(fiber.StatusUnauthorized, "User is banned!")
 	}
 
-	data, err := a.genToken(id, roles)
+	data, err := a.genToken(user)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -187,12 +200,21 @@ func (a *authService) RefreshToken(ctx context.Context, id string) (*response.Au
 }
 
 func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*response.AuthResponse, error) {
-	if !constant.EMAIL_REGEX.MatchString(dto.Email) {
+	if !constants.EMAIL_REGEX.MatchString(dto.Email) {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid email")
 	}
-	err := constant.ValidatePassword(dto.Password)
+	err := constants.ValidatePassword(dto.Password)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	ok, err := a.tokenRepo.CheckVerified(ctx, dto.Email, constants.TokenEmailVerify, dto.TokenID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	if !ok {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid or expired token")
 	}
 
 	user, err := a.userRepo.GetByEmail(ctx, dto.Email)
@@ -202,6 +224,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 	if user != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "User already exists")
 	}
+
 	hashed, err := bcrypt.GenerateFromPassword([]byte(dto.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
@@ -215,14 +238,13 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 				String: string(hashed),
 				Valid:  len(hashed) != 0,
 			},
-			IsVerified: true,
 		},
 	)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	var userId pgtype.UUID
-	err = userId.Scan(user.ID)
+
+	userId, err := convert.StringToUUID(user.ID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -239,19 +261,28 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
+	role, err := a.roleRepo.GetByname(ctx, constants.USER.String())
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	roleId, err := convert.StringToUUID(role.ID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
 
 	err = a.roleRepo.AddUserRole(
 		ctx,
 		sqlc.AddUserRoleParams{
-			UserID: userId,
-			Name:   constant.USER.String(),
+			UserID:  userId,
+			Column2: []pgtype.UUID{roleId},
 		},
 	)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	data, err := a.genToken(user.ID, constant.USER.ToSlice())
+	data, err := a.genToken(user)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -273,22 +304,101 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 	return data, nil
 }
 
-// ForgotPassword implements [AuthService].
-func (a *authService) ForgotPassword(ctx context.Context) error {
-	panic("unimplemented")
+func (a *authService) ForgotPassword(ctx context.Context, dto *request.ForgotPasswordDto) error {
+	ok, err := a.tokenRepo.CheckVerified(ctx, dto.Email, constants.TokenPasswordReset, dto.TokenID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	if !ok {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid or expired token")
+	}
+	user, err := a.userRepo.GetByEmail(ctx, dto.Email)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	if user == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "User not found")
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(dto.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	userId, err := convert.StringToUUID(user.ID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	err = a.userRepo.UpdatePassword(ctx, sqlc.UpdateUserPasswordParams{
+		ID: userId,
+		PasswordHash: pgtype.Text{
+			String: string(hashed),
+			Valid:  len(hashed) != 0,
+		},
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	return nil
 }
 
 // SigninWith3rd implements [AuthService].
-func (a *authService) SigninWith3rd(ctx context.Context) error {
+func (a *authService) SigninWith3rd(ctx context.Context, dto *request.SigninWith3rdDto) error {
 	panic("unimplemented")
 }
-
-// CreateToken implements [AuthService].
-func (a *authService) CreateToken(ctx context.Context) error {
-	panic("unimplemented")
+func (a *authService) GenerateOTP() (string, error) {
+	max := big.NewInt(900000)
+	n, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return "", err
+	}
+	otp := n.Int64() + 100000
+	return fmt.Sprintf("%06d", otp), nil
 }
 
-// Verify implements [AuthService].
-func (a *authService) VerifyToken(ctx context.Context) error {
-	panic("unimplemented")
+func (a *authService) CreateToken(ctx context.Context, dto *request.CreateTokenDto) error {
+	ok, err := a.tokenRepo.CheckCooldown(ctx, dto.Email, dto.TokenType)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	if ok {
+		return fiber.NewError(fiber.StatusBadRequest, "Please wait before requesting another token")
+	}
+
+	otp, err := a.GenerateOTP()
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	token := &models.TokenEntity{
+		Email:     dto.Email,
+		Token:     otp,
+		TokenType: dto.TokenType,
+	}
+
+	err = a.tokenRepo.Create(ctx, token)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	a.c.PublishTask(ctx, constants.StreamEmailName, constants.TaskTypeSendEmailOTP, token)
+	return nil
+}
+
+func (a *authService) VerifyToken(ctx context.Context, dto *request.VerifyTokenDto) (*response.VerifyTokenResponse, error) {
+	token, err := a.tokenRepo.Get(ctx, dto.Email, dto.TokenType)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	if token == nil || token.Token != dto.Token {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid token")
+	}
+	tokenId := uuid.New().String()
+	err = a.tokenRepo.CreateVerified(ctx, dto.Email, dto.TokenType, tokenId)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	return &response.VerifyTokenResponse{
+		TokenID: tokenId,
+	}, nil
 }

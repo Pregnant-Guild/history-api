@@ -1,5 +1,65 @@
 basePath: /
 definitions:
+  history-api_internal_dtos_request.ChangePasswordDto:
+    properties:
+      new_password:
+        maxLength: 64
+        minLength: 8
+        type: string
+      old_password:
+        maxLength: 64
+        minLength: 8
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  history-api_internal_dtos_request.ChangeRoleDto:
+    properties:
+      role_ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+      user_id:
+        type: string
+    required:
+    - role_ids
+    - user_id
+    type: object
+  history-api_internal_dtos_request.CreateTokenDto:
+    properties:
+      email:
+        type: string
+      token_type:
+        allOf:
+        - $ref: '#/definitions/history-api_pkg_constants.TokenType'
+        enum:
+        - 1
+        - 2
+        - 3
+        - 4
+    required:
+    - email
+    - token_type
+    type: object
+  history-api_internal_dtos_request.ForgotPasswordDto:
+    properties:
+      email:
+        maxLength: 255
+        minLength: 5
+        type: string
+      new_password:
+        maxLength: 64
+        minLength: 8
+        type: string
+      token_id:
+        type: string
+    required:
+    - email
+    - new_password
+    - token_id
+    type: object
   history-api_internal_dtos_request.SignInDto:
     properties:
       email:
@@ -28,10 +88,59 @@ definitions:
         maxLength: 64
         minLength: 8
         type: string
+      token_id:
+        type: string
     required:
     - display_name
     - email
     - password
+    - token_id
+    type: object
+  history-api_internal_dtos_request.UpdateProfileDto:
+    properties:
+      avatar_url:
+        type: string
+      bio:
+        maxLength: 255
+        type: string
+      country_code:
+        type: string
+      display_name:
+        maxLength: 50
+        minLength: 2
+        type: string
+      full_name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      location:
+        maxLength: 100
+        type: string
+      phone:
+        maxLength: 20
+        minLength: 8
+        type: string
+      website:
+        type: string
+    type: object
+  history-api_internal_dtos_request.VerifyTokenDto:
+    properties:
+      email:
+        type: string
+      token:
+        type: string
+      token_type:
+        allOf:
+        - $ref: '#/definitions/history-api_pkg_constants.TokenType'
+        enum:
+        - 1
+        - 2
+        - 3
+        - 4
+    required:
+    - email
+    - token
+    - token_type
     type: object
   history-api_internal_dtos_response.CommonResponse:
     properties:
@@ -41,6 +150,19 @@ definitions:
       status:
         type: boolean
     type: object
+  history-api_pkg_constants.TokenType:
+    enum:
+    - 1
+    - 2
+    - 3
+    - 4
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - TokenPasswordReset
+    - TokenEmailVerify
+    - TokenMagicLink
+    - TokenRefreshToken
 host: history-api.kain.id.vn
 info:
   contact:
@@ -55,17 +177,50 @@ info:
   title: History API
   version: "1.0"
 paths:
-  /auth/refresh:
+  /auth/forgot-password:
     post:
       consumes:
       - application/json
-      description: Get a new access token using the user's current session/refresh
-        token
+      description: Initiate password recovery process for a user
+      parameters:
+      - description: Forgot Password request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.ForgotPasswordDto'
       produces:
       - application/json
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Handle forgotten password
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Generate a new access token using a valid refresh token from context
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "401":
+          description: Unauthorized or expired refresh token
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
         "500":
@@ -74,16 +229,16 @@ paths:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
       security:
       - BearerAuth: []
-      summary: Refresh access token
+      summary: Refresh session tokens
       tags:
       - Auth
   /auth/signin:
     post:
       consumes:
       - application/json
-      description: Authenticate user and return token data
+      description: Authenticate user credentials and return access/refresh tokens
       parameters:
-      - description: Sign In request
+      - description: Sign In credentials
         in: body
         name: request
         required: true
@@ -100,20 +255,24 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
-      summary: Sign in an existing user
+      summary: Sign in a user
       tags:
       - Auth
   /auth/signup:
     post:
       consumes:
       - application/json
-      description: Create a new user account
+      description: Create a new user account in the system
       parameters:
-      - description: Sign Up request
+      - description: Sign Up details
         in: body
         name: request
         required: true
@@ -134,7 +293,67 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
-      summary: Sign up a new user
+      summary: Register a new user
+      tags:
+      - Auth
+  /auth/token/create:
+    post:
+      consumes:
+      - application/json
+      description: Request a new token for specific actions like email confirmation
+      parameters:
+      - description: Token creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.CreateTokenDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Generate a new verification token
+      tags:
+      - Auth
+  /auth/token/verify:
+    post:
+      consumes:
+      - application/json
+      description: Validate an OTP or email verification token
+      parameters:
+      - description: Token verification data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.VerifyTokenDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Verify a security token
       tags:
       - Auth
   /tiles/{z}/{x}/{y}:
@@ -193,6 +412,281 @@ paths:
       summary: Get tile metadata
       tags:
       - Tile
+  /users:
+    get:
+      consumes:
+      - application/json
+      description: Search and filter users with pagination (Admin/Mod only)
+      parameters:
+      - in: query
+        name: cursor
+        type: string
+      - in: query
+        name: is_deleted
+        type: boolean
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        required: true
+        type: integer
+      - enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        name: role_ids
+        type: array
+      - in: query
+        maxLength: 200
+        minLength: 2
+        name: search
+        type: string
+      - enum:
+        - created_at
+        - updated_at
+        - email
+        - display_name
+        in: query
+        name: sort
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Search users
+      tags:
+      - Users
+  /users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Soft delete a user account (Admin/Mod only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a user
+      tags:
+      - Users
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific user (Admin/Mod only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user by ID
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Update the profile details of the currently authenticated user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update Profile request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.UpdateProfileDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - Users
+  /users/{id}/password:
+    patch:
+      consumes:
+      - application/json
+      description: Update the password for the currently authenticated user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Change Password request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.ChangePasswordDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Change user password
+      tags:
+      - Users
+  /users/{id}/restore:
+    patch:
+      consumes:
+      - application/json
+      description: Restore a soft-deleted user account (Admin/Mod only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Restore a deleted user
+      tags:
+      - Users
+  /users/{id}/role:
+    patch:
+      consumes:
+      - application/json
+      description: Update the role of a user (Admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Change Role request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.ChangeRoleDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Change user role
+      tags:
+      - Users
+  /users/current:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the profile information of the currently authenticated
+        user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user profile
+      tags:
+      - Users
 schemes:
 - https
 - http

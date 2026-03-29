@@ -2,7 +2,7 @@ package models
 
 import (
 	"history-api/internal/dtos/response"
-	"history-api/pkg/constant"
+	"history-api/pkg/constants"
 	"time"
 )
 
@@ -44,6 +44,13 @@ func (r *RoleEntity) ToResponse() *response.RoleResponse {
 	}
 }
 
+func (r *RoleEntity) ToRoleSimple() *RoleSimple {
+	return &RoleSimple{
+		ID:   r.ID,
+		Name: r.Name,
+	}
+}
+
 func RolesEntityToResponse(rs []*RoleEntity) []*response.RoleResponse {
 	out := make([]*response.RoleResponse, len(rs))
 	for i := range rs {
@@ -52,10 +59,10 @@ func RolesEntityToResponse(rs []*RoleEntity) []*response.RoleResponse {
 	return out
 }
 
-func RolesEntityToRoleConstant(rs []*RoleSimple) []constant.Role {
-	out := make([]constant.Role, len(rs))
+func RolesEntityToRoleConstant(rs []*RoleSimple) []constants.Role {
+	out := make([]constants.Role, len(rs))
 	for i := range rs {
-		data, ok := constant.ParseRole(rs[i].Name)
+		data, ok := constants.ParseRole(rs[i].Name)
 		if !ok {
 			continue
 		}

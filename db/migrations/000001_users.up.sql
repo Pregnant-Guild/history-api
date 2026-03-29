@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT,
     google_id VARCHAR(255) UNIQUE,
     auth_provider VARCHAR(50) NOT NULL DEFAULT 'local',
-    is_verified BOOLEAN NOT NULL DEFAULT false,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     token_version INT NOT NULL DEFAULT 1,
     refresh_token TEXT,
@@ -20,10 +19,6 @@ WHERE is_deleted = false;
 
 CREATE INDEX idx_users_email_active
 ON users (email)
-WHERE is_deleted = false;
-
-CREATE INDEX idx_users_verified
-ON users (is_verified)
 WHERE is_deleted = false;
 
 CREATE OR REPLACE FUNCTION update_updated_at()

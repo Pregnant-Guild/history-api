@@ -4,7 +4,6 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT,
     google_id VARCHAR(255) UNIQUE,
     auth_provider VARCHAR(50) NOT NULL DEFAULT 'local',
-    is_verified BOOLEAN NOT NULL DEFAULT false,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     token_version INT NOT NULL DEFAULT 1,
     refresh_token TEXT,
@@ -48,15 +47,5 @@ CREATE TABLE IF NOT EXISTS user_verifications (
     status SMALLINT NOT NULL DEFAULT 1, -- 1 pending, 2 approved, 3 rejected
     reviewed_by UUID REFERENCES users(id),
     reviewed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS user_tokens (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token VARCHAR(255) NOT NULL UNIQUE,
-    is_deleted BOOLEAN NOT NULL DEFAULT false,
-    token_type SMALLINT NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now()
 );

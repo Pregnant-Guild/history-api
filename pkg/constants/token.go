@@ -1,4 +1,4 @@
-package constant
+package constants
 
 type TokenType int16
 
@@ -24,6 +24,10 @@ func (t TokenType) String() string {
 	}
 }
 
+func (t TokenType) Value() int16 {
+	return int16(t)
+}
+
 func ParseTokenType(v int16) TokenType {
 	switch v {
 	case 1:
@@ -33,6 +37,21 @@ func ParseTokenType(v int16) TokenType {
 	case 3:
 		return TokenMagicLink
 	case 4:
+		return TokenRefreshToken
+	default:
+		return 0
+	}
+}
+
+func ParseTokenTypeFromString(s string) TokenType {
+	switch s {
+	case "PASSWORD_RESET":
+		return TokenPasswordReset
+	case "EMAIL_VERIFY":
+		return TokenEmailVerify
+	case "LOGIN_MAGIC_LINK":
+		return TokenMagicLink
+	case "REFRESH_TOKEN":
 		return TokenRefreshToken
 	default:
 		return 0

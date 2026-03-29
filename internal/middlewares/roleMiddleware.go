@@ -2,13 +2,13 @@ package middlewares
 
 import (
 	"history-api/internal/dtos/response"
-	"history-api/pkg/constant"
+	"history-api/pkg/constants"
 	"slices"
 
 	"github.com/gofiber/fiber/v3"
 )
 
-func getRoles(c fiber.Ctx) ([]constant.Role, error) {
+func getRoles(c fiber.Ctx) ([]constants.Role, error) {
 	claimsVal := c.Locals("user_claims")
 	if claimsVal == nil {
 		return nil, fiber.ErrUnauthorized
@@ -22,7 +22,7 @@ func getRoles(c fiber.Ctx) ([]constant.Role, error) {
 	return claims.Roles, nil
 }
 
-func RequireAnyRole(required ...constant.Role) fiber.Handler {
+func RequireAnyRole(required ...constants.Role) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		userRoles, err := getRoles(c)
 		if err != nil {
@@ -43,7 +43,7 @@ func RequireAnyRole(required ...constant.Role) fiber.Handler {
 	}
 }
 
-func RequireAllRoles(required ...constant.Role) fiber.Handler {
+func RequireAllRoles(required ...constants.Role) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		userRoles, err := getRoles(c)
 		if err != nil {

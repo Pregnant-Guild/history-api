@@ -35,10 +35,10 @@ func NewHttpServer() *FiberServer {
 		}),
 	}
 	cfg := swagger.Config{
-		BasePath: "/",
+		BasePath:    "/",
 		FileContent: docs.SwaggerJSON,
-		Path:     "swagger",
-		Title:    "Swagger API Docs",
+		Path:        "swagger",
+		Title:       "Swagger API Docs",
 	}
 
 	server.App.Use(swagger.New(cfg))
@@ -64,17 +64,21 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 	userRepo := repositories.NewUserRepository(sqlPg, redis)
 	roleRepo := repositories.NewRoleRepository(sqlPg, redis)
 	tileRepo := repositories.NewTileRepository(sqlTile, redis)
+	tokenRepo := repositories.NewTokenRepository(redis)
 
 	// service setup
-	authService := services.NewAuthService(userRepo, roleRepo)
+	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis)
+	userService := services.NewUserService(userRepo, roleRepo)
 	tileService := services.NewTileService(tileRepo)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService)
+	userController := controllers.NewUserController(userService)
 	tileController := controllers.NewTileController(tileService)
 
 	// route setup
-	routes.AuthRoutes(s.App, authController)
+	routes.AuthRoutes(s.App, authController, userRepo)
+	routes.UserRoutes(s.App, userController, userRepo)
 	routes.TileRoutes(s.App, tileController)
 	routes.NotFoundRoute(s.App)
 }
