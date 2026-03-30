@@ -6,17 +6,22 @@ import (
 	"history-api/internal/dtos/response"
 	"history-api/internal/services"
 	"history-api/pkg/validator"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
+	"golang.org/x/oauth2"
+	"google.golang.org/api/idtoken"
 )
 
 type AuthController struct {
 	service services.AuthService
+	oauth   *oauth2.Config
 }
 
-func NewAuthController(svc services.AuthService) *AuthController {
-	return &AuthController{service: svc}
+func NewAuthController(svc services.AuthService, oauth *oauth2.Config) *AuthController {
+	return &AuthController{service: svc, oauth: oauth}
 }
 
 // Signin godoc
@@ -50,6 +55,21 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 			Message: err.Error(),
 		})
 	}
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    res.AccessToken,
+		HTTPOnly: true,
+		Secure:   c.Protocol() == "https",
+		SameSite: "Lax",
+	})
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    res.RefreshToken,
+		HTTPOnly: true,
+		Secure:   c.Protocol() == "https",
+		SameSite: "Lax",
+	})
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
 		Status: true,
@@ -88,6 +108,22 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 		})
 	}
 
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    res.AccessToken,
+		HTTPOnly: true,
+		Secure:   c.Protocol() == "https",
+		SameSite: "Lax",
+	})
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    res.RefreshToken,
+		HTTPOnly: true,
+		Secure:   c.Protocol() == "https",
+		SameSite: "Lax",
+	})
+
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
 		Status: true,
 		Data:   res,
@@ -116,6 +152,22 @@ func (h *AuthController) RefreshToken(c fiber.Ctx) error {
 			Message: err.Error(),
 		})
 	}
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    res.AccessToken,
+		HTTPOnly: true,
+		Secure:   c.Protocol() == "https",
+		SameSite: "Lax",
+	})
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    res.RefreshToken,
+		HTTPOnly: true,
+		Secure:   c.Protocol() == "https",
+		SameSite: "Lax",
+	})
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
 		Status: true,
@@ -193,8 +245,7 @@ func (h *AuthController) CreateToken(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
 		Status:  true,
-		Data:    nil,
-		Message: "Token created successfully",
+		Message: "If this email exists, an OTP has been sent",
 	})
 }
 
@@ -234,4 +285,106 @@ func (h *AuthController) ForgotPassword(c fiber.Ctx) error {
 		Data:    nil,
 		Message: "Password reset successfully",
 	})
+}
+
+// GoogleLogin godoc
+// @Summary Initiate Google OAuth2 login
+// @Description Generates a state string, sets it in a cookie, and redirects the user to Google's consent page.
+// @Tags Auth
+// @Success 302 {string} string "Redirect to Google"
+// @Router /auth/google/login [get]
+func (h *AuthController) GoogleLogin(c fiber.Ctx) error {
+	_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	state := uuid.New().String()
+
+	secure := c.Protocol() == "https"
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "oauth_state",
+		Value:    state,
+		Expires:  time.Now().Add(15 * time.Minute),
+		HTTPOnly: true,
+		Secure:   secure,
+		SameSite: "Lax",
+	})
+
+	url := h.oauth.AuthCodeURL(state)
+	return c.Redirect().To(url)
+}
+
+// GoogleCallback godoc
+// @Summary Handle Google OAuth2 callback
+// @Description Receives the auth code from Google, exchanges it for tokens, creates/logs in the user, and redirects back to the frontend with application tokens.
+// @Tags Auth
+// @Param state query string true "Security state string"
+// @Param code query string true "Authorization code from Google"
+// @Success 302 {string} string "Redirect to Frontend with JWTs"
+// @Failure 401 {object} response.CommonResponse "Invalid state"
+// @Failure 500 {object} response.CommonResponse "Internal Server Error"
+// @Router /auth/google/callback [get]
+func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	stateFromGoogle := c.Query("state")
+	stateFromCookie := c.Cookies("oauth_state")
+
+	if stateFromGoogle == "" || stateFromGoogle != stateFromCookie {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid state"})
+	}
+	c.ClearCookie("oauth_state")
+
+	code := c.Query("code")
+	token, err := h.oauth.Exchange(context.Background(), code)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Token exchange failed"})
+	}
+
+	idToken, ok := token.Extra("id_token").(string)
+	if !ok {
+		return c.Status(500).JSON(fiber.Map{"error": "No id_token"})
+	}
+
+	parts := strings.Split(idToken, ".")
+	if len(parts) < 2 {
+		return c.Status(500).JSON(fiber.Map{"error": "Invalid id_token"})
+	}
+
+	payload, err := idtoken.Validate(ctx, idToken, h.oauth.ClientID)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Token verification failed"})
+	}
+
+	googleUser := request.SigninWithGoogleDto{
+		Sub:     payload.Subject,
+		Email:   payload.Claims["email"].(string),
+		Name:    payload.Claims["name"].(string),
+		Picture: payload.Claims["picture"].(string),
+	}
+
+	res, err := h.service.SigninWithGoogle(ctx, &googleUser)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Error(),
+		})
+	}
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    res.AccessToken,
+		HTTPOnly: true,
+		Secure:   c.Protocol() == "https",
+		SameSite: "Lax",
+	})
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    res.RefreshToken,
+		HTTPOnly: true,
+		Secure:   c.Protocol() == "https",
+		SameSite: "Lax",
+	})
+
+	return c.Redirect().To("http://localhost:5500")
 }

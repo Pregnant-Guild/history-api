@@ -3,6 +3,11 @@ package services
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"database/sql"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
@@ -31,7 +36,7 @@ type AuthService interface {
 	ForgotPassword(ctx context.Context, dto *request.ForgotPasswordDto) error
 	VerifyToken(ctx context.Context, dto *request.VerifyTokenDto) (*response.VerifyTokenResponse, error)
 	CreateToken(ctx context.Context, dto *request.CreateTokenDto) error
-	SigninWith3rd(ctx context.Context, dto *request.SigninWith3rdDto) error
+	SigninWithGoogle(ctx context.Context, dto *request.SigninWithGoogleDto) (*response.AuthResponse, error)
 	RefreshToken(ctx context.Context, id string) (*response.AuthResponse, error)
 }
 
@@ -128,6 +133,10 @@ func (a *authService) Signin(ctx context.Context, dto *request.SignInDto) (*resp
 	user, err := a.userRepo.GetByEmail(ctx, dto.Email)
 	if err != nil || user == nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	if user.AuthProvider != constants.LocalProvider.String() && user.PasswordHash == "" {
+		return nil, fiber.NewError(fiber.StatusUnauthorized, "Please sign in with "+user.AuthProvider)
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(dto.Password)); err != nil {
@@ -341,10 +350,113 @@ func (a *authService) ForgotPassword(ctx context.Context, dto *request.ForgotPas
 	return nil
 }
 
-// SigninWith3rd implements [AuthService].
-func (a *authService) SigninWith3rd(ctx context.Context, dto *request.SigninWith3rdDto) error {
-	panic("unimplemented")
+func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninWithGoogleDto) (*response.AuthResponse, error) {
+	user, err := a.userRepo.GetByEmail(ctx, dto.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	if user != nil {
+		userId, err := convert.StringToUUID(user.ID)
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		data, err := a.genToken(user)
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		err = a.saveNewRefreshToken(
+			ctx,
+			sqlc.UpdateUserRefreshTokenParams{
+				ID: userId,
+				RefreshToken: pgtype.Text{
+					String: data.RefreshToken,
+					Valid:  data.RefreshToken != "",
+				},
+			},
+		)
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		return data, nil
+	}
+
+	user, err = a.userRepo.UpsertUser(
+		ctx,
+		sqlc.UpsertUserParams{
+			Email:        dto.Email,
+			AuthProvider: constants.GoogleProvider.String(),
+			GoogleID: pgtype.Text{
+				String: dto.Sub,
+				Valid:  dto.Sub != "",
+			},
+		},
+	)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	userId, err := convert.StringToUUID(user.ID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	_, err = a.userRepo.CreateProfile(
+		ctx,
+		sqlc.CreateUserProfileParams{
+			UserID: userId,
+			DisplayName: pgtype.Text{
+				String: dto.Name,
+				Valid:  dto.Name != "",
+			},
+			AvatarUrl: pgtype.Text{
+				String: dto.Picture,
+				Valid:  dto.Picture != "",
+			},
+		},
+	)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	role, err := a.roleRepo.GetByname(ctx, constants.USER.String())
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	roleId, err := convert.StringToUUID(role.ID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	err = a.roleRepo.AddUserRole(
+		ctx,
+		sqlc.AddUserRoleParams{
+			UserID:  userId,
+			Column2: []pgtype.UUID{roleId},
+		},
+	)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	data, err := a.genToken(user)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	err = a.saveNewRefreshToken(
+		ctx,
+		sqlc.UpdateUserRefreshTokenParams{
+			ID: userId,
+			RefreshToken: pgtype.Text{
+				String: data.RefreshToken,
+				Valid:  data.RefreshToken != "",
+			},
+		},
+	)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	return data, nil
 }
+
 func (a *authService) GenerateOTP() (string, error) {
 	max := big.NewInt(900000)
 	n, err := rand.Int(rand.Reader, max)
@@ -358,46 +470,86 @@ func (a *authService) GenerateOTP() (string, error) {
 func (a *authService) CreateToken(ctx context.Context, dto *request.CreateTokenDto) error {
 	ok, err := a.tokenRepo.CheckCooldown(ctx, dto.Email, dto.TokenType)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "Internal Server Error")
 	}
 
 	if ok {
-		return fiber.NewError(fiber.StatusBadRequest, "Please wait before requesting another token")
+		return fiber.NewError(fiber.StatusBadRequest, "Too many requests. Please try again later.")
 	}
 
-	otp, err := a.GenerateOTP()
+	user, err := a.userRepo.GetByEmail(ctx, dto.Email)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "Internal Server Error")
 	}
 
-	token := &models.TokenEntity{
-		Email:     dto.Email,
-		Token:     otp,
-		TokenType: dto.TokenType,
+	shouldSend := true
+	if (dto.TokenType == constants.TokenEmailVerify && user != nil) ||
+		(dto.TokenType == constants.TokenPasswordReset && user == nil) {
+		shouldSend = false
 	}
 
-	err = a.tokenRepo.Create(ctx, token)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	if shouldSend {
+		otp, err := a.GenerateOTP()
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Internal Server Error")
+		}
+		hash := sha256.Sum256([]byte(otp))
+		hashString := hex.EncodeToString(hash[:])
+		token := &models.TokenEntity{
+			Email:     dto.Email,
+			Token:     hashString,
+			TokenType: dto.TokenType,
+		}
+		err = a.tokenRepo.Create(ctx, token)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Internal Server Error")
+		}
+
+		token.Token = otp
+		a.c.PublishTask(ctx, constants.StreamEmailName, constants.TaskTypeSendEmailOTP, token)
 	}
 
-	a.c.PublishTask(ctx, constants.StreamEmailName, constants.TaskTypeSendEmailOTP, token)
 	return nil
 }
 
 func (a *authService) VerifyToken(ctx context.Context, dto *request.VerifyTokenDto) (*response.VerifyTokenResponse, error) {
+	genericError := fiber.NewError(fiber.StatusBadRequest, "Invalid or expired token")
 	token, err := a.tokenRepo.Get(ctx, dto.Email, dto.TokenType)
+	if err != nil || token == nil {
+		return nil, genericError
+	}
+
+	userOtpHash := sha256.Sum256([]byte(dto.Token))
+	userOtpHashString := hex.EncodeToString(userOtpHash[:])
+	actualHash := []byte(token.Token)
+	expectedHash := []byte(userOtpHashString)
+
+	if len(actualHash) != len(expectedHash) {
+		return nil, genericError
+	}
+
+	if subtle.ConstantTimeCompare(actualHash, expectedHash) != 1 {
+		return nil, genericError
+	}
+
+	user, err := a.userRepo.GetByEmail(ctx, dto.Email)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Internal Server Error")
 	}
-	if token == nil || token.Token != dto.Token {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid token")
+
+	if (dto.TokenType == constants.TokenEmailVerify && user != nil) ||
+		(dto.TokenType == constants.TokenPasswordReset && user == nil) {
+		return nil, genericError
 	}
+
 	tokenId := uuid.New().String()
 	err = a.tokenRepo.CreateVerified(ctx, dto.Email, dto.TokenType, tokenId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Internal Server Error")
 	}
+
+	_ = a.tokenRepo.Delete(ctx, dto.Email, dto.TokenType)
+
 	return &response.VerifyTokenResponse{
 		TokenID: tokenId,
 	}, nil

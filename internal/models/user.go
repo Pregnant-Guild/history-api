@@ -11,7 +11,6 @@ type UserEntity struct {
 	Email        string             `json:"email"`
 	PasswordHash string             `json:"password_hash"`
 	Profile      *UserProfileSimple `json:"profile"`
-	IsVerified   bool               `json:"is_verified"`
 	TokenVersion int32              `json:"token_version"`
 	GoogleID     string             `json:"google_id"`
 	AuthProvider string             `json:"auth_provider"`
@@ -42,7 +41,6 @@ func (u *UserEntity) ToResponse() *response.UserResponse {
 	return &response.UserResponse{
 		ID:           u.ID,
 		Email:        u.Email,
-		IsVerified:   u.IsVerified,
 		TokenVersion: u.TokenVersion,
 		IsDeleted:    u.IsDeleted,
 		CreatedAt:    u.CreatedAt,

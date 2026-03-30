@@ -209,8 +209,8 @@ func (h *UserController) ChangeRoleUser(c fiber.Ctx) error {
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
-		Status:  true,
-		Data: user,
+		Status: true,
+		Data:   user,
 	})
 }
 

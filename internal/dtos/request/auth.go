@@ -30,7 +30,9 @@ type ForgotPasswordDto struct {
 	NewPassword string `json:"new_password" validate:"required,min=8,max=64"`
 }
 
-type SigninWith3rdDto struct {
-	Provider    string `json:"provider" validate:"required,oneof=google github facebook"`
-	AccessToken string `json:"access_token" validate:"required"`
+type SigninWithGoogleDto struct {
+	Sub     string `json:"sub"` // GoogleID
+	Email   string `json:"email"`
+	Name    string `json:"name"`
+	Picture string `json:"picture"`
 }

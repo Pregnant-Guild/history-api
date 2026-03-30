@@ -11,12 +11,14 @@ import (
 	"history-api/internal/services"
 	"history-api/pkg/cache"
 	"os"
+	"time"
 
 	swagger "github.com/gofiber/contrib/v3/swaggerui"
 	middleware "github.com/gofiber/contrib/v3/zerolog"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/rs/zerolog"
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -43,21 +45,30 @@ func NewHttpServer() *FiberServer {
 
 	server.App.Use(swagger.New(cfg))
 
-	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	logger := zerolog.New(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+	}).With().Timestamp().Logger()
 	server.App.Use(middleware.New(middleware.Config{
 		Logger: &logger,
 	}))
 	return server
 }
 
-func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.Cache) {
+func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.Cache, oauth *oauth2.Config) {
 	// Apply CORS middleware
 	s.App.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type", "Origin"},
-		AllowCredentials: false,
-		MaxAge:           300,
+		AllowOrigins: []string{
+			"http://localhost:3000",
+			"http://localhost:3001",
+			"http://localhost:3002",
+			"http://localhost:3344",
+			"http://localhost:5173",
+			"http://localhost:5500",
+		},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowHeaders: []string{"Accept", "Authorization", "Content-Type", "Origin"},
+		AllowCredentials: true,
 	}))
 
 	// repo setup
@@ -72,7 +83,7 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 	tileService := services.NewTileService(tileRepo)
 
 	// controller setup
-	authController := controllers.NewAuthController(authService)
+	authController := controllers.NewAuthController(authService, oauth)
 	userController := controllers.NewUserController(userService)
 	tileController := controllers.NewTileController(tileService)
 

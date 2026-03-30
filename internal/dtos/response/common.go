@@ -13,9 +13,9 @@ type CommonResponse struct {
 }
 
 type JWTClaims struct {
-	UId          string           `json:"uid"`
-	Roles        []constants.Role `json:"roles"`
-	TokenVersion int32            `json:"token_version"`
+    UId          string           `json:"uid"`          
+    Roles        []constants.Role `json:"roles"`        
+    TokenVersion int32            `json:"token_version"` 
 	jwt.RegisteredClaims
 }
 

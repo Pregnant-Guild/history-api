@@ -68,6 +68,68 @@
                 }
             }
         },
+        "/auth/google/callback": {
+            "get": {
+                "description": "Receives the auth code from Google, exchanges it for tokens, creates/logs in the user, and redirects back to the frontend with application tokens.",
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Handle Google OAuth2 callback",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Security state string",
+                        "name": "state",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Authorization code from Google",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to Frontend with JWTs",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid state",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/google/login": {
+            "get": {
+                "description": "Generates a state string, sets it in a cookie, and redirects the user to Google's consent page.",
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Initiate Google OAuth2 login",
+                "responses": {
+                    "302": {
+                        "description": "Redirect to Google",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/refresh": {
             "post": {
                 "security": [

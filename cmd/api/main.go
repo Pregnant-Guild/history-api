@@ -9,9 +9,11 @@ import (
 	"history-api/pkg/database"
 	_ "history-api/pkg/log"
 	"history-api/pkg/mbtiles"
+	"history-api/pkg/oauth"
 	"os/signal"
 	"syscall"
 	"time"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -64,6 +66,12 @@ func StartServer() {
 		panic(err)
 	}
 
+	googleOAuthConfig, err := oauth.NewGoogleProvider()
+	if err != nil {
+		log.Error().Msg(err.Error())
+		panic(err)
+	}
+
 	serverIp, _ := config.GetConfig("SERVER_IP")
 	if serverIp == "" {
 		serverIp = "127.0.0.1"
@@ -75,7 +83,7 @@ func StartServer() {
 	}
 
 	serverHttp := NewHttpServer()
-	serverHttp.SetupServer(poolPg, sqlTile, redisClient)
+	serverHttp.SetupServer(poolPg, sqlTile, redisClient, googleOAuthConfig)
 	Singleton = serverHttp
 
 	done := make(chan bool, 1)

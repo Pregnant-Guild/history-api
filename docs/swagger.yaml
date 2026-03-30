@@ -207,6 +207,49 @@ paths:
       summary: Handle forgotten password
       tags:
       - Auth
+  /auth/google/callback:
+    get:
+      description: Receives the auth code from Google, exchanges it for tokens, creates/logs
+        in the user, and redirects back to the frontend with application tokens.
+      parameters:
+      - description: Security state string
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: Authorization code from Google
+        in: query
+        name: code
+        required: true
+        type: string
+      responses:
+        "302":
+          description: Redirect to Frontend with JWTs
+          schema:
+            type: string
+        "401":
+          description: Invalid state
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Handle Google OAuth2 callback
+      tags:
+      - Auth
+  /auth/google/login:
+    get:
+      description: Generates a state string, sets it in a cookie, and redirects the
+        user to Google's consent page.
+      responses:
+        "302":
+          description: Redirect to Google
+          schema:
+            type: string
+      summary: Initiate Google OAuth2 login
+      tags:
+      - Auth
   /auth/refresh:
     post:
       consumes:

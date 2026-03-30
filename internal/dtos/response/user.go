@@ -6,7 +6,6 @@ type UserResponse struct {
 	ID           string                     `json:"id"`
 	Email        string                     `json:"email"`
 	Profile      *UserProfileSimpleResponse `json:"profile"`
-	IsVerified   bool                       `json:"is_verified"`
 	TokenVersion int32                      `json:"token_version"`
 	IsDeleted    bool                       `json:"is_deleted"`
 	CreatedAt    *time.Time                 `json:"created_at"`

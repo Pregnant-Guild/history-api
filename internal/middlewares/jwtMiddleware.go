@@ -23,8 +23,11 @@ func JwtAccess(userRepo repositories.UserRepository) fiber.Handler {
 		SigningKey:     jwtware.SigningKey{Key: []byte(jwtSecret)},
 		ErrorHandler:   jwtError,
 		SuccessHandler: jwtSuccess(userRepo),
-		Extractor:      extractors.FromAuthHeader("Bearer"),
-		Claims:         &response.JWTClaims{},
+		Extractor: extractors.Chain(
+			extractors.FromAuthHeader("Bearer"),
+			extractors.FromCookie("access_token"),
+		),
+		Claims: &response.JWTClaims{},
 	})
 }
 
@@ -38,15 +41,16 @@ func JwtRefresh(userRepo repositories.UserRepository) fiber.Handler {
 		SigningKey:     jwtware.SigningKey{Key: []byte(jwtRefreshSecret)},
 		ErrorHandler:   jwtError,
 		SuccessHandler: jwtSuccess(userRepo),
-		Extractor:      extractors.FromAuthHeader("Bearer"),
-		Claims:         &response.JWTClaims{},
+		Extractor: extractors.Chain(
+			extractors.FromAuthHeader("Bearer"),
+			extractors.FromCookie("refresh_token"),
+		),
+		Claims: &response.JWTClaims{},
 	})
 }
 
 func jwtSuccess(userRepo repositories.UserRepository) fiber.Handler {
 	return func(c fiber.Ctx) error {
-		user := jwtware.FromContext(c)
-
 		unauthorized := func() error {
 			return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
 				Status:  false,
@@ -54,11 +58,12 @@ func jwtSuccess(userRepo repositories.UserRepository) fiber.Handler {
 			})
 		}
 
-		if user == nil {
+		jwtToken := jwtware.FromContext(c)
+		if jwtToken == nil {
 			return unauthorized()
 		}
 
-		claims, ok := user.Claims.(*response.JWTClaims)
+		claims, ok := jwtToken.Claims.(*response.JWTClaims)
 		if !ok {
 			return unauthorized()
 		}
@@ -71,10 +76,12 @@ func jwtSuccess(userRepo repositories.UserRepository) fiber.Handler {
 		}
 
 		var pgID pgtype.UUID
+
 		err := pgID.Scan(claims.UId)
 		if err != nil {
 			return unauthorized()
 		}
+
 		tokenVersion, err := userRepo.GetTokenVersion(c.Context(), pgID)
 		if err != nil {
 			return unauthorized()
@@ -89,10 +96,10 @@ func jwtSuccess(userRepo repositories.UserRepository) fiber.Handler {
 
 		c.Locals("uid", claims.UId)
 		c.Locals("user_claims", claims)
-
 		return c.Next()
 	}
 }
+
 func jwtError(c fiber.Ctx, err error) error {
 	if err.Error() == "Missing or malformed JWT" {
 		return c.Status(fiber.StatusBadRequest).

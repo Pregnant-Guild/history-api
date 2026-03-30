@@ -16,4 +16,6 @@ func AuthRoutes(app *fiber.App, controller *controllers.AuthController, userRepo
 	route.Post("/token/create", controller.CreateToken)
 	route.Post("/token/verify", controller.VerifyToken)
 	route.Post("/forgot-password", controller.ForgotPassword)
+	route.Get("/google/login", controller.GoogleLogin)
+	route.Get("/google/callback", controller.GoogleCallback)
 }
