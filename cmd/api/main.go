@@ -53,6 +53,12 @@ func StartServer() {
 	}
 	defer poolPg.Close()
 
+	err = database.SeedSuperAdmin(poolPg)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		panic(err)
+	}
+
 	sqlTile, err := mbtiles.NewMBTilesDB("data/map.mbtiles")
 	if err != nil {
 		log.Error().Msg(err.Error())

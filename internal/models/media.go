@@ -1,0 +1,36 @@
+package models
+
+import (
+	"history-api/internal/dtos/response"
+	"time"
+)
+
+type MediaEntity struct {
+	ID           string     `json:"id"`
+	UserID       string     `json:"user_id"`
+	StorageKey   string     `json:"storage_key"`
+	OriginalName string     `json:"original_name"`
+	MimeType     string     `json:"mime_type"`
+	Size         int64      `json:"size"`
+	TargetType   string     `json:"target_type"`
+	TargetID     string     `json:"target_id"`
+	FileMetadata []byte     `json:"file_metadata"`
+	CreatedAt    *time.Time `json:"created_at"`
+	UpdatedAt    *time.Time `json:"updated_at"`
+}
+
+func (e *MediaEntity) ToResponse() *response.MediaResponse {
+	return &response.MediaResponse{
+		ID:           e.ID,
+		UserID:       e.UserID,
+		StorageKey:   e.StorageKey,
+		OriginalName: e.OriginalName,
+		MimeType:     e.MimeType,
+		Size:         e.Size,
+		TargetType:   e.TargetType,
+		TargetID:     e.TargetID,
+		FileMetadata: e.FileMetadata,
+		CreatedAt:    e.CreatedAt,
+		UpdatedAt:    e.UpdatedAt,
+	}
+}

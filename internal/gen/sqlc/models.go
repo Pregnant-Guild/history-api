@@ -8,6 +8,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Media struct {
+	ID           pgtype.UUID        `json:"id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	StorageKey   string             `json:"storage_key"`
+	OriginalName string             `json:"original_name"`
+	MimeType     string             `json:"mime_type"`
+	Size         int64              `json:"size"`
+	TargetType   string             `json:"target_type"`
+	TargetID     pgtype.UUID        `json:"target_id"`
+	FileMetadata []byte             `json:"file_metadata"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Role struct {
 	ID        pgtype.UUID        `json:"id"`
 	Name      string             `json:"name"`
