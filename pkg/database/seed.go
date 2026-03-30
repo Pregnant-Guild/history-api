@@ -70,6 +70,22 @@ func SeedSuperAdmin(pool *pgxpool.Pool) error {
 		return err
 	}
 
+	role, err := q.GetRoleByName(ctx, constants.USER.String())
+	if err != nil {
+		return err
+	}
+
+	err = q.AddUserRole(
+		ctx,
+		sqlc.AddUserRoleParams{
+			UserID:  user.ID,
+			Column2: []pgtype.UUID{role.ID},
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
 
 }
