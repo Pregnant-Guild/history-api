@@ -70,7 +70,7 @@ func SeedSuperAdmin(pool *pgxpool.Pool) error {
 		return err
 	}
 
-	role, err := q.GetRoleByName(ctx, constants.USER.String())
+	role, err := q.GetRoleByName(ctx, constants.ADMIN.String())
 	if err != nil {
 		return err
 	}
