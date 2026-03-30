@@ -1,8 +1,4 @@
 {
-    "schemes": [
-        "https",
-        "http"
-    ],
     "swagger": "2.0",
     "info": {
         "description": "This is a sample server for History API.",
@@ -19,7 +15,6 @@
         },
         "version": "1.0"
     },
-    "host": "history-api.kain.id.vn",
     "basePath": "/",
     "paths": {
         "/auth/forgot-password": {

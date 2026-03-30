@@ -227,7 +227,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 	}
 
 	user, err := a.userRepo.GetByEmail(ctx, dto.Email)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 	if user != nil {
@@ -478,7 +478,7 @@ func (a *authService) CreateToken(ctx context.Context, dto *request.CreateTokenD
 	}
 
 	user, err := a.userRepo.GetByEmail(ctx, dto.Email)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return fiber.NewError(fiber.StatusInternalServerError, "Internal Server Error")
 	}
 
@@ -533,7 +533,7 @@ func (a *authService) VerifyToken(ctx context.Context, dto *request.VerifyTokenD
 	}
 
 	user, err := a.userRepo.GetByEmail(ctx, dto.Email)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Internal Server Error")
 	}
 

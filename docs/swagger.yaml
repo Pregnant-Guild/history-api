@@ -163,7 +163,6 @@ definitions:
     - TokenEmailVerify
     - TokenMagicLink
     - TokenRefreshToken
-host: history-api.kain.id.vn
 info:
   contact:
     email: support@swagger.io
@@ -730,9 +729,6 @@ paths:
       summary: Get current user profile
       tags:
       - Users
-schemes:
-- https
-- http
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer " followed by a space and JWT token.

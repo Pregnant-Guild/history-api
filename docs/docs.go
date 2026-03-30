@@ -1119,9 +1119,9 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "history-api.kain.id.vn",
+	Host:             "",
 	BasePath:         "/",
-	Schemes:          []string{"https", "http"},
+	Schemes:          []string{},
 	Title:            "History API",
 	Description:      "This is a sample server for History API.",
 	InfoInstanceName: "swagger",
