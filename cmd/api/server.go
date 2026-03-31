@@ -60,14 +60,13 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 	s.App.Use(cors.New(cors.Config{
 		AllowOrigins: []string{
 			"http://localhost:3000",
+			"https://localhost:3000",
 			"http://localhost:3001",
-			"http://localhost:3002",
+			"https://localhost:3001",
 			"http://localhost:3344",
-			"http://localhost:5173",
-			"http://localhost:5500",
 		},
-		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowHeaders: []string{"Accept", "Authorization", "Content-Type", "Origin"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type", "Origin"},
 		AllowCredentials: true,
 	}))
 
