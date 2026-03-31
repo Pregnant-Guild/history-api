@@ -7,3 +7,8 @@ type TokenEntity struct {
 	Token     string              `json:"token"`
 	TokenType constants.TokenType `json:"token_type"`
 }
+
+type OAuthState struct {
+	State       string `json:"state"`
+	RedirectURL string `json:"redirect"`
+}

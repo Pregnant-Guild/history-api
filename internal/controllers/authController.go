@@ -2,11 +2,13 @@ package controllers
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
+	"history-api/internal/models"
 	"history-api/internal/services"
 	"history-api/pkg/validator"
-	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -296,20 +298,32 @@ func (h *AuthController) ForgotPassword(c fiber.Ctx) error {
 func (h *AuthController) GoogleLogin(c fiber.Ctx) error {
 	_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
 	state := uuid.New().String()
 
-	secure := c.Protocol() == "https"
+	redirect := c.Query("redirect")
+	if redirect == "" {
+		redirect = "http://localhost:3000"
+	}
+
+	data := models.OAuthState{
+		State:       state,
+		RedirectURL: redirect,
+	}
+
+	b, _ := json.Marshal(data)
+	encoded := base64.URLEncoding.EncodeToString(b)
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
 		Expires:  time.Now().Add(15 * time.Minute),
 		HTTPOnly: true,
-		Secure:   secure,
+		Secure:   c.Protocol() == "https",
 		SameSite: "None",
 	})
 
-	url := h.oauth.AuthCodeURL(state)
+	url := h.oauth.AuthCodeURL(encoded)
 	return c.Redirect().To(url)
 }
 
@@ -326,18 +340,31 @@ func (h *AuthController) GoogleLogin(c fiber.Ctx) error {
 func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	stateFromGoogle := c.Query("state")
-	stateFromCookie := c.Cookies("oauth_state")
 
-	if stateFromGoogle == "" || stateFromGoogle != stateFromCookie {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid state"})
+	encoded := c.Query("state")
+
+	b, err := base64.URLEncoding.DecodeString(encoded)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid state"})
 	}
+
+	var data models.OAuthState
+	if err := json.Unmarshal(b, &data); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid state"})
+	}
+
+	stateFromCookie := c.Cookies("oauth_state")
+	if data.State != stateFromCookie {
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid state"})
+	}
+
 	c.ClearCookie("oauth_state")
 
 	code := c.Query("code")
-	token, err := h.oauth.Exchange(context.Background(), code)
+
+	token, err := h.oauth.Exchange(ctx, code)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Token exchange failed"})
+		return c.Status(500).JSON(fiber.Map{"error": "Token exchange failed"})
 	}
 
 	idToken, ok := token.Extra("id_token").(string)
@@ -345,14 +372,9 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "No id_token"})
 	}
 
-	parts := strings.Split(idToken, ".")
-	if len(parts) < 2 {
-		return c.Status(500).JSON(fiber.Map{"error": "Invalid id_token"})
-	}
-
 	payload, err := idtoken.Validate(ctx, idToken, h.oauth.ClientID)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Token verification failed"})
+		return c.Status(401).JSON(fiber.Map{"error": "Token verification failed"})
 	}
 
 	googleUser := request.SigninWithGoogleDto{
@@ -364,7 +386,7 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 
 	res, err := h.service.SigninWithGoogle(ctx, &googleUser)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(500).JSON(response.CommonResponse{
 			Status:  false,
 			Message: err.Error(),
 		})
@@ -386,5 +408,16 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 		SameSite: "None",
 	})
 
-	return c.Redirect().To("http://localhost:5500")
+	allowed := map[string]bool{
+		"http://localhost:3000":      true,
+		"http://localhost:5500":      true,
+		"https://app.yourdomain.com": true,
+	}
+
+	redirectURL := data.RedirectURL
+	if !allowed[redirectURL] {
+		redirectURL = "http://localhost:3000"
+	}
+
+	return c.Redirect().To(redirectURL)
 }
