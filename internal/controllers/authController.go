@@ -61,16 +61,18 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 		Name:     "access_token",
 		Value:    res.AccessToken,
 		HTTPOnly: true,
-		Secure:   c.Protocol() == "https",
+		Secure:   true,
 		SameSite: "None",
+		Path:     "/",
 	})
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "refresh_token",
 		Value:    res.RefreshToken,
 		HTTPOnly: true,
-		Secure:   c.Protocol() == "https",
+		Secure:   true,
 		SameSite: "None",
+		Path:     "/",
 	})
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -114,16 +116,18 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 		Name:     "access_token",
 		Value:    res.AccessToken,
 		HTTPOnly: true,
-		Secure:   c.Protocol() == "https",
+		Secure:   true,
 		SameSite: "None",
+		Path:     "/",
 	})
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "refresh_token",
 		Value:    res.RefreshToken,
 		HTTPOnly: true,
-		Secure:   c.Protocol() == "https",
+		Secure:   true,
 		SameSite: "None",
+		Path:     "/",
 	})
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -159,16 +163,18 @@ func (h *AuthController) RefreshToken(c fiber.Ctx) error {
 		Name:     "access_token",
 		Value:    res.AccessToken,
 		HTTPOnly: true,
-		Secure:   c.Protocol() == "https",
+		Secure:   true,
 		SameSite: "None",
+		Path:     "/",
 	})
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "refresh_token",
 		Value:    res.RefreshToken,
 		HTTPOnly: true,
-		Secure:   c.Protocol() == "https",
+		Secure:   true,
 		SameSite: "None",
+		Path:     "/",
 	})
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -319,8 +325,9 @@ func (h *AuthController) GoogleLogin(c fiber.Ctx) error {
 		Value:    state,
 		Expires:  time.Now().Add(15 * time.Minute),
 		HTTPOnly: true,
-		Secure:   c.Protocol() == "https",
+		Secure:   true,
 		SameSite: "None",
+		Path:     "/",
 	})
 
 	url := h.oauth.AuthCodeURL(encoded)
@@ -396,16 +403,18 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 		Name:     "access_token",
 		Value:    res.AccessToken,
 		HTTPOnly: true,
-		Secure:   c.Protocol() == "https",
+		Secure:   true,
 		SameSite: "None",
+		Path:     "/",
 	})
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "refresh_token",
 		Value:    res.RefreshToken,
 		HTTPOnly: true,
-		Secure:   c.Protocol() == "https",
+		Secure:   true,
 		SameSite: "None",
+		Path:     "/",
 	})
 
 	allowed := map[string]bool{
