@@ -15,8 +15,6 @@ type Media struct {
 	OriginalName string             `json:"original_name"`
 	MimeType     string             `json:"mime_type"`
 	Size         int64              `json:"size"`
-	TargetType   string             `json:"target_type"`
-	TargetID     pgtype.UUID        `json:"target_id"`
 	FileMetadata []byte             `json:"file_metadata"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
@@ -63,12 +61,17 @@ type UserRole struct {
 }
 
 type UserVerification struct {
-	ID          pgtype.UUID        `json:"id"`
-	UserID      pgtype.UUID        `json:"user_id"`
-	VerifyType  int16              `json:"verify_type"`
-	DocumentUrl string             `json:"document_url"`
-	Status      int16              `json:"status"`
-	ReviewedBy  pgtype.UUID        `json:"reviewed_by"`
-	ReviewedAt  pgtype.Timestamptz `json:"reviewed_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID         pgtype.UUID        `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	VerifyType int16              `json:"verify_type"`
+	IsDeleted  bool               `json:"is_deleted"`
+	Status     int16              `json:"status"`
+	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type VerificationMedia struct {
+	VerificationID pgtype.UUID `json:"verification_id"`
+	MediaID        pgtype.UUID `json:"media_id"`
 }

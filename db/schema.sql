@@ -39,18 +39,6 @@ CREATE TABLE IF NOT EXISTS user_roles (
     PRIMARY KEY (user_id, role_id)
 );
 
-CREATE TABLE IF NOT EXISTS user_verifications (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    verify_type SMALLINT NOT NULL, -- 1 = ID_CARD, 2 = EDUCATION, 3 = EXPERT
-    document_url TEXT NOT NULL,
-    status SMALLINT NOT NULL DEFAULT 1, -- 1 pending, 2 approved, 3 rejected
-    reviewed_by UUID REFERENCES users(id),
-    reviewed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
-
 CREATE TABLE medias (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -58,9 +46,24 @@ CREATE TABLE medias (
     original_name VARCHAR(255) NOT NULL,
     mime_type VARCHAR(100) NOT NULL,
     size BIGINT NOT NULL,
-    target_type VARCHAR(50) NOT NULL,
-    target_id UUID NOT NULL,
     file_metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_verifications (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    verify_type SMALLINT NOT NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    status SMALLINT NOT NULL DEFAULT 1,
+    reviewed_by UUID REFERENCES users(id),
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS verification_medias (
+    verification_id UUID REFERENCES user_verifications(id) ON DELETE CASCADE,
+    media_id UUID REFERENCES medias(id) ON DELETE CASCADE,
+    PRIMARY KEY (verification_id, media_id)
 );

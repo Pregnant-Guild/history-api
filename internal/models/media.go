@@ -12,8 +12,6 @@ type MediaEntity struct {
 	OriginalName string     `json:"original_name"`
 	MimeType     string     `json:"mime_type"`
 	Size         int64      `json:"size"`
-	TargetType   string     `json:"target_type"`
-	TargetID     string     `json:"target_id"`
 	FileMetadata []byte     `json:"file_metadata"`
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at"`
@@ -27,8 +25,6 @@ func (e *MediaEntity) ToResponse() *response.MediaResponse {
 		OriginalName: e.OriginalName,
 		MimeType:     e.MimeType,
 		Size:         e.Size,
-		TargetType:   e.TargetType,
-		TargetID:     e.TargetID,
 		FileMetadata: e.FileMetadata,
 		CreatedAt:    e.CreatedAt,
 		UpdatedAt:    e.UpdatedAt,

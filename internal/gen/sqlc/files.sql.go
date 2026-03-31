@@ -13,11 +13,11 @@ import (
 
 const createMedia = `-- name: CreateMedia :one
 INSERT INTO medias (
-    user_id, storage_key, original_name, mime_type, size, target_type, target_id, file_metadata
+    user_id, storage_key, original_name, mime_type, size, file_metadata
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6
 )
-RETURNING id, user_id, storage_key, original_name, mime_type, size, target_type, target_id, file_metadata, created_at, updated_at
+RETURNING id, user_id, storage_key, original_name, mime_type, size, file_metadata, created_at, updated_at
 `
 
 type CreateMediaParams struct {
@@ -26,8 +26,6 @@ type CreateMediaParams struct {
 	OriginalName string      `json:"original_name"`
 	MimeType     string      `json:"mime_type"`
 	Size         int64       `json:"size"`
-	TargetType   string      `json:"target_type"`
-	TargetID     pgtype.UUID `json:"target_id"`
 	FileMetadata []byte      `json:"file_metadata"`
 }
 
@@ -38,8 +36,6 @@ func (q *Queries) CreateMedia(ctx context.Context, arg CreateMediaParams) (Media
 		arg.OriginalName,
 		arg.MimeType,
 		arg.Size,
-		arg.TargetType,
-		arg.TargetID,
 		arg.FileMetadata,
 	)
 	var i Media
@@ -50,8 +46,6 @@ func (q *Queries) CreateMedia(ctx context.Context, arg CreateMediaParams) (Media
 		&i.OriginalName,
 		&i.MimeType,
 		&i.Size,
-		&i.TargetType,
-		&i.TargetID,
 		&i.FileMetadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -70,7 +64,7 @@ func (q *Queries) DeleteMedia(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getMediaByID = `-- name: GetMediaByID :one
-SELECT id, user_id, storage_key, original_name, mime_type, size, target_type, target_id, file_metadata, created_at, updated_at FROM medias
+SELECT id, user_id, storage_key, original_name, mime_type, size, file_metadata, created_at, updated_at FROM medias
 WHERE id = $1
 `
 
@@ -84,8 +78,6 @@ func (q *Queries) GetMediaByID(ctx context.Context, id pgtype.UUID) (Media, erro
 		&i.OriginalName,
 		&i.MimeType,
 		&i.Size,
-		&i.TargetType,
-		&i.TargetID,
 		&i.FileMetadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -93,51 +85,8 @@ func (q *Queries) GetMediaByID(ctx context.Context, id pgtype.UUID) (Media, erro
 	return i, err
 }
 
-const getMediasByTarget = `-- name: GetMediasByTarget :many
-SELECT id, user_id, storage_key, original_name, mime_type, size, target_type, target_id, file_metadata, created_at, updated_at FROM medias
-WHERE target_type = $1 AND target_id = $2
-ORDER BY created_at DESC
-`
-
-type GetMediasByTargetParams struct {
-	TargetType string      `json:"target_type"`
-	TargetID   pgtype.UUID `json:"target_id"`
-}
-
-func (q *Queries) GetMediasByTarget(ctx context.Context, arg GetMediasByTargetParams) ([]Media, error) {
-	rows, err := q.db.Query(ctx, getMediasByTarget, arg.TargetType, arg.TargetID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Media{}
-	for rows.Next() {
-		var i Media
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.StorageKey,
-			&i.OriginalName,
-			&i.MimeType,
-			&i.Size,
-			&i.TargetType,
-			&i.TargetID,
-			&i.FileMetadata,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getMediasByUserID = `-- name: GetMediasByUserID :many
-SELECT id, user_id, storage_key, original_name, mime_type, size, target_type, target_id, file_metadata, created_at, updated_at FROM medias
+SELECT id, user_id, storage_key, original_name, mime_type, size, file_metadata, created_at, updated_at FROM medias
 WHERE user_id = $1
 ORDER BY created_at DESC
 `
@@ -158,8 +107,6 @@ func (q *Queries) GetMediasByUserID(ctx context.Context, userID pgtype.UUID) ([]
 			&i.OriginalName,
 			&i.MimeType,
 			&i.Size,
-			&i.TargetType,
-			&i.TargetID,
 			&i.FileMetadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -175,34 +122,27 @@ func (q *Queries) GetMediasByUserID(ctx context.Context, userID pgtype.UUID) ([]
 }
 
 const searchMedias = `-- name: SearchMedias :many
-SELECT id, user_id, storage_key, original_name, mime_type, size, target_type, target_id, file_metadata, created_at, updated_at
+SELECT id, user_id, storage_key, original_name, mime_type, size, file_metadata, created_at, updated_at
 FROM medias
 WHERE 
     ($1::uuid IS NULL OR id > $1::uuid)
-    AND ($2::varchar[] IS NULL OR target_type = ANY($2::varchar[]))
     AND (
-        $3::text IS NULL OR 
-        original_name ILIKE '%' || $3::text || '%' OR
-        storage_key ILIKE '%' || $3::text || '%'
+        $2::text IS NULL OR 
+        original_name ILIKE '%' || $2::text || '%' OR
+        storage_key ILIKE '%' || $2::text || '%'
     )
 ORDER BY id ASC
-LIMIT $4
+LIMIT $3
 `
 
 type SearchMediasParams struct {
-	Cursor      pgtype.UUID `json:"cursor"`
-	TargetTypes []string    `json:"target_types"`
-	SearchText  pgtype.Text `json:"search_text"`
-	Limit       int32       `json:"limit"`
+	Cursor     pgtype.UUID `json:"cursor"`
+	SearchText pgtype.Text `json:"search_text"`
+	Limit      int32       `json:"limit"`
 }
 
 func (q *Queries) SearchMedias(ctx context.Context, arg SearchMediasParams) ([]Media, error) {
-	rows, err := q.db.Query(ctx, searchMedias,
-		arg.Cursor,
-		arg.TargetTypes,
-		arg.SearchText,
-		arg.Limit,
-	)
+	rows, err := q.db.Query(ctx, searchMedias, arg.Cursor, arg.SearchText, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -217,8 +157,6 @@ func (q *Queries) SearchMedias(ctx context.Context, arg SearchMediasParams) ([]M
 			&i.OriginalName,
 			&i.MimeType,
 			&i.Size,
-			&i.TargetType,
-			&i.TargetID,
 			&i.FileMetadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,

@@ -60,7 +60,7 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 		Value:    res.AccessToken,
 		HTTPOnly: true,
 		Secure:   c.Protocol() == "https",
-		SameSite: "Lax",
+		SameSite: "None",
 	})
 
 	c.Cookie(&fiber.Cookie{
@@ -68,7 +68,7 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 		Value:    res.RefreshToken,
 		HTTPOnly: true,
 		Secure:   c.Protocol() == "https",
-		SameSite: "Lax",
+		SameSite: "None",
 	})
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -113,7 +113,7 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 		Value:    res.AccessToken,
 		HTTPOnly: true,
 		Secure:   c.Protocol() == "https",
-		SameSite: "Lax",
+		SameSite: "None",
 	})
 
 	c.Cookie(&fiber.Cookie{
@@ -121,7 +121,7 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 		Value:    res.RefreshToken,
 		HTTPOnly: true,
 		Secure:   c.Protocol() == "https",
-		SameSite: "Lax",
+		SameSite: "None",
 	})
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -158,7 +158,7 @@ func (h *AuthController) RefreshToken(c fiber.Ctx) error {
 		Value:    res.AccessToken,
 		HTTPOnly: true,
 		Secure:   c.Protocol() == "https",
-		SameSite: "Lax",
+		SameSite: "None",
 	})
 
 	c.Cookie(&fiber.Cookie{
@@ -166,7 +166,7 @@ func (h *AuthController) RefreshToken(c fiber.Ctx) error {
 		Value:    res.RefreshToken,
 		HTTPOnly: true,
 		Secure:   c.Protocol() == "https",
-		SameSite: "Lax",
+		SameSite: "None",
 	})
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -306,7 +306,7 @@ func (h *AuthController) GoogleLogin(c fiber.Ctx) error {
 		Expires:  time.Now().Add(15 * time.Minute),
 		HTTPOnly: true,
 		Secure:   secure,
-		SameSite: "Lax",
+		SameSite: "None",
 	})
 
 	url := h.oauth.AuthCodeURL(state)
@@ -375,7 +375,7 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 		Value:    res.AccessToken,
 		HTTPOnly: true,
 		Secure:   c.Protocol() == "https",
-		SameSite: "Lax",
+		SameSite: "None",
 	})
 
 	c.Cookie(&fiber.Cookie{
@@ -383,7 +383,7 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 		Value:    res.RefreshToken,
 		HTTPOnly: true,
 		Secure:   c.Protocol() == "https",
-		SameSite: "Lax",
+		SameSite: "None",
 	})
 
 	return c.Redirect().To("http://localhost:5500")

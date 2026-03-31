@@ -17,8 +17,6 @@ type MediaResponse struct {
 	OriginalName string     `json:"original_name"`
 	MimeType     string     `json:"mime_type"`
 	Size         int64      `json:"size"`
-	TargetType   string     `json:"target_type"`
-	TargetID     string     `json:"target_id"`
 	FileMetadata []byte     `json:"file_metadata"`
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at"`

@@ -19,7 +19,6 @@ type MediaRepository interface {
 	GetByUserID(ctx context.Context, userId pgtype.UUID) ([]*models.MediaEntity, error)
 	Search(ctx context.Context, params sqlc.SearchMediasParams) ([]*models.MediaEntity, error)
 	Delete(ctx context.Context, id pgtype.UUID) error
-	GetByTarget(ctx context.Context, params sqlc.GetMediasByTargetParams) ([]*models.MediaEntity, error)
 	Create(ctx context.Context, params sqlc.CreateMediaParams) (*models.MediaEntity, error)
 }
 
@@ -101,8 +100,6 @@ func (r *mediaRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.
 		OriginalName: row.OriginalName,
 		MimeType:     row.MimeType,
 		Size:         row.Size,
-		TargetType:   row.TargetType,
-		TargetID:     convert.UUIDToString(row.TargetID),
 		FileMetadata: row.FileMetadata,
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
@@ -133,8 +130,6 @@ func (r *mediaRepository) Create(ctx context.Context, params sqlc.CreateMediaPar
 		OriginalName: row.OriginalName,
 		MimeType:     row.MimeType,
 		Size:         row.Size,
-		TargetType:   row.TargetType,
-		TargetID:     convert.UUIDToString(row.TargetID),
 		FileMetadata: row.FileMetadata,
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
@@ -154,52 +149,6 @@ func (r *mediaRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 	_ = r.c.Del(ctx, cacheId)
 
 	return nil
-}
-
-func (r *mediaRepository) GetByTarget(ctx context.Context, params sqlc.GetMediasByTargetParams) ([]*models.MediaEntity, error) {
-	queryKey := r.generateQueryKey("media:target", params)
-	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
-		return r.getByIDsWithFallback(ctx, cachedIDs)
-	}
-
-	rows, err := r.q.GetMediasByTarget(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-	var medias []*models.MediaEntity
-	var ids []string
-	mediasToCache := make(map[string]any)
-
-	for _, row := range rows {
-		media := &models.MediaEntity{
-			ID:           convert.UUIDToString(row.ID),
-			UserID:       convert.UUIDToString(row.UserID),
-			StorageKey:   row.StorageKey,
-			OriginalName: row.OriginalName,
-			MimeType:     row.MimeType,
-			Size:         row.Size,
-			TargetType:   row.TargetType,
-			TargetID:     convert.UUIDToString(row.TargetID),
-			FileMetadata: row.FileMetadata,
-			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-			UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
-		}
-		ids = append(ids, media.ID)
-		medias = append(medias, media)
-
-		mediasToCache[fmt.Sprintf("media:id:%s", media.ID)] = media
-	}
-
-	if len(mediasToCache) > 0 {
-		_ = r.c.MSet(ctx, mediasToCache, constants.NormalCacheDuration)
-	}
-
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
-
-	return medias, nil
 }
 
 func (r *mediaRepository) Search(ctx context.Context, params sqlc.SearchMediasParams) ([]*models.MediaEntity, error) {
@@ -225,8 +174,6 @@ func (r *mediaRepository) Search(ctx context.Context, params sqlc.SearchMediasPa
 			OriginalName: row.OriginalName,
 			MimeType:     row.MimeType,
 			Size:         row.Size,
-			TargetType:   row.TargetType,
-			TargetID:     convert.UUIDToString(row.TargetID),
 			FileMetadata: row.FileMetadata,
 			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
@@ -271,8 +218,6 @@ func (r *mediaRepository) GetByUserID(ctx context.Context, userId pgtype.UUID) (
 			OriginalName: row.OriginalName,
 			MimeType:     row.MimeType,
 			Size:         row.Size,
-			TargetType:   row.TargetType,
-			TargetID:     convert.UUIDToString(row.TargetID),
 			FileMetadata: row.FileMetadata,
 			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
