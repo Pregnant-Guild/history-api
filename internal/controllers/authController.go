@@ -309,7 +309,7 @@ func (h *AuthController) GoogleLogin(c fiber.Ctx) error {
 
 	redirect := c.Query("redirect")
 	if redirect == "" {
-		redirect = "https://localhost:3000"
+		redirect = "http://localhost:3000"
 	}
 
 	data := models.OAuthState{
@@ -427,7 +427,7 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 
 	redirectURL := data.RedirectURL
 	if !allowed[redirectURL] {
-		redirectURL = "https://localhost:3000"
+		redirectURL = "http://localhost:3000"
 	}
 
 	return c.Redirect().To(redirectURL)
