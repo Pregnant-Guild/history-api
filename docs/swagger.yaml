@@ -398,6 +398,54 @@ paths:
       summary: Verify a security token
       tags:
       - Auth
+  /roles:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all roles in the system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get all roles
+      tags:
+      - Roles
+  /roles/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific role
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get role by ID
+      tags:
+      - Roles
   /tiles/{z}/{x}/{y}:
     get:
       description: Fetch vector or raster map tile data by Z, X, Y coordinates

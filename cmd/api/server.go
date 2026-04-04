@@ -79,16 +79,19 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 	// service setup
 	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis)
 	userService := services.NewUserService(userRepo, roleRepo)
+	roleService := services.NewRoleService(roleRepo)
 	tileService := services.NewTileService(tileRepo)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)
 	userController := controllers.NewUserController(userService)
 	tileController := controllers.NewTileController(tileService)
+	roleController := controllers.NewRoleController(roleService)
 
 	// route setup
 	routes.AuthRoutes(s.App, authController, userRepo)
 	routes.UserRoutes(s.App, userController, userRepo)
+	routes.RoleRoutes(s.App, roleController, userRepo)
 	routes.TileRoutes(s.App, tileController)
 	routes.NotFoundRoute(s.App)
 }
