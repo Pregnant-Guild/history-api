@@ -10,6 +10,7 @@ import (
 	"history-api/internal/routes"
 	"history-api/internal/services"
 	"history-api/pkg/cache"
+	"history-api/pkg/storage"
 	"os"
 	"time"
 
@@ -55,7 +56,7 @@ func NewHttpServer() *FiberServer {
 	return server
 }
 
-func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.Cache, oauth *oauth2.Config) {
+func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.Cache, sclient storage.Storage, oauth *oauth2.Config) {
 	// Apply CORS middleware
 	s.App.Use(cors.New(cors.Config{
 		AllowOrigins: []string{
@@ -75,22 +76,26 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 	roleRepo := repositories.NewRoleRepository(sqlPg, redis)
 	tileRepo := repositories.NewTileRepository(sqlTile, redis)
 	tokenRepo := repositories.NewTokenRepository(redis)
+	mediaRepo := repositories.NewMediaRepository(sqlPg, redis)
 
 	// service setup
 	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis)
 	userService := services.NewUserService(userRepo, roleRepo)
 	roleService := services.NewRoleService(roleRepo)
 	tileService := services.NewTileService(tileRepo)
+	mediaService := services.NewMediaService(mediaRepo, tokenRepo, sclient, redis)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)
-	userController := controllers.NewUserController(userService)
+	userController := controllers.NewUserController(userService, mediaService)
 	tileController := controllers.NewTileController(tileService)
 	roleController := controllers.NewRoleController(roleService)
+	mediaController := controllers.NewMediaController(mediaService)
 
 	// route setup
 	routes.AuthRoutes(s.App, authController, userRepo)
 	routes.UserRoutes(s.App, userController, userRepo)
+	routes.MediaRoutes(s.App, mediaController, userRepo)
 	routes.RoleRoutes(s.App, roleController, userRepo)
 	routes.TileRoutes(s.App, tileController)
 	routes.NotFoundRoute(s.App)

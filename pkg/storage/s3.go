@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"net/url"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -20,18 +22,27 @@ type UploadOptions struct {
 	Metadata           map[string]string
 }
 
+type MoveOptions struct {
+	Bucket string
+	Key    string
+}
+
 type Storage interface {
 	Upload(ctx context.Context, key string, body io.Reader, size int64, opts UploadOptions) error
+	Move(ctx context.Context, src *MoveOptions, dest *MoveOptions) error
 	PresignUpload(ctx context.Context, key string, expire time.Duration, opts UploadOptions) (string, error)
 	GetURL(ctx context.Context, key string, expire time.Duration) (string, error)
 	Delete(ctx context.Context, key string) error
+	GetMainBucket() string
+	GetTempBucket() string
 }
 
 type s3Storage struct {
-	client   *s3.Client
-	ps       *s3.PresignClient
-	bucket   string
-	endPoint string
+	client     *s3.Client
+	ps         *s3.PresignClient
+	bucket     string
+	tempBucket string
+	endPoint   string
 }
 
 func NewS3Storage() (Storage, error) {
@@ -49,16 +60,26 @@ func NewS3Storage() (Storage, error) {
 	if err != nil {
 		return nil, err
 	}
+	tempBucketName, err := ffconfig.GetConfig("STORAGE_BUCKET_TEMP_NAME")
+	if err != nil {
+		return nil, err
+	}
 
 	endpoint, err := ffconfig.GetConfig("STORAGE_ENDPOINT")
 	if err != nil {
 		return nil, err
 	}
 
+	region, err := ffconfig.GetConfig("STORAGE_REGION")
+	if err != nil {
+		return nil, err
+	}
+
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretAccessKey, "")),
-		config.WithRegion("auto"),
+		config.WithRegion(region),
 	)
+
 	if err != nil {
 		log.Error().Msgf("unable to load AWS SDK config, %v", err)
 		return nil, err
@@ -66,14 +87,41 @@ func NewS3Storage() (Storage, error) {
 
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(endpoint)
+		o.UsePathStyle = true
 	})
 
 	return &s3Storage{
-		client:   client,
-		ps:       s3.NewPresignClient(client),
-		bucket:   bucketName,
-		endPoint: endpoint,
+		client:     client,
+		ps:         s3.NewPresignClient(client),
+		bucket:     bucketName,
+		tempBucket: tempBucketName,
+		endPoint:   endpoint,
 	}, nil
+}
+func (s *s3Storage) GetMainBucket() string { return s.bucket }
+func (s *s3Storage) GetTempBucket() string { return s.tempBucket }
+
+func (s *s3Storage) Move(ctx context.Context, src *MoveOptions, dest *MoveOptions) error {
+	copySource := url.PathEscape(fmt.Sprintf("%s/%s", src.Bucket, src.Key))
+
+	_, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{
+		Bucket:     aws.String(dest.Bucket),
+		Key:        aws.String(dest.Key),
+		CopySource: aws.String(copySource),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to copy object: %w", err)
+	}
+
+	_, err = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(src.Bucket),
+		Key:    aws.String(src.Key),
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("failed to delete source object after copy")
+	}
+
+	return nil
 }
 
 func (s *s3Storage) Upload(ctx context.Context, key string, body io.Reader, size int64, opts UploadOptions) error {
@@ -99,7 +147,7 @@ func (s *s3Storage) Upload(ctx context.Context, key string, body io.Reader, size
 
 func (s *s3Storage) PresignUpload(ctx context.Context, key string, expire time.Duration, opts UploadOptions) (string, error) {
 	input := &s3.PutObjectInput{
-		Bucket: &s.bucket,
+		Bucket: &s.tempBucket,
 		Key:    &key,
 	}
 
@@ -119,6 +167,7 @@ func (s *s3Storage) PresignUpload(ctx context.Context, key string, expire time.D
 	}
 	return req.URL, nil
 }
+
 func (s *s3Storage) GetURL(ctx context.Context, key string, expire time.Duration) (string, error) {
 	req, err := s.ps.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: &s.bucket,

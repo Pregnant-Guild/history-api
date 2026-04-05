@@ -26,6 +26,9 @@ services:
     image: redis:8.6.2-alpine
     container_name: history_redis
     restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
     networks:
       - history-api-project
 
@@ -79,9 +82,9 @@ services:
     networks:
       - history-api-project
 
-  worker:
+  email_worker:
     build: .
-    container_name: history_worker
+    container_name: history_email_worker
     restart: unless-stopped
     depends_on:
       db:
@@ -93,9 +96,25 @@ services:
     command: ["./email-worker"]
     networks:
       - history-api-project
+
+  storage_worker:
+    build: .
+    container_name: history_storage_worker
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+    env_file:
+      - ./assets/resources/.env
+    command: ["./storage-worker"]
+    networks:
+      - history-api-project
       
 volumes:
   pg_data:
+  redis_data:
 
 networks:
   history-api-project:

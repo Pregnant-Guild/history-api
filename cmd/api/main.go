@@ -10,6 +10,7 @@ import (
 	_ "history-api/pkg/log"
 	"history-api/pkg/mbtiles"
 	"history-api/pkg/oauth"
+	"history-api/pkg/storage"
 	"os/signal"
 	"syscall"
 	"time"
@@ -72,6 +73,12 @@ func StartServer() {
 		panic(err)
 	}
 
+	storageClient, err := storage.NewS3Storage()
+	if err != nil {
+		log.Error().Msg(err.Error())
+		panic(err)
+	}
+
 	googleOAuthConfig, err := oauth.NewGoogleProvider()
 	if err != nil {
 		log.Error().Msg(err.Error())
@@ -89,7 +96,7 @@ func StartServer() {
 	}
 
 	serverHttp := NewHttpServer()
-	serverHttp.SetupServer(poolPg, sqlTile, redisClient, googleOAuthConfig)
+	serverHttp.SetupServer(poolPg, sqlTile, redisClient, storageClient, googleOAuthConfig)
 	Singleton = serverHttp
 
 	done := make(chan bool, 1)

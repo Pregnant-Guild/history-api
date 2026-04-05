@@ -3,11 +3,10 @@ package response
 import "time"
 
 type PreSignedResponse struct {
-	UploadUrl     string            `json:"uploadUrl"`
-	PublicUrl     string            `json:"publicUrl"`
-	FileName      string            `json:"fileName"`
-	MediaId       string            `json:"mediaId"`
-	SignedHeaders map[string]string `json:"signedHeaders"`
+	TokenID       string            `json:"token_id"`
+	UploadUrl     string            `json:"upload_url"`
+	StorageKey    string            `json:"storage_key"`
+	SignedHeaders map[string]string `json:"signed_headers"`
 }
 
 type MediaResponse struct {

@@ -12,11 +12,15 @@ import (
 )
 
 type UserController struct {
-	service services.UserService
+	service      services.UserService
+	mediaService services.MediaService
 }
 
-func NewUserController(svc services.UserService) *UserController {
-	return &UserController{service: svc}
+func NewUserController(svc services.UserService, mediaSvc services.MediaService) *UserController {
+	return &UserController{
+		service:      svc,
+		mediaService: mediaSvc,
+	}
 }
 
 // GetUserCurrent godoc
@@ -41,6 +45,61 @@ func (h *UserController) GetUserCurrent(c fiber.Ctx) error {
 		})
 	}
 
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}
+
+// GetUserMedia godoc
+// @Summary Get current user's media
+// @Description Retrieve media list of the currently authenticated user
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /users/current/media [get]
+func (h *UserController) GetUserMedia(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	res, err := h.mediaService.GetMediaByUserID(ctx, c.Locals("uid").(string))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}
+
+// GetMediaByUserID godoc
+// @Summary Get user's media by user ID
+// @Description Retrieve media list by specific user ID
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /users/{id}/media [get]
+func (h *UserController) GetMediaByUserID(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	userId := c.Params("id")
+	res, err := h.mediaService.GetMediaByUserID(ctx, userId)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Error(),
+		})
+	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
 		Status: true,
 		Data:   res,
@@ -250,11 +309,11 @@ func (h *UserController) GetUserById(c fiber.Ctx) error {
 // @Produce json
 // @Security BearerAuth
 // @Param query query request.SearchUserDto false "Search Query"
-// @Success 200 {object} response.CommonResponse
+// @Success 200 {object} response.PaginatedResponse
 // @Failure 400 {object} response.CommonResponse
 // @Failure 500 {object} response.CommonResponse
 // @Router /users [get]
-func (h *UserController) Search(c fiber.Ctx) error {
+func (h *UserController) SearchUser(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -265,7 +324,7 @@ func (h *UserController) Search(c fiber.Ctx) error {
 			Message: err.Error(),
 		})
 	}
-	res, err := h.service.Search(ctx, dto)
+	res, err := h.service.SearchUser(ctx, dto)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
 			Status:  false,

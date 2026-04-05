@@ -355,6 +355,294 @@
                 }
             }
         },
+        "/media": {
+            "get": {
+                "description": "Search media with filters, pagination",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Media"
+                ],
+                "summary": "Search media",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search keyword",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.PaginatedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/media/presigned": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Generate a presigned URL for direct upload to storage",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Media"
+                ],
+                "summary": "Generate presigned URL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "File name",
+                        "name": "filename",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Content type",
+                        "name": "contentType",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/media/presigned/complete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Confirm that upload via presigned URL is completed",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Media"
+                ],
+                "summary": "Confirm presigned upload",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Storage key",
+                        "name": "key",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/media/upload": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload media file through server",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Media"
+                ],
+                "summary": "Upload media (server-side)",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Upload file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/media/{id}": {
+            "get": {
+                "description": "Retrieve a media file by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Media"
+                ],
+                "summary": "Get media by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Media ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a media file by ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Media"
+                ],
+                "summary": "Delete media",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Media ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/roles": {
             "get": {
                 "security": [
@@ -594,7 +882,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                            "$ref": "#/definitions/history-api_internal_dtos_response.PaginatedResponse"
                         }
                     },
                     "400": {
@@ -630,6 +918,40 @@
                     "Users"
                 ],
                 "summary": "Get current user profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/current/media": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve media list of the currently authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get current user's media",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -761,6 +1083,44 @@
                     "Users"
                 ],
                 "summary": "Delete a user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/media": {
+            "get": {
+                "description": "Retrieve media list by specific user ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get user's media by user ID",
                 "parameters": [
                     {
                         "type": "string",
@@ -1159,6 +1519,29 @@
                 }
             }
         },
+        "history-api_internal_dtos_response.PaginatedResponse": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "message": {
+                    "type": "string"
+                },
+                "pagination": {
+                    "type": "object",
+                    "properties": {
+                        "has_more": {
+                            "type": "boolean"
+                        },
+                        "next_cursor": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "status": {
+                    "type": "boolean"
+                }
+            }
+        },
         "history-api_pkg_constants.TokenType": {
             "type": "integer",
             "format": "int32",
@@ -1172,7 +1555,7 @@
                 "TokenPasswordReset",
                 "TokenEmailVerify",
                 "TokenMagicLink",
-                "TokenRefreshToken"
+                "TokenUpload"
             ]
         }
     },

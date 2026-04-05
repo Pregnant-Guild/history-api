@@ -10,4 +10,6 @@ const (
 	AccessTokenDuration     = 15 * time.Minute
 	RefreshTokenDuration    = 7 * 24 * time.Hour
 	TokenVerifiedDuration   = 10 * time.Minute
+	PreSignedURLDuration    = 15 * time.Minute
+	TokenUploadDuration     = 1 * time.Hour
 )

@@ -17,6 +17,18 @@ type MediaEntity struct {
 	UpdatedAt    *time.Time `json:"updated_at"`
 }
 
+type MediaStorageEntity struct {
+	ID         string `json:"id"`
+	StorageKey string `json:"storage_key"`
+}
+
+func (e * MediaEntity) ToStorageEntity() *MediaStorageEntity {
+	return &MediaStorageEntity{
+		ID:         e.ID,
+		StorageKey: e.StorageKey,
+	}
+}
+
 func (e *MediaEntity) ToResponse() *response.MediaResponse {
 	return &response.MediaResponse{
 		ID:           e.ID,
@@ -29,4 +41,12 @@ func (e *MediaEntity) ToResponse() *response.MediaResponse {
 		CreatedAt:    e.CreatedAt,
 		UpdatedAt:    e.UpdatedAt,
 	}
+}
+
+func MediaEntitiesToResponse(entities []*MediaEntity) []*response.MediaResponse {
+	responses := make([]*response.MediaResponse, len(entities))
+	for i, entity := range entities {
+		responses[i] = entity.ToResponse()
+	}
+	return responses
 }

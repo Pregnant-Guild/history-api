@@ -25,7 +25,7 @@ type UserService interface {
 	ChangeRoleUser(ctx context.Context, dto *request.ChangeRoleDto) (*response.UserResponse, error)
 	RestoreUser(ctx context.Context, userId string) (*response.UserResponse, error)
 	GetUserByID(ctx context.Context, userId string) (*response.UserResponse, error)
-	Search(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, error)
+	SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, error)
 }
 
 type userService struct {
@@ -208,7 +208,7 @@ func (u *userService) RestoreUser(ctx context.Context, userId string) (*response
 	return user.ToResponse(), nil
 }
 
-func (u *userService) Search(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, error) {
+func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, error) {
 	arg := sqlc.SearchUsersParams{
         Limit: int32(dto.Limit + 1), 
     }

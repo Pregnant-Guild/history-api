@@ -16,19 +16,26 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 		"/",
 		middlewares.JwtAccess(userRepo),
 		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
-		controller.Search,
+		controller.SearchUser,
 	)
-	
+
 	route.Get(
 		"/current",
 		middlewares.JwtAccess(userRepo),
 		controller.GetUserCurrent,
 	)
+
+	route.Get(
+		"/current/media",
+		middlewares.JwtAccess(userRepo),
+		controller.GetUserMedia,
+	)
+
 	route.Get(
 		"/:id",
 		middlewares.JwtAccess(userRepo),
 		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
-		controller.Search,
+		controller.SearchUser,
 	)
 
 	route.Put(
@@ -43,6 +50,14 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
 		controller.DeleteUser,
 	)
+
+	route.Get(
+		"/:id/media",
+		middlewares.JwtAccess(userRepo),
+		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		controller.GetMediaByUserID,
+	)
+
 	route.Patch(
 		"/:id/restore",
 		middlewares.JwtAccess(userRepo),

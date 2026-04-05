@@ -6,7 +6,7 @@ const (
 	TokenPasswordReset TokenType = 1
 	TokenEmailVerify   TokenType = 2
 	TokenMagicLink     TokenType = 3
-	TokenRefreshToken  TokenType = 4
+	TokenUpload        TokenType = 4
 )
 
 func (t TokenType) String() string {
@@ -17,8 +17,8 @@ func (t TokenType) String() string {
 		return "EMAIL_VERIFY"
 	case TokenMagicLink:
 		return "LOGIN_MAGIC_LINK"
-	case TokenRefreshToken:
-		return "REFRESH_TOKEN"
+	case TokenUpload:
+		return "UPLOAD"
 	default:
 		return "UNKNOWN"
 	}
@@ -37,7 +37,7 @@ func ParseTokenType(v int16) TokenType {
 	case 3:
 		return TokenMagicLink
 	case 4:
-		return TokenRefreshToken
+		return TokenUpload
 	default:
 		return 0
 	}
@@ -51,8 +51,8 @@ func ParseTokenTypeFromString(s string) TokenType {
 		return TokenEmailVerify
 	case "LOGIN_MAGIC_LINK":
 		return TokenMagicLink
-	case "REFRESH_TOKEN":
-		return TokenRefreshToken
+	case "UPLOAD":
+		return TokenUpload
 	default:
 		return 0
 	}

@@ -150,6 +150,21 @@ definitions:
       status:
         type: boolean
     type: object
+  history-api_internal_dtos_response.PaginatedResponse:
+    properties:
+      data: {}
+      message:
+        type: string
+      pagination:
+        properties:
+          has_more:
+            type: boolean
+          next_cursor:
+            type: string
+        type: object
+      status:
+        type: boolean
+    type: object
   history-api_pkg_constants.TokenType:
     enum:
     - 1
@@ -162,7 +177,7 @@ definitions:
     - TokenPasswordReset
     - TokenEmailVerify
     - TokenMagicLink
-    - TokenRefreshToken
+    - TokenUpload
 info:
   contact:
     email: support@swagger.io
@@ -398,6 +413,191 @@ paths:
       summary: Verify a security token
       tags:
       - Auth
+  /media:
+    get:
+      consumes:
+      - application/json
+      description: Search media with filters, pagination
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Search keyword
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.PaginatedResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Search media
+      tags:
+      - Media
+  /media/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a media file by ID
+      parameters:
+      - description: Media ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete media
+      tags:
+      - Media
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a media file by its ID
+      parameters:
+      - description: Media ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get media by ID
+      tags:
+      - Media
+  /media/presigned:
+    get:
+      consumes:
+      - application/json
+      description: Generate a presigned URL for direct upload to storage
+      parameters:
+      - description: File name
+        in: query
+        name: filename
+        required: true
+        type: string
+      - description: Content type
+        in: query
+        name: contentType
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Generate presigned URL
+      tags:
+      - Media
+  /media/presigned/complete:
+    post:
+      consumes:
+      - application/json
+      description: Confirm that upload via presigned URL is completed
+      parameters:
+      - description: Storage key
+        in: query
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Confirm presigned upload
+      tags:
+      - Media
+  /media/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload media file through server
+      parameters:
+      - description: Upload file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Upload media (server-side)
+      tags:
+      - Media
   /roles:
     get:
       consumes:
@@ -551,7 +751,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+            $ref: '#/definitions/history-api_internal_dtos_response.PaginatedResponse'
         "400":
           description: Bad Request
           schema:
@@ -652,6 +852,31 @@ paths:
       security:
       - BearerAuth: []
       summary: Update user profile
+      tags:
+      - Users
+  /users/{id}/media:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve media list by specific user ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get user's media by user ID
       tags:
       - Users
   /users/{id}/password:
@@ -775,6 +1000,27 @@ paths:
       security:
       - BearerAuth: []
       summary: Get current user profile
+      tags:
+      - Users
+  /users/current/media:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve media list of the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user's media
       tags:
       - Users
 securityDefinitions:
