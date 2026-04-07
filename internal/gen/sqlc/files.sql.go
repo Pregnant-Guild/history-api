@@ -126,23 +126,60 @@ SELECT id, user_id, storage_key, original_name, mime_type, size, file_metadata, 
 FROM medias
 WHERE 
     ($1::uuid IS NULL OR id > $1::uuid)
+
     AND (
         $2::text IS NULL OR 
         original_name ILIKE '%' || $2::text || '%' OR
         storage_key ILIKE '%' || $2::text || '%'
     )
-ORDER BY id ASC
-LIMIT $3
+
+ORDER BY
+    -- id
+    CASE 
+        WHEN $3 = 'id' AND $4 = 'asc' THEN id
+    END ASC,
+    CASE 
+        WHEN $3 = 'id' AND $4 = 'desc' THEN id
+    END DESC,
+
+    -- created_at
+    CASE 
+        WHEN $3 = 'created_at' AND $4 = 'asc' THEN created_at
+    END ASC,
+    CASE 
+        WHEN $3 = 'created_at' AND $4 = 'desc' THEN created_at
+    END DESC,
+
+    -- updated_at
+    CASE 
+        WHEN $3 = 'updated_at' AND $4 = 'asc' THEN updated_at
+    END ASC,
+    CASE 
+        WHEN $3 = 'updated_at' AND $4 = 'desc' THEN updated_at
+    END DESC,
+
+    -- fallback
+    id ASC
+
+LIMIT $5
 `
 
 type SearchMediasParams struct {
 	Cursor     pgtype.UUID `json:"cursor"`
 	SearchText pgtype.Text `json:"search_text"`
+	Sort       interface{} `json:"sort"`
+	Order      interface{} `json:"order"`
 	Limit      int32       `json:"limit"`
 }
 
 func (q *Queries) SearchMedias(ctx context.Context, arg SearchMediasParams) ([]Media, error) {
-	rows, err := q.db.Query(ctx, searchMedias, arg.Cursor, arg.SearchText, arg.Limit)
+	rows, err := q.db.Query(ctx, searchMedias,
+		arg.Cursor,
+		arg.SearchText,
+		arg.Sort,
+		arg.Order,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

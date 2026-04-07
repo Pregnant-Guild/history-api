@@ -115,6 +115,18 @@ func (m *mediaService) SearchMedia(ctx context.Context, dto *request.SearchMedia
 	arg := sqlc.SearchMediasParams{
 		Limit: int32(dto.Limit + 1),
 	}
+	
+	if dto.Sort != "" {
+		arg.Sort = pgtype.Text{String: dto.Sort, Valid: true}
+	} else {
+		arg.Sort = pgtype.Text{String: "id", Valid: true}
+	}
+
+	if dto.Order != "" {
+		arg.Order = pgtype.Text{String: dto.Order, Valid: true}
+	} else {
+		arg.Order = pgtype.Text{String: "asc", Valid: true}
+	}
 
 	if dto.Cursor != "" {
 		pgID, err := convert.StringToUUID(dto.Cursor)

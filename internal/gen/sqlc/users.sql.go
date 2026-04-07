@@ -286,115 +286,6 @@ func (q *Queries) GetUserByIDWithoutDeleted(ctx context.Context, id pgtype.UUID)
 	return i, err
 }
 
-const getUsers = `-- name: GetUsers :many
-SELECT
-    u.id,
-    u.email,
-    u.password_hash,
-    u.token_version,
-    u.refresh_token,
-    u.is_deleted,
-    u.created_at,
-    u.updated_at,
-
-    -- profile JSON
-    (
-        SELECT json_build_object(
-            'display_name', p.display_name,
-            'full_name', p.full_name,
-            'avatar_url', p.avatar_url,
-            'bio', p.bio,
-            'location', p.location,
-            'website', p.website,
-            'country_code', p.country_code,
-            'phone', p.phone
-        )
-        FROM user_profiles p
-        WHERE p.user_id = u.id
-    ) AS profile,
-
-    -- roles JSON
-    (
-        SELECT COALESCE(
-            json_agg(json_build_object('id', r.id, 'name', r.name)),
-            '[]'
-        )::json
-        FROM user_roles ur
-        JOIN roles r ON ur.role_id = r.id
-        WHERE ur.user_id = u.id
-    ) AS roles
-
-FROM users u
-WHERE 
-    ($1::uuid IS NULL OR u.id > $1::uuid)
-    AND ($2::boolean IS NULL OR u.is_deleted = $2::boolean)
-    AND (
-        $3::uuid[] IS NULL OR 
-        EXISTS (
-            SELECT 1 FROM user_roles ur2 
-            WHERE ur2.user_id = u.id AND ur2.role_id = ANY($3::uuid[])
-        )
-    )
-ORDER BY u.id ASC
-LIMIT $4
-`
-
-type GetUsersParams struct {
-	Cursor    pgtype.UUID   `json:"cursor"`
-	IsDeleted pgtype.Bool   `json:"is_deleted"`
-	RoleIds   []pgtype.UUID `json:"role_ids"`
-	Limit     int32         `json:"limit"`
-}
-
-type GetUsersRow struct {
-	ID           pgtype.UUID        `json:"id"`
-	Email        string             `json:"email"`
-	PasswordHash pgtype.Text        `json:"password_hash"`
-	TokenVersion int32              `json:"token_version"`
-	RefreshToken pgtype.Text        `json:"refresh_token"`
-	IsDeleted    bool               `json:"is_deleted"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	Profile      []byte             `json:"profile"`
-	Roles        []byte             `json:"roles"`
-}
-
-func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
-	rows, err := q.db.Query(ctx, getUsers,
-		arg.Cursor,
-		arg.IsDeleted,
-		arg.RoleIds,
-		arg.Limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetUsersRow{}
-	for rows.Next() {
-		var i GetUsersRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Email,
-			&i.PasswordHash,
-			&i.TokenVersion,
-			&i.RefreshToken,
-			&i.IsDeleted,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Profile,
-			&i.Roles,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const restoreUser = `-- name: RestoreUser :exec
 UPDATE users
 SET
@@ -444,29 +335,54 @@ SELECT
     ) AS roles
 
 FROM users u
+
 WHERE 
     ($1::uuid IS NULL OR u.id > $1::uuid)
-    
+
     AND ($2::boolean IS NULL OR u.is_deleted = $2::boolean)
+
     AND (
         $3::uuid[] IS NULL OR 
         EXISTS (
             SELECT 1 FROM user_roles ur2 
-            WHERE ur2.user_id = u.id AND ur2.role_id = ANY($3::uuid[])
+            WHERE ur2.user_id = u.id 
+              AND ur2.role_id = ANY($3::uuid[])
         )
     )
-    
+
     AND ($4::uuid IS NULL OR u.id = $4::uuid)
+
     AND (
         $5::text IS NULL OR 
-        u.email ILIKE '%' || $5::text || '%' OR
-        EXISTS (
-            SELECT 1 FROM user_profiles p 
-            WHERE p.user_id = u.id AND p.display_name ILIKE '%' || $5::text || '%'
-        )
+        u.email ILIKE '%' || $5::text || '%'
     )
-ORDER BY u.id ASC
-LIMIT $6
+
+ORDER BY
+    -- id
+    CASE 
+        WHEN $6 = 'id' AND $7 = 'asc' THEN id
+    END ASC,
+    CASE 
+        WHEN $6 = 'id' AND $7 = 'desc' THEN id
+    END DESC,
+    -- created_at
+    CASE 
+        WHEN $6 = 'created_at' AND $7 = 'asc' THEN u.created_at
+    END ASC,
+    CASE 
+        WHEN $6 = 'created_at' AND $7 = 'desc' THEN u.created_at
+    END DESC,
+    -- updated_at
+    CASE 
+        WHEN $6 = 'updated_at' AND $7 = 'asc' THEN u.updated_at
+    END ASC,
+    CASE 
+        WHEN $6 = 'updated_at' AND $7 = 'desc' THEN u.updated_at
+    END DESC,
+    -- fallback
+    u.id ASC
+
+LIMIT $8
 `
 
 type SearchUsersParams struct {
@@ -475,6 +391,8 @@ type SearchUsersParams struct {
 	RoleIds    []pgtype.UUID `json:"role_ids"`
 	SearchID   pgtype.UUID   `json:"search_id"`
 	SearchText pgtype.Text   `json:"search_text"`
+	Sort       interface{}   `json:"sort"`
+	Order      interface{}   `json:"order"`
 	Limit      int32         `json:"limit"`
 }
 
@@ -498,6 +416,8 @@ func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]Sea
 		arg.RoleIds,
 		arg.SearchID,
 		arg.SearchText,
+		arg.Sort,
+		arg.Order,
 		arg.Limit,
 	)
 	if err != nil {

@@ -738,10 +738,9 @@ paths:
         name: search
         type: string
       - enum:
+        - id
         - created_at
         - updated_at
-        - email
-        - display_name
         in: query
         name: sort
         type: string

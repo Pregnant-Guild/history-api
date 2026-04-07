@@ -30,10 +30,9 @@ type GetAllUserDto struct {
 type CursorPaginationDto struct {
 	Cursor string `json:"cursor" query:"cursor" validate:"omitempty,uuid"`
 	Limit  int    `json:"limit" query:"limit" validate:"required,min=1,max=100"`
-	Sort   string `json:"sort" query:"sort" validate:"omitempty,oneof=created_at updated_at email display_name"`
+	Sort   string `json:"sort" query:"sort" validate:"omitempty,oneof=id created_at updated_at"`
 	Order  string `json:"order" query:"order" validate:"omitempty,oneof=asc desc"`
 }
-
 type SearchUserDto struct {
 	CursorPaginationDto
 	Search    string   `json:"search" query:"search" validate:"omitempty,min=2,max=200"`

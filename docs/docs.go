@@ -875,10 +875,9 @@ const docTemplate = `{
                     },
                     {
                         "enum": [
+                            "id",
                             "created_at",
-                            "updated_at",
-                            "email",
-                            "display_name"
+                            "updated_at"
                         ],
                         "type": "string",
                         "name": "sort",

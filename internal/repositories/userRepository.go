@@ -19,7 +19,6 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.UserEntity, error)
 	GetByIDWithoutDeleted(ctx context.Context, id pgtype.UUID) (*models.UserEntity, error)
 	GetByEmail(ctx context.Context, email string) (*models.UserEntity, error)
-	All(ctx context.Context, params sqlc.GetUsersParams) ([]*models.UserEntity, error)
 	Search(ctx context.Context, params sqlc.SearchUsersParams) ([]*models.UserEntity, error)
 	UpsertUser(ctx context.Context, params sqlc.UpsertUserParams) (*models.UserEntity, error)
 	CreateProfile(ctx context.Context, params sqlc.CreateUserProfileParams) (*models.UserProfileSimple, error)
@@ -269,57 +268,6 @@ func (r *userRepository) CreateProfile(ctx context.Context, params sqlc.CreateUs
 		CountryCode: convert.TextToString(row.CountryCode),
 		Phone:       convert.TextToString(row.Phone),
 	}, nil
-}
-
-func (r *userRepository) All(ctx context.Context, params sqlc.GetUsersParams) ([]*models.UserEntity, error) {
-	queryKey := r.generateQueryKey("user:all", params)
-
-	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
-		return r.getByIDsWithFallback(ctx, cachedIDs)
-	}
-	rows, err := r.q.GetUsers(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-
-	var users []*models.UserEntity
-	var ids []string
-	usersToCache := make(map[string]any)
-
-	for _, row := range rows {
-		user := &models.UserEntity{
-			ID:           convert.UUIDToString(row.ID),
-			Email:        row.Email,
-			PasswordHash: convert.TextToString(row.PasswordHash),
-			TokenVersion: row.TokenVersion,
-			IsDeleted:    row.IsDeleted,
-			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-			UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
-		}
-
-		if err := user.ParseRoles(row.Roles); err != nil {
-			return nil, err
-		}
-		if err := user.ParseProfile(row.Profile); err != nil {
-			return nil, err
-		}
-
-		users = append(users, user)
-		ids = append(ids, user.ID)
-
-		usersToCache[fmt.Sprintf("user:id:%s", user.ID)] = user
-	}
-
-	if len(usersToCache) > 0 {
-		_ = r.c.MSet(ctx, usersToCache, constants.NormalCacheDuration)
-	}
-
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
-
-	return users, nil
 }
 
 func (r *userRepository) Search(ctx context.Context, params sqlc.SearchUsersParams) ([]*models.UserEntity, error) {

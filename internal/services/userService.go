@@ -213,6 +213,18 @@ func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto
         Limit: int32(dto.Limit + 1), 
     }
 
+	if dto.Sort != "" {
+		arg.Sort = pgtype.Text{String: dto.Sort, Valid: true}
+	} else {
+		arg.Sort = pgtype.Text{String: "id", Valid: true}
+	}
+
+	if dto.Order != "" {
+		arg.Order = pgtype.Text{String: dto.Order, Valid: true}
+	} else {
+		arg.Order = pgtype.Text{String: "asc", Valid: true}
+	}
+
     if dto.Cursor != "" {
 		pgID, err := convert.StringToUUID(dto.Cursor)
 		if err != nil {
@@ -259,11 +271,14 @@ func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto
         rows = rows[:dto.Limit] 
     }
 
+	users := models.UsersEntityToResponse(rows)
+
 	res := &response.PaginatedResponse{
-        Data:    rows,
+        Data:    users,
         Status:  true,
         Message: "",
     }
+
     res.Pagination.HasMore = hasMore
     res.Pagination.NextCursor = nextCursor
 

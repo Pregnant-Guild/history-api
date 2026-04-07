@@ -195,59 +195,6 @@ SELECT
 FROM users u
 WHERE u.email = $1 AND u.is_deleted = false;
 
--- name: GetUsers :many
-SELECT
-    u.id,
-    u.email,
-    u.password_hash,
-    u.token_version,
-    u.refresh_token,
-    u.is_deleted,
-    u.created_at,
-    u.updated_at,
-
-    -- profile JSON
-    (
-        SELECT json_build_object(
-            'display_name', p.display_name,
-            'full_name', p.full_name,
-            'avatar_url', p.avatar_url,
-            'bio', p.bio,
-            'location', p.location,
-            'website', p.website,
-            'country_code', p.country_code,
-            'phone', p.phone
-        )
-        FROM user_profiles p
-        WHERE p.user_id = u.id
-    ) AS profile,
-
-    -- roles JSON
-    (
-        SELECT COALESCE(
-            json_agg(json_build_object('id', r.id, 'name', r.name)),
-            '[]'
-        )::json
-        FROM user_roles ur
-        JOIN roles r ON ur.role_id = r.id
-        WHERE ur.user_id = u.id
-    ) AS roles
-
-FROM users u
-WHERE 
-    (sqlc.narg('cursor')::uuid IS NULL OR u.id > sqlc.narg('cursor')::uuid)
-    AND (sqlc.narg('is_deleted')::boolean IS NULL OR u.is_deleted = sqlc.narg('is_deleted')::boolean)
-    AND (
-        sqlc.narg('role_ids')::uuid[] IS NULL OR 
-        EXISTS (
-            SELECT 1 FROM user_roles ur2 
-            WHERE ur2.user_id = u.id AND ur2.role_id = ANY(sqlc.narg('role_ids')::uuid[])
-        )
-    )
-ORDER BY u.id ASC
-LIMIT sqlc.arg('limit');
-
-
 -- name: SearchUsers :many
 SELECT
     u.id,
@@ -285,26 +232,51 @@ SELECT
     ) AS roles
 
 FROM users u
+
 WHERE 
     (sqlc.narg('cursor')::uuid IS NULL OR u.id > sqlc.narg('cursor')::uuid)
-    
+
     AND (sqlc.narg('is_deleted')::boolean IS NULL OR u.is_deleted = sqlc.narg('is_deleted')::boolean)
+
     AND (
         sqlc.narg('role_ids')::uuid[] IS NULL OR 
         EXISTS (
             SELECT 1 FROM user_roles ur2 
-            WHERE ur2.user_id = u.id AND ur2.role_id = ANY(sqlc.narg('role_ids')::uuid[])
+            WHERE ur2.user_id = u.id 
+              AND ur2.role_id = ANY(sqlc.narg('role_ids')::uuid[])
         )
     )
-    
+
     AND (sqlc.narg('search_id')::uuid IS NULL OR u.id = sqlc.narg('search_id')::uuid)
+
     AND (
         sqlc.narg('search_text')::text IS NULL OR 
-        u.email ILIKE '%' || sqlc.narg('search_text')::text || '%' OR
-        EXISTS (
-            SELECT 1 FROM user_profiles p 
-            WHERE p.user_id = u.id AND p.display_name ILIKE '%' || sqlc.narg('search_text')::text || '%'
-        )
+        u.email ILIKE '%' || sqlc.narg('search_text')::text || '%'
     )
-ORDER BY u.id ASC
+
+ORDER BY
+    -- id
+    CASE 
+        WHEN sqlc.narg('sort') = 'id' AND sqlc.narg('order') = 'asc' THEN id
+    END ASC,
+    CASE 
+        WHEN sqlc.narg('sort') = 'id' AND sqlc.narg('order') = 'desc' THEN id
+    END DESC,
+    -- created_at
+    CASE 
+        WHEN sqlc.narg('sort') = 'created_at' AND sqlc.narg('order') = 'asc' THEN u.created_at
+    END ASC,
+    CASE 
+        WHEN sqlc.narg('sort') = 'created_at' AND sqlc.narg('order') = 'desc' THEN u.created_at
+    END DESC,
+    -- updated_at
+    CASE 
+        WHEN sqlc.narg('sort') = 'updated_at' AND sqlc.narg('order') = 'asc' THEN u.updated_at
+    END ASC,
+    CASE 
+        WHEN sqlc.narg('sort') = 'updated_at' AND sqlc.narg('order') = 'desc' THEN u.updated_at
+    END DESC,
+    -- fallback
+    u.id ASC
+
 LIMIT sqlc.arg('limit');
