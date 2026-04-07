@@ -433,6 +433,16 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 	return c.Redirect().To(redirectURL)
 }
 
+// Logout godoc
+// @Summary Logout user
+// @Description Logout current user and revoke tokens
+// @Tags auth
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} response.CommonResponse
+// @Failure 401 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /auth/logout [post]
 func (h *AuthController) Logout(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
