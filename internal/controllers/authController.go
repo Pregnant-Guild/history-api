@@ -436,7 +436,7 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 // Logout godoc
 // @Summary Logout user
 // @Description Logout current user and revoke tokens
-// @Tags auth
+// @Tags Auth
 // @Security BearerAuth
 // @Produce json
 // @Success 200 {object} response.CommonResponse

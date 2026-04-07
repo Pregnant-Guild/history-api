@@ -286,7 +286,7 @@ paths:
       - BearerAuth: []
       summary: Logout user
       tags:
-      - auth
+      - Auth
   /auth/refresh:
     post:
       consumes:
