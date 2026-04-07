@@ -33,6 +33,7 @@ import (
 type AuthService interface {
 	Signin(ctx context.Context, dto *request.SignInDto) (*response.AuthResponse, error)
 	Signup(ctx context.Context, dto *request.SignUpDto) (*response.AuthResponse, error)
+	Logout(ctx context.Context, userId string) error
 	ForgotPassword(ctx context.Context, dto *request.ForgotPasswordDto) error
 	VerifyToken(ctx context.Context, dto *request.VerifyTokenDto) (*response.VerifyTokenResponse, error)
 	CreateToken(ctx context.Context, dto *request.CreateTokenDto) error
@@ -168,6 +169,38 @@ func (a *authService) Signin(ctx context.Context, dto *request.SignInDto) (*resp
 
 	return data, nil
 
+}
+
+
+func (a *authService) Logout(ctx context.Context, userId string) error {
+	pgID, err := convert.StringToUUID(userId)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	user , err := a.userRepo.GetByID(ctx, pgID)
+	if err != nil || user == nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Invalid user data")
+	}
+	
+	err = a.userRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
+		ID: pgID,
+		TokenVersion: user.TokenVersion + 1,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	err = a.userRepo.UpdateRefreshToken(ctx, sqlc.UpdateUserRefreshTokenParams{
+		ID: pgID,
+		RefreshToken: pgtype.Text{
+			String: "",
+			Valid:  false,
+		},
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	return nil
 }
 
 func (a *authService) RefreshToken(ctx context.Context, id string) (*response.AuthResponse, error) {

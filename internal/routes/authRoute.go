@@ -18,4 +18,5 @@ func AuthRoutes(app *fiber.App, controller *controllers.AuthController, userRepo
 	route.Post("/forgot-password", controller.ForgotPassword)
 	route.Get("/google/login", controller.GoogleLogin)
 	route.Get("/google/callback", controller.GoogleCallback)
+	route.Post("/logout", middlewares.JwtAccess(userRepo), controller.Logout)
 }

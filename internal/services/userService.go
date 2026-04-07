@@ -210,8 +210,8 @@ func (u *userService) RestoreUser(ctx context.Context, userId string) (*response
 
 func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, error) {
 	arg := sqlc.SearchUsersParams{
-        Limit: int32(dto.Limit + 1), 
-    }
+		Limit: int32(dto.Limit + 1),
+	}
 
 	if dto.Sort != "" {
 		arg.Sort = pgtype.Text{String: dto.Sort, Valid: true}
@@ -225,64 +225,64 @@ func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto
 		arg.Order = pgtype.Text{String: "asc", Valid: true}
 	}
 
-    if dto.Cursor != "" {
+	if dto.Cursor != "" {
 		pgID, err := convert.StringToUUID(dto.Cursor)
 		if err != nil {
 			return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid cursor format")
 		}
-        arg.Cursor = pgID
-    }
+		arg.Cursor = pgID
+	}
 
-    if dto.Search != "" {
+	if dto.Search != "" {
 		pgID, err := convert.StringToUUID(dto.Search)
 		if err == nil {
 			arg.SearchID = pgID
 		} else {
 			arg.SearchText = pgtype.Text{String: dto.Search, Valid: true}
 		}
-    }
+	}
 
 	if dto.IsDeleted != nil {
-        arg.IsDeleted = pgtype.Bool{Bool: *dto.IsDeleted, Valid: true}
-    }
+		arg.IsDeleted = pgtype.Bool{Bool: *dto.IsDeleted, Valid: true}
+	}
 	if len(dto.RoleIDs) > 0 {
-        var pgRoleIDs []pgtype.UUID
-        for _, idStr := range dto.RoleIDs {
+		var pgRoleIDs []pgtype.UUID
+		for _, idStr := range dto.RoleIDs {
 			pgID, err := convert.StringToUUID(idStr)
 			if err != nil {
 				continue
 			}
 			pgRoleIDs = append(pgRoleIDs, pgID)
-        }
-        arg.RoleIds = pgRoleIDs
-    }
+		}
+		arg.RoleIds = pgRoleIDs
+	}
 
 	rows, err := u.userRepo.Search(ctx, arg)
-    if err != nil {
-        return nil, err
-    }
+	if err != nil {
+		return nil, err
+	}
 
 	hasMore := false
-    var nextCursor string
+	var nextCursor string
 
-    if len(rows) > dto.Limit {
-        hasMore = true
-        nextCursor = rows[dto.Limit-1].ID
-        rows = rows[:dto.Limit] 
-    }
+	if len(rows) > dto.Limit {
+		hasMore = true
+		nextCursor = rows[dto.Limit-1].ID
+		rows = rows[:dto.Limit]
+	}
 
 	users := models.UsersEntityToResponse(rows)
 
 	res := &response.PaginatedResponse{
-        Data:    users,
-        Status:  true,
-        Message: "",
-    }
+		Data:    users,
+		Status:  true,
+		Message: "",
+	}
 
-    res.Pagination.HasMore = hasMore
-    res.Pagination.NextCursor = nextCursor
+	res.Pagination.HasMore = hasMore
+	res.Pagination.NextCursor = nextCursor
 
-    return res, nil
+	return res, nil
 }
 
 func (u *userService) GetUserByID(ctx context.Context, userId string) (*response.UserResponse, error) {

@@ -432,3 +432,40 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 
 	return c.Redirect().To(redirectURL)
 }
+
+func (h *AuthController) Logout(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	userId := c.Locals("uid").(string)
+
+	err := h.service.Logout(ctx, userId)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Error(),
+		})
+	}
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+		Secure:   true,
+		Path:     "/",
+	})
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+		Secure:   true,
+		Path:     "/",
+	})
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status:  true,
+		Message: "Logged out successfully",
+	})
+}
