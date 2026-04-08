@@ -134,7 +134,7 @@ func (r *userRepository) GetByIDWithoutDeleted(ctx context.Context, id pgtype.UU
 		return &user, nil
 	}
 
-	row, err := r.q.GetUserByID(ctx, id)
+	row, err := r.q.GetUserByIDWithoutDeleted(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -363,6 +363,9 @@ func (r *userRepository) Restore(ctx context.Context, id pgtype.UUID) error {
 	}
 
 	_ = r.c.Del(ctx, fmt.Sprintf("user:id:%s", convert.UUIDToString(id)))
+	_ = r.c.Del(ctx, fmt.Sprintf("user:email:%s", convert.UUIDToString(id)))
+	_ = r.c.Del(ctx, fmt.Sprintf("user:deleted:id:%s", convert.UUIDToString(id)))
+
 	return nil
 }
 
