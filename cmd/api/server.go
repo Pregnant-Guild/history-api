@@ -80,7 +80,7 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 
 	// service setup
 	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis)
-	userService := services.NewUserService(userRepo, roleRepo)
+	userService := services.NewUserService(userRepo, roleRepo, redis)
 	roleService := services.NewRoleService(roleRepo)
 	tileService := services.NewTileService(tileRepo)
 	mediaService := services.NewMediaService(mediaRepo, tokenRepo, sclient, redis)
