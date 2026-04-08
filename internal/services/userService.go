@@ -2,11 +2,13 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/internal/repositories"
+	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
 	"slices"
@@ -34,15 +36,18 @@ type UserService interface {
 type userService struct {
 	userRepo repositories.UserRepository
 	roleRepo repositories.RoleRepository
+	c        cache.Cache
 }
 
 func NewUserService(
 	userRepo repositories.UserRepository,
 	roleRepo repositories.RoleRepository,
+	c cache.Cache,
 ) UserService {
 	return &userService{
 		userRepo: userRepo,
 		roleRepo: roleRepo,
+		c:        c,
 	}
 }
 
@@ -93,7 +98,7 @@ func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTCl
 		return nil, fiber.NewError(fiber.StatusNotFound, "User not found")
 	}
 
-	rolesFromDB, err := u.roleRepo.GetByIDs(ctx, dto.Roles)
+	newListRole, err := u.roleRepo.GetByIDs(ctx, dto.Roles)
 	if err != nil {
 		return nil, err
 	}
@@ -101,8 +106,9 @@ func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTCl
 	hasUserRole := false
 	hasAdminRole := false
 	hasBannedRole := false
+	hasModRole := false
 
-	for _, r := range rolesFromDB {
+	for _, r := range newListRole {
 		if r.Name == constants.USER.String() {
 			hasUserRole = true
 		}
@@ -111,6 +117,9 @@ func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTCl
 		}
 		if r.Name == constants.BANNED.String() {
 			hasBannedRole = true
+		}
+		if r.Name == constants.MOD.String() {
+			hasModRole = true
 		}
 	}
 
@@ -122,21 +131,39 @@ func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTCl
 		if hasAdminRole {
 			return nil, fiber.NewError(fiber.StatusForbidden, "MOD cannot assign ADMIN role to any user")
 		}
-		isTargetAdmin := false
+
+		if dto.UserID == claims.UId && !hasModRole {
+			return nil, fiber.NewError(fiber.StatusForbidden, "You can't remove MOD role of yourself")
+		}
+
+		if dto.UserID == claims.UId && hasBannedRole {
+			return nil, fiber.NewError(fiber.StatusForbidden, "You can't assign BANNED role to yourself")
+		}
+		isTargetAdminOrMod := false
 		for _, r := range user.Roles {
-			if r.Name == string(constants.ADMIN) {
-				isTargetAdmin = true
+			if r.Name == constants.ADMIN.String() || r.Name == constants.MOD.String() {
+				isTargetAdminOrMod = true
 				break
 			}
 		}
-		if isTargetAdmin && hasBannedRole {
-			return nil, fiber.NewError(fiber.StatusForbidden, "MOD cannot assign BANNED role to an ADMIN user")
+		if isTargetAdminOrMod && hasBannedRole {
+			return nil, fiber.NewError(fiber.StatusForbidden, "MOD cannot assign BANNED role to an ADMIN or MOD user")
+		}
+	}
+
+	if slices.Contains(claims.Roles, constants.ADMIN) {
+		if dto.UserID == claims.UId && hasBannedRole {
+			return nil, fiber.NewError(fiber.StatusForbidden, "You can't assign BANNED role to yourself")
+		}
+
+		if dto.UserID == claims.UId && !hasAdminRole {
+			return nil, fiber.NewError(fiber.StatusForbidden, "You can't remove ADMIN role of yourself")
 		}
 	}
 
 	user.Roles = make([]*models.RoleSimple, 0)
 	roleIdList := make([]pgtype.UUID, 0)
-	for _, role := range rolesFromDB {
+	for _, role := range newListRole {
 		roleID, err := convert.StringToUUID(role.ID)
 		if err != nil {
 			continue
@@ -157,6 +184,21 @@ func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTCl
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
+
+	err = u.userRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
+		ID:           userId,
+		TokenVersion: user.TokenVersion + 1,
+	})
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	user.TokenVersion += 1
+
+	mapCache := map[string]any{
+		fmt.Sprintf("user:email:%s", user.Email): user,
+		fmt.Sprintf("user:id:%s", user.ID):       user,
+	}
+	_ = u.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 
 	return user.ToResponse(), nil
 
