@@ -25,7 +25,7 @@ type ChangeRoleDto struct {
 
 type PaginationDto struct {
 	Page  int    `json:"page" query:"page" validate:"omitempty,min=1"`
-	Limit int    `json:"limit" query:"limit" validate:"required,min=1,max=100"`
+	Limit int    `json:"limit" query:"limit" validate:"omitempty,min=1,max=100"`
 	Order string `json:"order" query:"order" validate:"omitempty,oneof=asc desc"`
 }
 type SearchUserDto struct {
@@ -34,7 +34,7 @@ type SearchUserDto struct {
 	Search       string     `json:"search" query:"search" validate:"omitempty,min=2,max=200"`
 	IsDeleted    *bool      `json:"is_deleted" query:"is_deleted" validate:"omitempty"`
 	RoleIDs      []string   `json:"role_ids" query:"role_ids" validate:"omitempty,dive,uuid"`
-	AuthProvider string     `json:"auth_provider" query:"auth_provider" validate:"omitempty"`
+	AuthProvider string     `json:"auth_provider" query:"auth_provider" validate:"omitempty,oneof=local google facebook github"`
 	CreatedFrom  *time.Time `json:"created_from" query:"created_from" validate:"omitempty"`
 	CreatedTo    *time.Time `json:"created_to" query:"created_to" validate:"omitempty"`
 }

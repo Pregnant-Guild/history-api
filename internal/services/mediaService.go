@@ -153,6 +153,9 @@ func (m *mediaService) SearchMedia(ctx context.Context, dto *request.SearchMedia
 	if dto.Page < 1 {
 		dto.Page = 1
 	}
+	if dto.Limit == 0 {
+		dto.Limit = 20
+	}
 	offset := (dto.Page - 1) * dto.Limit
 
 	arg := sqlc.SearchMediasParams{

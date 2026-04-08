@@ -868,6 +868,12 @@ const docTemplate = `{
                 "summary": "Search users",
                 "parameters": [
                     {
+                        "enum": [
+                            "local",
+                            "google",
+                            "facebook",
+                            "github"
+                        ],
                         "type": "string",
                         "name": "auth_provider",
                         "in": "query"
@@ -892,8 +898,7 @@ const docTemplate = `{
                         "minimum": 1,
                         "type": "integer",
                         "name": "limit",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "enum": [

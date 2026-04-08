@@ -737,7 +737,12 @@ paths:
       - application/json
       description: Search and filter users with pagination (Admin/Mod only)
       parameters:
-      - in: query
+      - enum:
+        - local
+        - google
+        - facebook
+        - github
+        in: query
         name: auth_provider
         type: string
       - in: query
@@ -753,7 +758,6 @@ paths:
         maximum: 100
         minimum: 1
         name: limit
-        required: true
         type: integer
       - enum:
         - asc

@@ -254,6 +254,9 @@ func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto
 	if dto.Page < 1 {
 		dto.Page = 1
 	}
+	if dto.Limit == 0 {
+		dto.Limit = 20
+	}
 	offset := (dto.Page - 1) * dto.Limit
 
 	arg := sqlc.SearchUsersParams{
@@ -276,12 +279,12 @@ func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto
 
 	g.Go(func() error {
 		countArg := sqlc.CountUsersParams{
-			RoleIds:    arg.RoleIds,
-			AuthProvider:   arg.AuthProvider,
-			CreatedFrom:    arg.CreatedFrom,
+			RoleIds:      arg.RoleIds,
+			AuthProvider: arg.AuthProvider,
+			CreatedFrom:  arg.CreatedFrom,
 			CreatedTo:    arg.CreatedTo,
 			IsDeleted:    arg.IsDeleted,
-			SearchText: arg.SearchText,
+			SearchText:   arg.SearchText,
 		}
 		var err error
 		totalRecords, err = u.userRepo.Count(gCtx, countArg)
