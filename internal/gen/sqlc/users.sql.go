@@ -410,6 +410,7 @@ WHERE
             WHERE p.user_id = u.id 
             AND (
                 p.full_name ILIKE '%' || $6::text || '%' OR 
+                p.display_name ILIKE '%' || $6::text || '%' OR 
                 p.phone ILIKE '%' || $6::text || '%'
             )
         )

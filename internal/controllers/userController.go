@@ -260,7 +260,23 @@ func (h *UserController) ChangeRoleUser(c fiber.Ctx) error {
 			Message: err.Error(),
 		})
 	}
-	user, err := h.service.ChangeRoleUser(ctx, dto)
+	claimsVal := c.Locals("user_claims")
+	if claimsVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Unauthorized",
+		})
+	}
+
+	claims, ok := claimsVal.(*response.JWTClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Invalid user claims",
+		})
+	}
+
+	user, err := h.service.ChangeRoleUser(ctx, claims, dto)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
 			Status:  false,

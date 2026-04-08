@@ -253,6 +253,7 @@ WHERE
             WHERE p.user_id = u.id 
             AND (
                 p.full_name ILIKE '%' || sqlc.narg('search_text')::text || '%' OR 
+                p.display_name ILIKE '%' || sqlc.narg('search_text')::text || '%' OR 
                 p.phone ILIKE '%' || sqlc.narg('search_text')::text || '%'
             )
         )

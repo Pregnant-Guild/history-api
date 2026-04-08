@@ -7,7 +7,9 @@ import (
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/internal/repositories"
+	"history-api/pkg/constants"
 	"history-api/pkg/convert"
+	"slices"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -23,7 +25,7 @@ type UserService interface {
 
 	//admin
 	DeleteUser(ctx context.Context, userId string) error
-	ChangeRoleUser(ctx context.Context, dto *request.ChangeRoleDto) (*response.UserResponse, error)
+	ChangeRoleUser(ctx context.Context, claims *response.JWTClaims, dto *request.ChangeRoleDto) (*response.UserResponse, error)
 	RestoreUser(ctx context.Context, userId string) (*response.UserResponse, error)
 	GetUserByID(ctx context.Context, userId string) (*response.UserResponse, error)
 	SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, error)
@@ -77,7 +79,7 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 	return nil
 }
 
-func (u *userService) ChangeRoleUser(ctx context.Context, dto *request.ChangeRoleDto) (*response.UserResponse, error) {
+func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTClaims, dto *request.ChangeRoleDto) (*response.UserResponse, error) {
 	userId, err := convert.StringToUUID(dto.UserID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
@@ -91,13 +93,50 @@ func (u *userService) ChangeRoleUser(ctx context.Context, dto *request.ChangeRol
 		return nil, fiber.NewError(fiber.StatusNotFound, "User not found")
 	}
 
-	roleIdstr, err := u.roleRepo.GetByIDs(ctx, dto.Roles)
+	rolesFromDB, err := u.roleRepo.GetByIDs(ctx, dto.Roles)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, err
 	}
+
+	hasUserRole := false
+	hasAdminRole := false
+	hasBannedRole := false
+
+	for _, r := range rolesFromDB {
+		if r.Name == constants.USER.String() {
+			hasUserRole = true
+		}
+		if r.Name == constants.ADMIN.String() {
+			hasAdminRole = true
+		}
+		if r.Name == constants.BANNED.String() {
+			hasBannedRole = true
+		}
+	}
+
+	if !hasUserRole {
+		return nil, fiber.NewError(fiber.StatusNotFound, "User must have the USER role")
+	}
+
+	if slices.Contains(claims.Roles, constants.MOD) && !slices.Contains(claims.Roles, constants.ADMIN) {
+		if hasAdminRole {
+			return nil, fiber.NewError(fiber.StatusForbidden, "MOD cannot assign ADMIN role to any user")
+		}
+		isTargetAdmin := false
+		for _, r := range user.Roles {
+			if r.Name == string(constants.ADMIN) {
+				isTargetAdmin = true
+				break
+			}
+		}
+		if isTargetAdmin && hasBannedRole {
+			return nil, fiber.NewError(fiber.StatusForbidden, "MOD cannot assign BANNED role to an ADMIN user")
+		}
+	}
+
 	user.Roles = make([]*models.RoleSimple, 0)
 	roleIdList := make([]pgtype.UUID, 0)
-	for _, role := range roleIdstr {
+	for _, role := range rolesFromDB {
 		roleID, err := convert.StringToUUID(role.ID)
 		if err != nil {
 			continue
