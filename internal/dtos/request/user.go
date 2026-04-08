@@ -1,5 +1,7 @@
 package request
 
+import "time"
+
 type UpdateProfileDto struct {
 	DisplayName string `json:"display_name" validate:"omitempty,min=2,max=50"`
 	FullName    string `json:"full_name" validate:"omitempty,min=2,max=100"`
@@ -21,21 +23,18 @@ type ChangeRoleDto struct {
 	Roles  []string `json:"role_ids" validate:"required,min=1,dive,required,uuid"`
 }
 
-type GetAllUserDto struct {
-	CursorPaginationDto
-	IsDeleted *bool    `json:"is_deleted" query:"is_deleted" validate:"omitempty"`
-	RoleIDs   []string `json:"role_ids" query:"role_ids" validate:"omitempty,dive,uuid"`
-}
-
-type CursorPaginationDto struct {
-	Cursor string `json:"cursor" query:"cursor" validate:"omitempty,uuid"`
-	Limit  int    `json:"limit" query:"limit" validate:"required,min=1,max=100"`
-	Sort   string `json:"sort" query:"sort" validate:"omitempty,oneof=id created_at updated_at"`
-	Order  string `json:"order" query:"order" validate:"omitempty,oneof=asc desc"`
+type PaginationDto struct {
+	Page  int    `json:"page" query:"page" validate:"omitempty,min=1"`
+	Limit int    `json:"limit" query:"limit" validate:"required,min=1,max=100"`
+	Order string `json:"order" query:"order" validate:"omitempty,oneof=asc desc"`
 }
 type SearchUserDto struct {
-	CursorPaginationDto
-	Search    string   `json:"search" query:"search" validate:"omitempty,min=2,max=200"`
-	IsDeleted *bool    `json:"is_deleted" query:"is_deleted" validate:"omitempty"`
-	RoleIDs   []string `json:"role_ids" query:"role_ids" validate:"omitempty,dive,uuid"`
+	PaginationDto
+	Sort         string     `json:"sort" query:"sort" validate:"omitempty,oneof=id created_at updated_at email is_deleted auth_provider"`
+	Search       string     `json:"search" query:"search" validate:"omitempty,min=2,max=200"`
+	IsDeleted    *bool      `json:"is_deleted" query:"is_deleted" validate:"omitempty"`
+	RoleIDs      []string   `json:"role_ids" query:"role_ids" validate:"omitempty,dive,uuid"`
+	AuthProvider string     `json:"auth_provider" query:"auth_provider" validate:"omitempty"`
+	CreatedFrom  *time.Time `json:"created_from" query:"created_from" validate:"omitempty"`
+	CreatedTo    *time.Time `json:"created_to" query:"created_to" validate:"omitempty"`
 }

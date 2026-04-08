@@ -11,6 +11,43 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countMedias = `-- name: CountMedias :one
+SELECT count(*) 
+FROM medias
+WHERE 
+    ($1::uuid[] IS NULL OR user_id = ANY($1::uuid[]))
+    AND ($2::text IS NULL OR mime_type ILIKE $2::text || '%')
+    AND ($3::bigint IS NULL OR size >= $3::bigint)
+    AND ($4::bigint IS NULL OR size <= $4::bigint)
+    AND (
+        $5::text IS NULL OR 
+        id::text ILIKE '%' || $5::text || '%' OR
+        original_name ILIKE '%' || $5::text || '%' OR
+        storage_key ILIKE '%' || $5::text || '%'
+    )
+`
+
+type CountMediasParams struct {
+	UserIds    []pgtype.UUID `json:"user_ids"`
+	MimeType   pgtype.Text   `json:"mime_type"`
+	MinSize    pgtype.Int8   `json:"min_size"`
+	MaxSize    pgtype.Int8   `json:"max_size"`
+	SearchText pgtype.Text   `json:"search_text"`
+}
+
+func (q *Queries) CountMedias(ctx context.Context, arg CountMediasParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countMedias,
+		arg.UserIds,
+		arg.MimeType,
+		arg.MinSize,
+		arg.MaxSize,
+		arg.SearchText,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createMedia = `-- name: CreateMedia :one
 INSERT INTO medias (
     user_id, storage_key, original_name, mime_type, size, file_metadata
@@ -122,62 +159,69 @@ func (q *Queries) GetMediasByUserID(ctx context.Context, userID pgtype.UUID) ([]
 }
 
 const searchMedias = `-- name: SearchMedias :many
-SELECT id, user_id, storage_key, original_name, mime_type, size, file_metadata, created_at, updated_at
+SELECT 
+    id, user_id, storage_key, original_name, mime_type, size, file_metadata, created_at, updated_at
 FROM medias
 WHERE 
-    ($1::uuid IS NULL OR id > $1::uuid)
-
+    ($1::uuid[] IS NULL OR user_id = ANY($1::uuid[]))
+    AND ($2::text IS NULL OR mime_type ILIKE $2::text || '%')
+    AND ($3::bigint IS NULL OR size >= $3::bigint)
+    AND ($4::bigint IS NULL OR size <= $4::bigint)
     AND (
-        $2::text IS NULL OR 
-        original_name ILIKE '%' || $2::text || '%' OR
-        storage_key ILIKE '%' || $2::text || '%'
+        $5::text IS NULL OR 
+        id::text ILIKE '%' || $5::text || '%' OR
+        original_name ILIKE '%' || $5::text || '%' OR
+        storage_key ILIKE '%' || $5::text || '%'
     )
-
 ORDER BY
-    -- id
-    CASE 
-        WHEN $3 = 'id' AND $4 = 'asc' THEN id
-    END ASC,
-    CASE 
-        WHEN $3 = 'id' AND $4 = 'desc' THEN id
-    END DESC,
+    CASE WHEN $6 = 'id' AND $7 = 'asc' THEN id END ASC,
+    CASE WHEN $6 = 'id' AND $7 = 'desc' THEN id END DESC,
 
-    -- created_at
-    CASE 
-        WHEN $3 = 'created_at' AND $4 = 'asc' THEN created_at
-    END ASC,
-    CASE 
-        WHEN $3 = 'created_at' AND $4 = 'desc' THEN created_at
-    END DESC,
+    CASE WHEN $6 = 'created_at' AND $7 = 'asc' THEN created_at END ASC,
+    CASE WHEN $6 = 'created_at' AND $7 = 'desc' THEN created_at END DESC,
 
-    -- updated_at
-    CASE 
-        WHEN $3 = 'updated_at' AND $4 = 'asc' THEN updated_at
-    END ASC,
-    CASE 
-        WHEN $3 = 'updated_at' AND $4 = 'desc' THEN updated_at
-    END DESC,
+    CASE WHEN $6 = 'updated_at' AND $7 = 'asc' THEN updated_at END ASC,
+    CASE WHEN $6 = 'updated_at' AND $7 = 'desc' THEN updated_at END DESC,
 
-    -- fallback
+    CASE WHEN $6 = 'size' AND $7 = 'asc' THEN size END ASC,
+    CASE WHEN $6 = 'size' AND $7 = 'desc' THEN size END DESC,
+
+    CASE WHEN $6 = 'original_name' AND $7 = 'asc' THEN original_name END ASC,
+    CASE WHEN $6 = 'original_name' AND $7 = 'desc' THEN original_name END DESC,
+ 
+    CASE WHEN $6 = 'storage_key' AND $7 = 'asc' THEN storage_key END ASC,
+    CASE WHEN $6 = 'storage_key' AND $7 = 'desc' THEN storage_key END DESC,
+
+    CASE WHEN $6 = 'mime_type' AND $7 = 'asc' THEN mime_type END ASC,
+    CASE WHEN $6 = 'mime_type' AND $7 = 'desc' THEN mime_type END DESC,
+    
     id ASC
-
-LIMIT $5
+LIMIT $9
+OFFSET $8
 `
 
 type SearchMediasParams struct {
-	Cursor     pgtype.UUID `json:"cursor"`
-	SearchText pgtype.Text `json:"search_text"`
-	Sort       interface{} `json:"sort"`
-	Order      interface{} `json:"order"`
-	Limit      int32       `json:"limit"`
+	UserIds    []pgtype.UUID `json:"user_ids"`
+	MimeType   pgtype.Text   `json:"mime_type"`
+	MinSize    pgtype.Int8   `json:"min_size"`
+	MaxSize    pgtype.Int8   `json:"max_size"`
+	SearchText pgtype.Text   `json:"search_text"`
+	Sort       interface{}   `json:"sort"`
+	Order      interface{}   `json:"order"`
+	Offset     int32         `json:"offset"`
+	Limit      int32         `json:"limit"`
 }
 
 func (q *Queries) SearchMedias(ctx context.Context, arg SearchMediasParams) ([]Media, error) {
 	rows, err := q.db.Query(ctx, searchMedias,
-		arg.Cursor,
+		arg.UserIds,
+		arg.MimeType,
+		arg.MinSize,
+		arg.MaxSize,
 		arg.SearchText,
 		arg.Sort,
 		arg.Order,
+		arg.Offset,
 		arg.Limit,
 	)
 	if err != nil {

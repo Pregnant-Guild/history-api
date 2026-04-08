@@ -20,6 +20,7 @@ type UserRepository interface {
 	GetByIDWithoutDeleted(ctx context.Context, id pgtype.UUID) (*models.UserEntity, error)
 	GetByEmail(ctx context.Context, email string) (*models.UserEntity, error)
 	Search(ctx context.Context, params sqlc.SearchUsersParams) ([]*models.UserEntity, error)
+	Count(ctx context.Context, params sqlc.CountUsersParams) (int64, error)
 	UpsertUser(ctx context.Context, params sqlc.UpsertUserParams) (*models.UserEntity, error)
 	CreateProfile(ctx context.Context, params sqlc.CreateUserProfileParams) (*models.UserProfileSimple, error)
 	UpdateProfile(ctx context.Context, params sqlc.UpdateUserProfileParams) (*models.UserEntity, error)
@@ -205,9 +206,8 @@ func (r *userRepository) UpsertUser(ctx context.Context, params sqlc.UpsertUserP
 	}
 	go func() {
 		bgCtx := context.Background()
-
-		_ = r.c.DelByPattern(bgCtx, "user:all*")
 		_ = r.c.DelByPattern(bgCtx, "user:search*")
+		_ = r.c.DelByPattern(bgCtx, "user:count*")
 	}()
 
 	return &models.UserEntity{
@@ -318,6 +318,22 @@ func (r *userRepository) Search(ctx context.Context, params sqlc.SearchUsersPara
 	}
 
 	return users, nil
+}
+
+func (r *userRepository) Count(ctx context.Context, params sqlc.CountUsersParams) (int64, error) {
+	queryKey := r.generateQueryKey("user:count", params)
+	var count int64
+	if err := r.c.Get(ctx, queryKey, &count); err == nil {
+		return count, nil
+	}
+
+	count, err := r.q.CountUsers(ctx, params)
+	if err != nil {
+		return 0, err
+	}
+
+	_ = r.c.Set(ctx, queryKey, count, constants.NormalCacheDuration)
+	return count, nil
 }
 
 func (r *userRepository) Delete(ctx context.Context, id pgtype.UUID) error {

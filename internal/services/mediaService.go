@@ -21,9 +21,10 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/rs/zerolog/log"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 )
 
 type MediaService interface {
@@ -111,60 +112,86 @@ func (m *mediaService) GetMediaByUserID(ctx context.Context, id string) ([]*resp
 	return models.MediaEntitiesToResponse(medias), nil
 }
 
-func (m *mediaService) SearchMedia(ctx context.Context, dto *request.SearchMediaDto) (*response.PaginatedResponse, error) {
-	arg := sqlc.SearchMediasParams{
-		Limit: int32(dto.Limit + 1),
-	}
-	
+func (m *mediaService) fillSearchArgs(arg *sqlc.SearchMediasParams, dto *request.SearchMediaDto) {
 	if dto.Sort != "" {
 		arg.Sort = pgtype.Text{String: dto.Sort, Valid: true}
 	} else {
 		arg.Sort = pgtype.Text{String: "id", Valid: true}
 	}
 
-	if dto.Order != "" {
-		arg.Order = pgtype.Text{String: dto.Order, Valid: true}
-	} else {
-		arg.Order = pgtype.Text{String: "asc", Valid: true}
+	arg.Order = pgtype.Text{String: "asc", Valid: true}
+	if dto.Order == "desc" {
+		arg.Order = pgtype.Text{String: "desc", Valid: true}
 	}
 
-	if dto.Cursor != "" {
-		pgID, err := convert.StringToUUID(dto.Cursor)
-		if err != nil {
-			return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid cursor format")
+	if dto.MimeType != "" {
+		arg.MimeType = pgtype.Text{String: dto.MimeType, Valid: true}
+	}
+
+	if dto.MaxSize != nil {
+		arg.MaxSize = pgtype.Int8{Int64: *dto.MaxSize, Valid: true}
+	}
+
+	if dto.MinSize != nil {
+		arg.MinSize = pgtype.Int8{Int64: *dto.MinSize, Valid: true}
+	}
+
+	if len(dto.UserIDs) > 0 {
+		for _, id := range dto.UserIDs {
+			if u, err := convert.StringToUUID(id); err == nil {
+				arg.UserIds = append(arg.UserIds, u)
+			}
 		}
-		arg.Cursor = pgID
 	}
 
 	if dto.Search != "" {
 		arg.SearchText = pgtype.Text{String: dto.Search, Valid: true}
 	}
+}
 
-	rows, err := m.mediaRepo.Search(ctx, arg)
-	if err != nil {
+func (m *mediaService) SearchMedia(ctx context.Context, dto *request.SearchMediaDto) (*response.PaginatedResponse, error) {
+	if dto.Page < 1 {
+		dto.Page = 1
+	}
+	offset := (dto.Page - 1) * dto.Limit
+
+	arg := sqlc.SearchMediasParams{
+		Limit:  int32(dto.Limit),
+		Offset: int32(offset),
+	}
+
+	m.fillSearchArgs(&arg, dto)
+
+	var rows []*models.MediaEntity
+	var totalRecords int64
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		var err error
+		rows, err = m.mediaRepo.Search(gCtx, arg)
+		return err
+	})
+
+	g.Go(func() error {
+		countArg := sqlc.CountMediasParams{
+			UserIds:    arg.UserIds,
+			MimeType:   arg.MimeType,
+			MinSize:    arg.MinSize,
+			MaxSize:    arg.MaxSize,
+			SearchText: arg.SearchText,
+		}
+		var err error
+		totalRecords, err = m.mediaRepo.Count(gCtx, countArg)
+		return err
+	})
+
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
 
-	hasMore := false
-	var nextCursor string
-
-	if len(rows) > dto.Limit {
-		hasMore = true
-		nextCursor = rows[dto.Limit-1].ID
-		rows = rows[:dto.Limit]
-	}
-
-	res := &response.PaginatedResponse{
-		Data:    rows,
-		Status:  true,
-		Message: "",
-	}
-	res.Pagination.HasMore = hasMore
-	res.Pagination.NextCursor = nextCursor
-
-	return res, nil
+	return response.BuildPaginatedResponse(rows, totalRecords, dto.Page, dto.Limit), nil
 }
-
 func (m *mediaService) UploadServerSide(ctx context.Context, userId string, fileHeader *multipart.FileHeader) (*response.MediaResponse, error) {
 	userIdUUID, err := convert.StringToUUID(userId)
 	if err != nil {

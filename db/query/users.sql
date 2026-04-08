@@ -201,11 +201,12 @@ SELECT
     u.email,
     u.password_hash,
     u.token_version,
+    u.google_id,
+    u.auth_provider,
     u.refresh_token,
     u.is_deleted,
     u.created_at,
     u.updated_at,
-
     (
         SELECT json_build_object(
             'display_name', p.display_name,
@@ -220,7 +221,6 @@ SELECT
         FROM user_profiles p
         WHERE p.user_id = u.id
     ) AS profile,
-
     (
         SELECT COALESCE(
             json_agg(json_build_object('id', r.id, 'name', r.name)),
@@ -230,14 +230,9 @@ SELECT
         JOIN roles r ON ur.role_id = r.id
         WHERE ur.user_id = u.id
     ) AS roles
-
 FROM users u
-
 WHERE 
-    (sqlc.narg('cursor')::uuid IS NULL OR u.id > sqlc.narg('cursor')::uuid)
-
-    AND (sqlc.narg('is_deleted')::boolean IS NULL OR u.is_deleted = sqlc.narg('is_deleted')::boolean)
-
+    (sqlc.narg('is_deleted')::boolean IS NULL OR u.is_deleted = sqlc.narg('is_deleted')::boolean)
     AND (
         sqlc.narg('role_ids')::uuid[] IS NULL OR 
         EXISTS (
@@ -246,37 +241,65 @@ WHERE
               AND ur2.role_id = ANY(sqlc.narg('role_ids')::uuid[])
         )
     )
-
-    AND (sqlc.narg('search_id')::uuid IS NULL OR u.id = sqlc.narg('search_id')::uuid)
-
+    AND (sqlc.narg('auth_provider')::text IS NULL OR u.auth_provider = sqlc.narg('auth_provider')::text)
+    AND (sqlc.narg('created_from')::timestamp IS NULL OR u.created_at >= sqlc.narg('created_from')::timestamp)
+    AND (sqlc.narg('created_to')::timestamp IS NULL OR u.created_at <= sqlc.narg('created_to')::timestamp)
     AND (
         sqlc.narg('search_text')::text IS NULL OR 
-        u.email ILIKE '%' || sqlc.narg('search_text')::text || '%'
+        u.id::text ILIKE '%' || sqlc.narg('search_text')::text || '%' OR
+        u.email ILIKE '%' || sqlc.narg('search_text')::text || '%' OR
+        EXISTS (
+            SELECT 1 FROM user_profiles p 
+            WHERE p.user_id = u.id 
+            AND (
+                p.full_name ILIKE '%' || sqlc.narg('search_text')::text || '%' OR 
+                p.phone ILIKE '%' || sqlc.narg('search_text')::text || '%'
+            )
+        )
     )
-
 ORDER BY
-    -- id
-    CASE 
-        WHEN sqlc.narg('sort') = 'id' AND sqlc.narg('order') = 'asc' THEN id
-    END ASC,
-    CASE 
-        WHEN sqlc.narg('sort') = 'id' AND sqlc.narg('order') = 'desc' THEN id
-    END DESC,
-    -- created_at
-    CASE 
-        WHEN sqlc.narg('sort') = 'created_at' AND sqlc.narg('order') = 'asc' THEN u.created_at
-    END ASC,
-    CASE 
-        WHEN sqlc.narg('sort') = 'created_at' AND sqlc.narg('order') = 'desc' THEN u.created_at
-    END DESC,
-    -- updated_at
-    CASE 
-        WHEN sqlc.narg('sort') = 'updated_at' AND sqlc.narg('order') = 'asc' THEN u.updated_at
-    END ASC,
-    CASE 
-        WHEN sqlc.narg('sort') = 'updated_at' AND sqlc.narg('order') = 'desc' THEN u.updated_at
-    END DESC,
-    -- fallback
+    CASE WHEN sqlc.narg('sort') = 'id' AND sqlc.narg('order') = 'asc' THEN u.id END ASC,
+    CASE WHEN sqlc.narg('sort') = 'id' AND sqlc.narg('order') = 'desc' THEN u.id END DESC,
+    CASE WHEN sqlc.narg('sort') = 'created_at' AND sqlc.narg('order') = 'asc' THEN u.created_at END ASC,
+    CASE WHEN sqlc.narg('sort') = 'created_at' AND sqlc.narg('order') = 'desc' THEN u.created_at END DESC,
+    CASE WHEN sqlc.narg('sort') = 'updated_at' AND sqlc.narg('order') = 'asc' THEN u.updated_at END ASC,
+    CASE WHEN sqlc.narg('sort') = 'updated_at' AND sqlc.narg('order') = 'desc' THEN u.updated_at END DESC,
+    CASE WHEN sqlc.narg('sort') = 'email' AND sqlc.narg('order') = 'asc' THEN u.email END ASC,
+    CASE WHEN sqlc.narg('sort') = 'email' AND sqlc.narg('order') = 'desc' THEN u.email END DESC,
+    CASE WHEN sqlc.narg('sort') = 'is_deleted' AND sqlc.narg('order') = 'asc' THEN u.is_deleted END ASC,
+    CASE WHEN sqlc.narg('sort') = 'is_deleted' AND sqlc.narg('order') = 'desc' THEN u.is_deleted END DESC,
+    CASE WHEN sqlc.narg('sort') = 'auth_provider' AND sqlc.narg('order') = 'asc' THEN u.auth_provider END ASC,
+    CASE WHEN sqlc.narg('sort') = 'auth_provider' AND sqlc.narg('order') = 'desc' THEN u.auth_provider END DESC,
     u.id ASC
+LIMIT sqlc.arg('limit')
+OFFSET sqlc.arg('offset');
 
-LIMIT sqlc.arg('limit');
+-- name: CountUsers :one
+SELECT count(*) 
+FROM users u
+WHERE 
+    (sqlc.narg('is_deleted')::boolean IS NULL OR u.is_deleted = sqlc.narg('is_deleted')::boolean)
+    AND (
+        sqlc.narg('role_ids')::uuid[] IS NULL OR 
+        EXISTS (
+            SELECT 1 FROM user_roles ur2 
+            WHERE ur2.user_id = u.id 
+              AND ur2.role_id = ANY(sqlc.narg('role_ids')::uuid[])
+        )
+    )
+    AND (sqlc.narg('auth_provider')::text IS NULL OR u.auth_provider = sqlc.narg('auth_provider')::text)
+    AND (sqlc.narg('created_from')::timestamp IS NULL OR u.created_at >= sqlc.narg('created_from')::timestamp)
+    AND (sqlc.narg('created_to')::timestamp IS NULL OR u.created_at <= sqlc.narg('created_to')::timestamp)
+    AND (
+        sqlc.narg('search_text')::text IS NULL OR 
+        u.id::text ILIKE '%' || sqlc.narg('search_text')::text || '%' OR
+        u.email ILIKE '%' || sqlc.narg('search_text')::text || '%' OR
+        EXISTS (
+            SELECT 1 FROM user_profiles p 
+            WHERE p.user_id = u.id 
+            AND (
+                p.full_name ILIKE '%' || sqlc.narg('search_text')::text || '%' OR 
+                p.phone ILIKE '%' || sqlc.narg('search_text')::text || '%'
+            )
+        )
+    );

@@ -156,14 +156,20 @@ definitions:
       message:
         type: string
       pagination:
-        properties:
-          has_more:
-            type: boolean
-          next_cursor:
-            type: string
-        type: object
+        $ref: '#/definitions/history-api_internal_dtos_response.PaginationMeta'
       status:
         type: boolean
+    type: object
+  history-api_internal_dtos_response.PaginationMeta:
+    properties:
+      current_page:
+        type: integer
+      page_size:
+        type: integer
+      total_pages:
+        type: integer
+      total_records:
+        type: integer
     type: object
   history-api_pkg_constants.TokenType:
     enum:
@@ -732,7 +738,13 @@ paths:
       description: Search and filter users with pagination (Admin/Mod only)
       parameters:
       - in: query
-        name: cursor
+        name: auth_provider
+        type: string
+      - in: query
+        name: created_from
+        type: string
+      - in: query
+        name: created_to
         type: string
       - in: query
         name: is_deleted
@@ -749,6 +761,10 @@ paths:
         in: query
         name: order
         type: string
+      - in: query
+        minimum: 1
+        name: page
+        type: integer
       - collectionFormat: csv
         in: query
         items:
@@ -764,6 +780,9 @@ paths:
         - id
         - created_at
         - updated_at
+        - email
+        - is_deleted
+        - auth_provider
         in: query
         name: sort
         type: string

@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/sync/errgroup"
 )
 
 type UserService interface {
@@ -208,81 +209,90 @@ func (u *userService) RestoreUser(ctx context.Context, userId string) (*response
 	return user.ToResponse(), nil
 }
 
-func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, error) {
-	arg := sqlc.SearchUsersParams{
-		Limit: int32(dto.Limit + 1),
-	}
-
+func (m *userService) fillSearchArgs(arg *sqlc.SearchUsersParams, dto *request.SearchUserDto) {
 	if dto.Sort != "" {
 		arg.Sort = pgtype.Text{String: dto.Sort, Valid: true}
 	} else {
 		arg.Sort = pgtype.Text{String: "id", Valid: true}
 	}
 
-	if dto.Order != "" {
-		arg.Order = pgtype.Text{String: dto.Order, Valid: true}
-	} else {
-		arg.Order = pgtype.Text{String: "asc", Valid: true}
+	arg.Order = pgtype.Text{String: "asc", Valid: true}
+	if dto.Order == "desc" {
+		arg.Order = pgtype.Text{String: "desc", Valid: true}
 	}
 
-	if dto.Cursor != "" {
-		pgID, err := convert.StringToUUID(dto.Cursor)
-		if err != nil {
-			return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid cursor format")
-		}
-		arg.Cursor = pgID
+	if dto.AuthProvider != "" {
+		arg.AuthProvider = pgtype.Text{String: dto.AuthProvider, Valid: true}
 	}
 
-	if dto.Search != "" {
-		pgID, err := convert.StringToUUID(dto.Search)
-		if err == nil {
-			arg.SearchID = pgID
-		} else {
-			arg.SearchText = pgtype.Text{String: dto.Search, Valid: true}
-		}
+	if dto.CreatedFrom != nil {
+		arg.CreatedFrom = pgtype.Timestamp{Time: *dto.CreatedFrom, Valid: true}
+	}
+
+	if dto.CreatedTo != nil {
+		arg.CreatedTo = pgtype.Timestamp{Time: *dto.CreatedTo, Valid: true}
 	}
 
 	if dto.IsDeleted != nil {
 		arg.IsDeleted = pgtype.Bool{Bool: *dto.IsDeleted, Valid: true}
 	}
+
 	if len(dto.RoleIDs) > 0 {
-		var pgRoleIDs []pgtype.UUID
-		for _, idStr := range dto.RoleIDs {
-			pgID, err := convert.StringToUUID(idStr)
-			if err != nil {
-				continue
+		for _, id := range dto.RoleIDs {
+			if u, err := convert.StringToUUID(id); err == nil {
+				arg.RoleIds = append(arg.RoleIds, u)
 			}
-			pgRoleIDs = append(pgRoleIDs, pgID)
 		}
-		arg.RoleIds = pgRoleIDs
 	}
 
-	rows, err := u.userRepo.Search(ctx, arg)
-	if err != nil {
+	if dto.Search != "" {
+		arg.SearchText = pgtype.Text{String: dto.Search, Valid: true}
+	}
+}
+
+func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, error) {
+	if dto.Page < 1 {
+		dto.Page = 1
+	}
+	offset := (dto.Page - 1) * dto.Limit
+
+	arg := sqlc.SearchUsersParams{
+		Limit:  int32(dto.Limit),
+		Offset: int32(offset),
+	}
+
+	u.fillSearchArgs(&arg, dto)
+
+	var rows []*models.UserEntity
+	var totalRecords int64
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		var err error
+		rows, err = u.userRepo.Search(gCtx, arg)
+		return err
+	})
+
+	g.Go(func() error {
+		countArg := sqlc.CountUsersParams{
+			RoleIds:    arg.RoleIds,
+			AuthProvider:   arg.AuthProvider,
+			CreatedFrom:    arg.CreatedFrom,
+			CreatedTo:    arg.CreatedTo,
+			IsDeleted:    arg.IsDeleted,
+			SearchText: arg.SearchText,
+		}
+		var err error
+		totalRecords, err = u.userRepo.Count(gCtx, countArg)
+		return err
+	})
+
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
 
-	hasMore := false
-	var nextCursor string
-
-	if len(rows) > dto.Limit {
-		hasMore = true
-		nextCursor = rows[dto.Limit-1].ID
-		rows = rows[:dto.Limit]
-	}
-
-	users := models.UsersEntityToResponse(rows)
-
-	res := &response.PaginatedResponse{
-		Data:    users,
-		Status:  true,
-		Message: "",
-	}
-
-	res.Pagination.HasMore = hasMore
-	res.Pagination.NextCursor = nextCursor
-
-	return res, nil
+	return response.BuildPaginatedResponse(rows, totalRecords, dto.Page, dto.Limit), nil
 }
 
 func (u *userService) GetUserByID(ctx context.Context, userId string) (*response.UserResponse, error) {

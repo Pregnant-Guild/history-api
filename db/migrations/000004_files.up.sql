@@ -12,5 +12,9 @@ CREATE TABLE medias (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_medias_user_created ON medias (user_id, created_at DESC);
 CREATE INDEX idx_medias_original_name_trgm ON medias USING GIN (original_name gin_trgm_ops);
+CREATE INDEX idx_medias_storage_key_trgm ON medias USING GIN (storage_key gin_trgm_ops);
+CREATE INDEX idx_medias_size ON medias (size);
+CREATE INDEX idx_medias_mime_type ON medias (mime_type);
+CREATE INDEX idx_medias_user_created ON medias (user_id, created_at DESC);
+CREATE INDEX idx_medias_created_at ON medias (created_at DESC);

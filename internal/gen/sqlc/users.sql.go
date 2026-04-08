@@ -11,6 +11,60 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countUsers = `-- name: CountUsers :one
+SELECT count(*) 
+FROM users u
+WHERE 
+    ($1::boolean IS NULL OR u.is_deleted = $1::boolean)
+    AND (
+        $2::uuid[] IS NULL OR 
+        EXISTS (
+            SELECT 1 FROM user_roles ur2 
+            WHERE ur2.user_id = u.id 
+              AND ur2.role_id = ANY($2::uuid[])
+        )
+    )
+    AND ($3::text IS NULL OR u.auth_provider = $3::text)
+    AND ($4::timestamp IS NULL OR u.created_at >= $4::timestamp)
+    AND ($5::timestamp IS NULL OR u.created_at <= $5::timestamp)
+    AND (
+        $6::text IS NULL OR 
+        u.id::text ILIKE '%' || $6::text || '%' OR
+        u.email ILIKE '%' || $6::text || '%' OR
+        EXISTS (
+            SELECT 1 FROM user_profiles p 
+            WHERE p.user_id = u.id 
+            AND (
+                p.full_name ILIKE '%' || $6::text || '%' OR 
+                p.phone ILIKE '%' || $6::text || '%'
+            )
+        )
+    )
+`
+
+type CountUsersParams struct {
+	IsDeleted    pgtype.Bool      `json:"is_deleted"`
+	RoleIds      []pgtype.UUID    `json:"role_ids"`
+	AuthProvider pgtype.Text      `json:"auth_provider"`
+	CreatedFrom  pgtype.Timestamp `json:"created_from"`
+	CreatedTo    pgtype.Timestamp `json:"created_to"`
+	SearchText   pgtype.Text      `json:"search_text"`
+}
+
+func (q *Queries) CountUsers(ctx context.Context, arg CountUsersParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countUsers,
+		arg.IsDeleted,
+		arg.RoleIds,
+		arg.AuthProvider,
+		arg.CreatedFrom,
+		arg.CreatedTo,
+		arg.SearchText,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createUserProfile = `-- name: CreateUserProfile :one
 INSERT INTO user_profiles (
     user_id,
@@ -304,11 +358,12 @@ SELECT
     u.email,
     u.password_hash,
     u.token_version,
+    u.google_id,
+    u.auth_provider,
     u.refresh_token,
     u.is_deleted,
     u.created_at,
     u.updated_at,
-
     (
         SELECT json_build_object(
             'display_name', p.display_name,
@@ -323,7 +378,6 @@ SELECT
         FROM user_profiles p
         WHERE p.user_id = u.id
     ) AS profile,
-
     (
         SELECT COALESCE(
             json_agg(json_build_object('id', r.id, 'name', r.name)),
@@ -333,67 +387,62 @@ SELECT
         JOIN roles r ON ur.role_id = r.id
         WHERE ur.user_id = u.id
     ) AS roles
-
 FROM users u
-
 WHERE 
-    ($1::uuid IS NULL OR u.id > $1::uuid)
-
-    AND ($2::boolean IS NULL OR u.is_deleted = $2::boolean)
-
+    ($1::boolean IS NULL OR u.is_deleted = $1::boolean)
     AND (
-        $3::uuid[] IS NULL OR 
+        $2::uuid[] IS NULL OR 
         EXISTS (
             SELECT 1 FROM user_roles ur2 
             WHERE ur2.user_id = u.id 
-              AND ur2.role_id = ANY($3::uuid[])
+              AND ur2.role_id = ANY($2::uuid[])
         )
     )
-
-    AND ($4::uuid IS NULL OR u.id = $4::uuid)
-
+    AND ($3::text IS NULL OR u.auth_provider = $3::text)
+    AND ($4::timestamp IS NULL OR u.created_at >= $4::timestamp)
+    AND ($5::timestamp IS NULL OR u.created_at <= $5::timestamp)
     AND (
-        $5::text IS NULL OR 
-        u.email ILIKE '%' || $5::text || '%'
+        $6::text IS NULL OR 
+        u.id::text ILIKE '%' || $6::text || '%' OR
+        u.email ILIKE '%' || $6::text || '%' OR
+        EXISTS (
+            SELECT 1 FROM user_profiles p 
+            WHERE p.user_id = u.id 
+            AND (
+                p.full_name ILIKE '%' || $6::text || '%' OR 
+                p.phone ILIKE '%' || $6::text || '%'
+            )
+        )
     )
-
 ORDER BY
-    -- id
-    CASE 
-        WHEN $6 = 'id' AND $7 = 'asc' THEN id
-    END ASC,
-    CASE 
-        WHEN $6 = 'id' AND $7 = 'desc' THEN id
-    END DESC,
-    -- created_at
-    CASE 
-        WHEN $6 = 'created_at' AND $7 = 'asc' THEN u.created_at
-    END ASC,
-    CASE 
-        WHEN $6 = 'created_at' AND $7 = 'desc' THEN u.created_at
-    END DESC,
-    -- updated_at
-    CASE 
-        WHEN $6 = 'updated_at' AND $7 = 'asc' THEN u.updated_at
-    END ASC,
-    CASE 
-        WHEN $6 = 'updated_at' AND $7 = 'desc' THEN u.updated_at
-    END DESC,
-    -- fallback
+    CASE WHEN $7 = 'id' AND $8 = 'asc' THEN u.id END ASC,
+    CASE WHEN $7 = 'id' AND $8 = 'desc' THEN u.id END DESC,
+    CASE WHEN $7 = 'created_at' AND $8 = 'asc' THEN u.created_at END ASC,
+    CASE WHEN $7 = 'created_at' AND $8 = 'desc' THEN u.created_at END DESC,
+    CASE WHEN $7 = 'updated_at' AND $8 = 'asc' THEN u.updated_at END ASC,
+    CASE WHEN $7 = 'updated_at' AND $8 = 'desc' THEN u.updated_at END DESC,
+    CASE WHEN $7 = 'email' AND $8 = 'asc' THEN u.email END ASC,
+    CASE WHEN $7 = 'email' AND $8 = 'desc' THEN u.email END DESC,
+    CASE WHEN $7 = 'is_deleted' AND $8 = 'asc' THEN u.is_deleted END ASC,
+    CASE WHEN $7 = 'is_deleted' AND $8 = 'desc' THEN u.is_deleted END DESC,
+    CASE WHEN $7 = 'auth_provider' AND $8 = 'asc' THEN u.auth_provider END ASC,
+    CASE WHEN $7 = 'auth_provider' AND $8 = 'desc' THEN u.auth_provider END DESC,
     u.id ASC
-
-LIMIT $8
+LIMIT $10
+OFFSET $9
 `
 
 type SearchUsersParams struct {
-	Cursor     pgtype.UUID   `json:"cursor"`
-	IsDeleted  pgtype.Bool   `json:"is_deleted"`
-	RoleIds    []pgtype.UUID `json:"role_ids"`
-	SearchID   pgtype.UUID   `json:"search_id"`
-	SearchText pgtype.Text   `json:"search_text"`
-	Sort       interface{}   `json:"sort"`
-	Order      interface{}   `json:"order"`
-	Limit      int32         `json:"limit"`
+	IsDeleted    pgtype.Bool      `json:"is_deleted"`
+	RoleIds      []pgtype.UUID    `json:"role_ids"`
+	AuthProvider pgtype.Text      `json:"auth_provider"`
+	CreatedFrom  pgtype.Timestamp `json:"created_from"`
+	CreatedTo    pgtype.Timestamp `json:"created_to"`
+	SearchText   pgtype.Text      `json:"search_text"`
+	Sort         interface{}      `json:"sort"`
+	Order        interface{}      `json:"order"`
+	Offset       int32            `json:"offset"`
+	Limit        int32            `json:"limit"`
 }
 
 type SearchUsersRow struct {
@@ -401,6 +450,8 @@ type SearchUsersRow struct {
 	Email        string             `json:"email"`
 	PasswordHash pgtype.Text        `json:"password_hash"`
 	TokenVersion int32              `json:"token_version"`
+	GoogleID     pgtype.Text        `json:"google_id"`
+	AuthProvider string             `json:"auth_provider"`
 	RefreshToken pgtype.Text        `json:"refresh_token"`
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
@@ -411,13 +462,15 @@ type SearchUsersRow struct {
 
 func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]SearchUsersRow, error) {
 	rows, err := q.db.Query(ctx, searchUsers,
-		arg.Cursor,
 		arg.IsDeleted,
 		arg.RoleIds,
-		arg.SearchID,
+		arg.AuthProvider,
+		arg.CreatedFrom,
+		arg.CreatedTo,
 		arg.SearchText,
 		arg.Sort,
 		arg.Order,
+		arg.Offset,
 		arg.Limit,
 	)
 	if err != nil {
@@ -432,6 +485,8 @@ func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]Sea
 			&i.Email,
 			&i.PasswordHash,
 			&i.TokenVersion,
+			&i.GoogleID,
+			&i.AuthProvider,
 			&i.RefreshToken,
 			&i.IsDeleted,
 			&i.CreatedAt,

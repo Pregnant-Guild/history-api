@@ -97,6 +97,7 @@ func (r *roleRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.R
 	var role models.RoleEntity
 	err := r.c.Get(ctx, cacheId, &role)
 	if err == nil {
+		_ = r.c.Set(ctx, cacheId, role, constants.NormalCacheDuration)
 		return &role, nil
 	}
 
@@ -122,6 +123,7 @@ func (r *roleRepository) GetByname(ctx context.Context, name string) (*models.Ro
 	var role models.RoleEntity
 	err := r.c.Get(ctx, cacheId, &role)
 	if err == nil {
+		_ = r.c.Set(ctx, cacheId, role, constants.NormalCacheDuration)
 		return &role, nil
 	}
 	row, err := r.q.GetRoleByName(ctx, name)
@@ -146,6 +148,11 @@ func (r *roleRepository) Create(ctx context.Context, name string) (*models.RoleE
 	if err != nil {
 		return nil, err
 	}
+		go func() {
+	bgCtx := context.Background()
+		_ = r.c.DelByPattern(bgCtx, "role:all*")
+	}()
+
 	role := models.RoleEntity{
 		ID:        convert.UUIDToString(row.ID),
 		Name:      row.Name,
@@ -183,24 +190,52 @@ func (r *roleRepository) Update(ctx context.Context, params sqlc.UpdateRoleParam
 }
 
 func (r *roleRepository) All(ctx context.Context) ([]*models.RoleEntity, error) {
+	queryKey := "role:all"
+	var cachedIDs []string
+	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+		listItem, err := r.getByIDsWithFallback(ctx, cachedIDs)
+		if err != nil {
+			return nil, err
+		}
+		newCachedIDs := make([]string, len(listItem))
+		for i, media := range listItem {
+			newCachedIDs[i] = media.ID
+		}
+		_ = r.c.Set(ctx, queryKey, newCachedIDs, constants.ListCacheDuration)
+		return listItem, err
+	}
+
 	rows, err := r.q.GetRoles(ctx)
 	if err != nil {
 		return nil, err
 	}
+	var roles []*models.RoleEntity
+	var ids []string
+	roleToCache := make(map[string]any)
 
-	var users []*models.RoleEntity
 	for _, row := range rows {
-		user := &models.RoleEntity{
+		role := &models.RoleEntity{
 			ID:        convert.UUIDToString(row.ID),
 			Name:      row.Name,
 			IsDeleted: row.IsDeleted,
 			CreatedAt: convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 		}
-		users = append(users, user)
+		ids = append(ids, role.ID)
+		roles = append(roles, role)
+
+		roleToCache[fmt.Sprintf("role:id:%s", role.ID)] = role
 	}
 
-	return users, nil
+	if len(roleToCache) > 0 {
+		_ = r.c.MSet(ctx, roleToCache, constants.NormalCacheDuration)
+	}
+
+	if len(ids) > 0 {
+		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
+	}
+
+	return roles, nil
 }
 
 func (r *roleRepository) Delete(ctx context.Context, id pgtype.UUID) error {

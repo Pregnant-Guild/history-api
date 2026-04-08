@@ -18,6 +18,7 @@ type MediaRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.MediaEntity, error)
 	GetByUserID(ctx context.Context, userId pgtype.UUID) ([]*models.MediaEntity, error)
 	Search(ctx context.Context, params sqlc.SearchMediasParams) ([]*models.MediaEntity, error)
+	Count(ctx context.Context, params sqlc.CountMediasParams) (int64, error)
 	Delete(ctx context.Context, id pgtype.UUID) error
 	Create(ctx context.Context, params sqlc.CreateMediaParams) (*models.MediaEntity, error)
 }
@@ -85,6 +86,7 @@ func (r *mediaRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.
 	var media models.MediaEntity
 	err := r.c.Get(ctx, cacheId, &media)
 	if err == nil {
+		_ = r.c.Set(ctx, cacheId, media, constants.NormalCacheDuration)
 		return &media, nil
 	}
 
@@ -118,11 +120,10 @@ func (r *mediaRepository) Create(ctx context.Context, params sqlc.CreateMediaPar
 
 	go func() {
 		bgCtx := context.Background()
-
-		_ = r.c.DelByPattern(bgCtx, "media:target*")
-		_ = r.c.DelByPattern(bgCtx, "media:userId:*")
 		_ = r.c.DelByPattern(bgCtx, "media:search*")
+		_ = r.c.DelByPattern(bgCtx, "media:count*")
 	}()
+
 	media := models.MediaEntity{
 		ID:           convert.UUIDToString(row.ID),
 		UserID:       convert.UUIDToString(row.UserID),
@@ -155,7 +156,16 @@ func (r *mediaRepository) Search(ctx context.Context, params sqlc.SearchMediasPa
 	queryKey := r.generateQueryKey("media:search", params)
 	var cachedIDs []string
 	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
-		return r.getByIDsWithFallback(ctx, cachedIDs)
+		listItem, err := r.getByIDsWithFallback(ctx, cachedIDs)
+		if err != nil {
+			return nil, err
+		}
+		newCachedIDs := make([]string, len(listItem))
+		for i, media := range listItem {
+			newCachedIDs[i] = media.ID
+		}
+		_ = r.c.Set(ctx, queryKey, newCachedIDs, constants.ListCacheDuration)
+		return listItem, err
 	}
 
 	rows, err := r.q.SearchMedias(ctx, params)
@@ -195,11 +205,35 @@ func (r *mediaRepository) Search(ctx context.Context, params sqlc.SearchMediasPa
 	return medias, nil
 }
 
+func (r *mediaRepository) Count(ctx context.Context, params sqlc.CountMediasParams) (int64, error) {
+	queryKey := r.generateQueryKey("media:count", params)
+	var count int64
+	if err := r.c.Get(ctx, queryKey, &count); err == nil {
+		_ = r.c.Set(ctx, queryKey, count, constants.ListCacheDuration)
+		return count, nil
+	}
+	count, err := r.q.CountMedias(ctx, params)
+	if err != nil {
+		return 0, err
+	}
+	_ = r.c.Set(ctx, queryKey, count, constants.ListCacheDuration)
+	return count, nil
+}
+
 func (r *mediaRepository) GetByUserID(ctx context.Context, userId pgtype.UUID) ([]*models.MediaEntity, error) {
 	queryKey := fmt.Sprintf("media:userId:%s", convert.UUIDToString(userId))
 	var cachedIDs []string
 	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
-		return r.getByIDsWithFallback(ctx, cachedIDs)
+		listItem, err := r.getByIDsWithFallback(ctx, cachedIDs)
+		if err != nil {
+			return nil, err
+		}
+		newCachedIDs := make([]string, len(listItem))
+		for i, media := range listItem {
+			newCachedIDs[i] = media.ID
+		}
+		_ = r.c.Set(ctx, queryKey, newCachedIDs, constants.ListCacheDuration)
+		return listItem, nil
 	}
 
 	rows, err := r.q.GetMediasByUserID(ctx, userId)

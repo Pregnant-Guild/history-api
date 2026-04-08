@@ -15,13 +15,17 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_users_active_created_at 
-ON users (created_at DESC) 
-WHERE is_deleted = false;
+ALTER TABLE users ADD CONSTRAINT check_auth_provider 
+CHECK (auth_provider IN ('local', 'google', 'facebook', 'github'));
+
+CREATE INDEX idx_users_provider_created_at ON users (auth_provider, created_at DESC);
 
 CREATE INDEX idx_users_email_active
 ON users (email)
 WHERE is_deleted = false;
+
+CREATE INDEX idx_users_email_trgm ON users USING gin (email gin_trgm_ops);
+CREATE INDEX idx_users_id_trgm ON users USING gin ((id::text) gin_trgm_ops);
 
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$

@@ -869,7 +869,17 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "name": "cursor",
+                        "name": "auth_provider",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "name": "created_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "name": "created_to",
                         "in": "query"
                     },
                     {
@@ -895,6 +905,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
                         "type": "array",
                         "items": {
                             "type": "string"
@@ -914,7 +930,10 @@ const docTemplate = `{
                         "enum": [
                             "id",
                             "created_at",
-                            "updated_at"
+                            "updated_at",
+                            "email",
+                            "is_deleted",
+                            "auth_provider"
                         ],
                         "type": "string",
                         "name": "sort",
@@ -1570,18 +1589,27 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "pagination": {
-                    "type": "object",
-                    "properties": {
-                        "has_more": {
-                            "type": "boolean"
-                        },
-                        "next_cursor": {
-                            "type": "string"
-                        }
-                    }
+                    "$ref": "#/definitions/history-api_internal_dtos_response.PaginationMeta"
                 },
                 "status": {
                     "type": "boolean"
+                }
+            }
+        },
+        "history-api_internal_dtos_response.PaginationMeta": {
+            "type": "object",
+            "properties": {
+                "current_page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                },
+                "total_records": {
+                    "type": "integer"
                 }
             }
         },
