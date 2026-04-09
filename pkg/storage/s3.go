@@ -14,8 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/rs/zerolog/log"
 )
 
@@ -92,20 +90,8 @@ func NewS3Storage() (Storage, error) {
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(endpoint)
 		o.UsePathStyle = true
-		o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
-			return stack.Build.Add(middleware.BuildMiddlewareFunc(
-				"AddEmptyContentLength",
-				func(ctx context.Context, in middleware.BuildInput, next middleware.BuildHandler) (
-					out middleware.BuildOutput, metadata middleware.Metadata, err error,
-				) {
-					req, ok := in.Request.(*smithyhttp.Request)
-					if ok && req.Method == "PUT" && req.Header.Get("Content-Length") == "" {
-						req.Header.Set("Content-Length", "0")
-					}
-					return next.HandleBuild(ctx, in)
-				},
-			), middleware.After)
-		})
+		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
+		o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
 	})
 
 	return &s3Storage{
