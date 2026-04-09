@@ -19,3 +19,7 @@ type SearchMediaDto struct {
 	MinSize  *int64   `json:"min_size" query:"min_size" validate:"omitempty,min=0"`
 	MaxSize  *int64   `json:"max_size" query:"max_size" validate:"omitempty,min=0,gtefield=MinSize"`
 }
+
+type MediaBulkDeleteDto struct {
+	MediaIDs []string `json:"media_ids" validate:"required,dive,uuid"`
+}

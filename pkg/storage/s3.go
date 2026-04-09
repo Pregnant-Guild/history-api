@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/rs/zerolog/log"
 
 	ffconfig "history-api/pkg/config"
@@ -33,6 +34,7 @@ type Storage interface {
 	PresignUpload(ctx context.Context, key string, expire time.Duration, opts UploadOptions) (string, error)
 	GetURL(ctx context.Context, key string, expire time.Duration) (string, error)
 	Delete(ctx context.Context, key string) error
+	BulkDelete(ctx context.Context, keys []string) error
 	GetMainBucket() string
 	GetTempBucket() string
 }
@@ -185,4 +187,42 @@ func (s *s3Storage) Delete(ctx context.Context, key string) error {
 		Key:    &key,
 	})
 	return err
+}
+
+func (s *s3Storage) BulkDelete(ctx context.Context, keys []string) error {
+    if len(keys) == 0 {
+        return nil
+    }
+
+    batchSize := 1000
+    var hasError bool
+
+    for i := 0; i < len(keys); i += batchSize {
+        end := i + batchSize
+        if end > len(keys) {
+            end = len(keys)
+        }
+
+        batch := keys[i:end]
+        var objects []types.ObjectIdentifier
+        for _, k := range batch {
+            objects = append(objects, types.ObjectIdentifier{Key: aws.String(k)})
+        }
+
+        _, err := s.client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+            Bucket: aws.String(s.bucket),
+            Delete: &types.Delete{Objects: objects},
+        })
+
+        if err != nil {
+            log.Error().Err(err).Int("start", i).Int("end", end).Msg("S3 batch delete failed")
+            hasError = true 
+            continue 
+        }
+    }
+
+    if hasError {
+        return fmt.Errorf("one or more batches failed to delete")
+    }
+    return nil
 }

@@ -42,7 +42,14 @@ func runSingleWorker(ctx context.Context, rdb *redis.Client, consumerID int) {
 			for _, message := range stream.Messages {
 				taskType := message.Values["task_type"].(string)
 				payloadStr := message.Values["payload"].(string)
-
+				taskType, ok1 := message.Values["task_type"].(string)
+				payloadStr, ok2 := message.Values["payload"].(string)
+				if !ok1 || !ok2 {
+					log.Error().Msg("Invalid message format")
+					rdb.XAck(ctx, constants.StreamEmailName, constants.GroupEmailName, message.ID)
+					continue
+				}
+				
 				if taskType == constants.TaskTypeSendEmailOTP.String() {
 					var data models.TokenEntity
 					if err := json.Unmarshal([]byte(payloadStr), &data); err != nil {

@@ -38,7 +38,7 @@ type AuthService interface {
 	VerifyToken(ctx context.Context, dto *request.VerifyTokenDto) (*response.VerifyTokenResponse, error)
 	CreateToken(ctx context.Context, dto *request.CreateTokenDto) error
 	SigninWithGoogle(ctx context.Context, dto *request.SigninWithGoogleDto) (*response.AuthResponse, error)
-	RefreshToken(ctx context.Context, id string) (*response.AuthResponse, error)
+	RefreshToken(ctx context.Context, id string, refreshToken string) (*response.AuthResponse, error)
 }
 
 type authService struct {
@@ -203,7 +203,7 @@ func (a *authService) Logout(ctx context.Context, userId string) error {
 	return nil
 }
 
-func (a *authService) RefreshToken(ctx context.Context, id string) (*response.AuthResponse, error) {
+func (a *authService) RefreshToken(ctx context.Context, id string, refreshToken string) (*response.AuthResponse, error) {
 	var pgID pgtype.UUID
 	err := pgID.Scan(id)
 	if err != nil {
@@ -213,6 +213,11 @@ func (a *authService) RefreshToken(ctx context.Context, id string) (*response.Au
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid user data")
 	}
+
+	if user.RefreshToken != refreshToken {
+		return nil, fiber.NewError(fiber.StatusUnauthorized, "Invalid refresh token")
+	}
+
 	roles := models.RolesEntityToRoleConstant(user.Roles)
 
 	if slices.Contains(roles, constants.BANNED) {

@@ -6,13 +6,6 @@ INSERT INTO user_verifications (
 )
 RETURNING *;
 
--- name: CreateVerificationMedia :exec
-INSERT INTO verification_medias (
-    verification_id, media_id
-) VALUES (
-    $1, $2
-);
-
 -- name: GetUserVerificationByID :one
 SELECT 
     uv.id, 
@@ -94,3 +87,18 @@ WHERE id = $1;
 -- name: DeleteVerificationMedia :exec
 DELETE FROM verification_medias
 WHERE verification_id = $1 AND media_id = $2;
+
+-- name: CreateVerificationMedia :exec
+INSERT INTO verification_medias (
+    verification_id, media_id
+) VALUES (
+    $1, $2
+);
+
+-- name: DeleteAllVerificationMedias :exec
+DELETE FROM verification_medias
+WHERE verification_id = $1;
+
+-- name: BulkDeleteVerificationMedias :exec
+DELETE FROM verification_medias
+WHERE verification_id = $1 AND media_id = ANY($2::uuid[]);

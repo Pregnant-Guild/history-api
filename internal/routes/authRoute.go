@@ -12,7 +12,7 @@ func AuthRoutes(app *fiber.App, controller *controllers.AuthController, userRepo
 	route := app.Group("/auth")
 	route.Post("/signin", controller.Signin)
 	route.Post("/signup", controller.Signup)
-	route.Post("/refresh", middlewares.JwtRefresh(userRepo), controller.RefreshToken)
+	route.Post("/refresh", middlewares.JwtRefresh(), controller.RefreshToken)
 	route.Post("/token/create", controller.CreateToken)
 	route.Post("/token/verify", controller.VerifyToken)
 	route.Post("/forgot-password", controller.ForgotPassword)

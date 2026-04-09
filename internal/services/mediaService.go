@@ -32,6 +32,7 @@ type MediaService interface {
 	GetMediaByUserID(ctx context.Context, userId string) ([]*response.MediaResponse, error)
 	SearchMedia(ctx context.Context, dto *request.SearchMediaDto) (*response.PaginatedResponse, error)
 	DeleteMedia(ctx context.Context, claims *response.JWTClaims, mediaId string) error
+	BulkDeleteMedia(ctx context.Context, claims *response.JWTClaims, dto *request.MediaBulkDeleteDto) error
 	UploadServerSide(ctx context.Context, userId string, fileHeader *multipart.FileHeader) (*response.MediaResponse, error)
 	GeneratePresignedURL(ctx context.Context, userId string, dto *request.PreSignedDto) (*response.PreSignedResponse, error)
 	PreSignedCompleted(ctx context.Context, userId string, dto *request.PreSignedCompleteDto) (*response.MediaResponse, error)
@@ -84,6 +85,39 @@ func (m *mediaService) DeleteMedia(ctx context.Context, claims *response.JWTClai
 	}
 
 	m.c.PublishTask(ctx, constants.StreamStorageName, constants.TaskTypeDeleteMedia, media.ToStorageEntity())
+
+	return nil
+}
+
+func (m *mediaService) BulkDeleteMedia(ctx context.Context, claims *response.JWTClaims, dto *request.MediaBulkDeleteDto) error {
+	listMedia, err := m.mediaRepo.GetByIDs(ctx, dto.MediaIDs)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	shoudDelete := false
+	if slices.Contains(claims.Roles, constants.ADMIN) || slices.Contains(claims.Roles, constants.MOD) {
+		shoudDelete = true
+	}
+	listMediaIds := make([]pgtype.UUID, len(listMedia))
+	listMediaStorageEntities := make([]*models.MediaStorageEntity, len(listMedia))
+	for _, media := range listMedia {
+		if media.UserID != claims.UId && !shoudDelete {
+			return fiber.NewError(fiber.StatusForbidden, "You don't have permission to delete this media")
+		}
+		id, err := convert.StringToUUID(media.ID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		listMediaIds = append(listMediaIds, id)
+		listMediaStorageEntities = append(listMediaStorageEntities, media.ToStorageEntity())
+	}
+
+	err = m.mediaRepo.BulkDelete(ctx, listMediaIds)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	m.c.PublishTask(ctx, constants.StreamStorageName, constants.TaskTypeBulkDeleteMedia, listMediaStorageEntities)
 
 	return nil
 }

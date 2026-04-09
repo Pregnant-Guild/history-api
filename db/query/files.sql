@@ -10,6 +10,10 @@ RETURNING *;
 DELETE FROM medias
 WHERE id = $1;
 
+-- name: DeleteMedias :exec
+DELETE FROM medias
+WHERE id = ANY($1::uuid[]);
+
 -- name: SearchMedias :many
 SELECT 
     id, user_id, storage_key, original_name, mime_type, size, file_metadata, created_at, updated_at

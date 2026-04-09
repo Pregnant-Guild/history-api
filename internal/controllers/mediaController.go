@@ -124,6 +124,57 @@ func (m *MediaController) DeleteMedia(c fiber.Ctx) error {
 	})
 }
 
+// BulkDeleteMedia godoc
+// @Summary Delete media
+// @Description Delete multiple media files by IDs
+// @Tags Media
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body request.MediaBulkDeleteDto true "Media IDs to delete"
+// @Success 200 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /media [delete]
+func (m *MediaController) BulkDeleteMedia(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	claimsVal := c.Locals("user_claims")
+	if claimsVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Unauthorized",
+		})
+	}
+
+	claims, ok := claimsVal.(*response.JWTClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Invalid user claims",
+		})
+	}
+
+	dto := &request.MediaBulkDeleteDto{}
+	if err := validator.ValidateBodyDto(c, dto); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Error(),
+		})
+	}
+
+	err := m.service.BulkDeleteMedia(ctx, claims, dto)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Error(),
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status:  true,
+		Message: "Media deleted successfully",
+	})
+}
+
 // UploadServerSide godoc
 // @Summary Upload media (server-side)
 // @Description Upload media file through server

@@ -16,10 +16,12 @@ import (
 
 type MediaRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.MediaEntity, error)
+	GetByIDs(ctx context.Context, ids []string) ([]*models.MediaEntity, error)
 	GetByUserID(ctx context.Context, userId pgtype.UUID) ([]*models.MediaEntity, error)
 	Search(ctx context.Context, params sqlc.SearchMediasParams) ([]*models.MediaEntity, error)
 	Count(ctx context.Context, params sqlc.CountMediasParams) (int64, error)
 	Delete(ctx context.Context, id pgtype.UUID) error
+	BulkDelete(ctx context.Context, ids []pgtype.UUID) error
 	Create(ctx context.Context, params sqlc.CreateMediaParams) (*models.MediaEntity, error)
 }
 
@@ -79,6 +81,10 @@ func (r *mediaRepository) getByIDsWithFallback(ctx context.Context, ids []string
 	}
 
 	return medias, nil
+}
+
+func (r *mediaRepository) GetByIDs(ctx context.Context, ids []string) ([]*models.MediaEntity, error) {
+	return r.getByIDsWithFallback(ctx, ids)
 }
 
 func (r *mediaRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.MediaEntity, error) {
@@ -148,6 +154,23 @@ func (r *mediaRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 
 	cacheId := fmt.Sprintf("media:id:%s", convert.UUIDToString(id))
 	_ = r.c.Del(ctx, cacheId)
+
+	return nil
+}
+
+func (r *mediaRepository) BulkDelete(ctx context.Context, ids []pgtype.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	err := r.q.DeleteMedias(ctx, ids)
+	if err != nil {
+		return err
+	}
+	keys := make([]string, len(ids))
+	for i, id := range ids {
+		keys[i] = fmt.Sprintf("media:id:%s", convert.UUIDToString(id))
+	}
+	_ = r.c.Del(ctx, keys...)
 
 	return nil
 }

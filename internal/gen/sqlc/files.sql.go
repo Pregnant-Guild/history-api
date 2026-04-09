@@ -100,6 +100,16 @@ func (q *Queries) DeleteMedia(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const deleteMedias = `-- name: DeleteMedias :exec
+DELETE FROM medias
+WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) DeleteMedias(ctx context.Context, dollar_1 []pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteMedias, dollar_1)
+	return err
+}
+
 const getMediaByID = `-- name: GetMediaByID :one
 SELECT id, user_id, storage_key, original_name, mime_type, size, file_metadata, created_at, updated_at FROM medias
 WHERE id = $1

@@ -50,3 +50,12 @@ func MediaEntitiesToResponse(entities []*MediaEntity) []*response.MediaResponse 
 	}
 	return responses
 }
+
+
+func MediaEntitiesToStorageEntitye(entities []*MediaEntity) []*MediaStorageEntity {
+	responses := make([]*MediaStorageEntity, len(entities))
+	for i, entity := range entities {
+		responses[i] = entity.ToStorageEntity()
+	}
+	return responses
+}

@@ -17,7 +17,12 @@ func MediaRoutes(app *fiber.App, controller *controllers.MediaController, userRe
 		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
 		controller.SearchMedia,
 	)
-	
+	route.Delete(
+		"/",
+		middlewares.JwtAccess(userRepo),
+		controller.BulkDeleteMedia,
+	)
+
 	route.Post(
 		"/upload",
 		middlewares.JwtAccess(userRepo),

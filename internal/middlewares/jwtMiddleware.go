@@ -31,7 +31,7 @@ func JwtAccess(userRepo repositories.UserRepository) fiber.Handler {
 	})
 }
 
-func JwtRefresh(userRepo repositories.UserRepository) fiber.Handler {
+func JwtRefresh() fiber.Handler {
 	jwtRefreshSecret, err := config.GetConfig("JWT_REFRESH_SECRET")
 	if err != nil {
 		return nil
@@ -40,7 +40,7 @@ func JwtRefresh(userRepo repositories.UserRepository) fiber.Handler {
 	return jwtware.New(jwtware.Config{
 		SigningKey:     jwtware.SigningKey{Key: []byte(jwtRefreshSecret)},
 		ErrorHandler:   jwtError,
-		SuccessHandler: jwtSuccess(userRepo),
+		SuccessHandler: jwtSuccessRefresh(),
 		Extractor: extractors.Chain(
 			extractors.FromAuthHeader("Bearer"),
 			extractors.FromCookie("refresh_token"),
@@ -91,6 +91,38 @@ func jwtSuccess(userRepo repositories.UserRepository) fiber.Handler {
 			return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
 				Status:  false,
 				Message: "Token has been invalidated",
+			})
+		}
+
+		c.Locals("uid", claims.UId)
+		c.Locals("user_claims", claims)
+		return c.Next()
+	}
+}
+
+func jwtSuccessRefresh() fiber.Handler {
+	return func(c fiber.Ctx) error {
+		unauthorized := func() error {
+			return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+				Status:  false,
+				Message: "Invalid or missing token",
+			})
+		}
+
+		jwtToken := jwtware.FromContext(c)
+		if jwtToken == nil {
+			return unauthorized()
+		}
+
+		claims, ok := jwtToken.Claims.(*response.JWTClaims)
+		if !ok {
+			return unauthorized()
+		}
+
+		if slices.Contains(claims.Roles, constants.BANNED) {
+			return c.Status(fiber.StatusForbidden).JSON(response.CommonResponse{
+				Status:  false,
+				Message: "User account is banned",
 			})
 		}
 

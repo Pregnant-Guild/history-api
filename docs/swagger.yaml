@@ -60,6 +60,15 @@ definitions:
     - new_password
     - token_id
     type: object
+  history-api_internal_dtos_request.MediaBulkDeleteDto:
+    properties:
+      media_ids:
+        items:
+          type: string
+        type: array
+    required:
+    - media_ids
+    type: object
   history-api_internal_dtos_request.SignInDto:
     properties:
       email:
@@ -443,6 +452,33 @@ paths:
       tags:
       - Auth
   /media:
+    delete:
+      consumes:
+      - application/json
+      description: Delete multiple media files by IDs
+      parameters:
+      - description: Media IDs to delete
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.MediaBulkDeleteDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete media
+      tags:
+      - Media
     get:
       consumes:
       - application/json

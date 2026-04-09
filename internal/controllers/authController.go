@@ -9,6 +9,7 @@ import (
 	"history-api/internal/models"
 	"history-api/internal/services"
 	"history-api/pkg/validator"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -136,6 +137,16 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 	})
 }
 
+
+func (h *AuthController) getRefreshToken(c fiber.Ctx) string {
+	auth := c.Get("Authorization")
+	if auth != "" {
+		return strings.TrimPrefix(auth, "Bearer ")
+	}
+
+	return c.Cookies("refresh_token")
+}
+
 // RefreshToken godoc
 // @Summary Refresh session tokens
 // @Description Generate a new access token using a valid refresh token from context
@@ -151,7 +162,15 @@ func (h *AuthController) RefreshToken(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	res, err := h.service.RefreshToken(ctx, c.Locals("uid").(string))
+	tokenJwt := h.getRefreshToken(c)
+	if tokenJwt == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Missing refresh token",
+		})
+	}
+
+	res, err := h.service.RefreshToken(ctx, c.Locals("uid").(string), tokenJwt)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
 			Status:  false,
