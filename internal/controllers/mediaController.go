@@ -220,8 +220,9 @@ func (m *MediaController) UploadServerSide(c fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param filename query string true "File name"
-// @Param contentType query string true "Content type"
+// @Param fileName query string true "File name"
+// @Param content_type query string true "Content type"
+// @Param size query int true "File size"
 // @Success 200 {object} response.CommonResponse
 // @Failure 400 {object} response.CommonResponse
 // @Failure 500 {object} response.CommonResponse
@@ -254,7 +255,7 @@ func (m *MediaController) GeneratePresignedURL(c fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param key query string true "Storage key"
+// @Param data body PreSignedCompleteDto true "Request body"
 // @Success 200 {object} response.CommonResponse
 // @Failure 400 {object} response.CommonResponse
 // @Failure 500 {object} response.CommonResponse

@@ -2,7 +2,7 @@ package request
 
 type PreSignedDto struct {
 	FileName    string `json:"fileName" validate:"required"`
-	ContentType string `json:"contentType" validate:"required"`
+	ContentType string `json:"content_type" validate:"required"`
 	Size        int64  `json:"size" validate:"required"`
 }
 
