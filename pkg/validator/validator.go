@@ -2,6 +2,8 @@ package validator
 
 import (
 	"errors"
+	"net/url"
+	"path"
 	"reflect"
 	"strings"
 
@@ -22,6 +24,31 @@ func init() {
 		}
 		return name
 	})
+
+	validate.RegisterValidation("image_url", func(fl validator.FieldLevel) bool {
+		val := fl.Field().String()
+		if val == "" {
+			return true
+		}
+		return isImageURL(val)
+	})
+
+}
+
+func isImageURL(u string) bool {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return false
+	}
+
+	ext := strings.ToLower(path.Ext(parsed.Path))
+
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp":
+		return true
+	default:
+		return false
+	}
 }
 
 type ErrorResponse struct {
