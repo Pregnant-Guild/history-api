@@ -104,7 +104,7 @@ func (s *s3Storage) GetMainBucket() string { return s.bucket }
 func (s *s3Storage) GetTempBucket() string { return s.tempBucket }
 
 func (s *s3Storage) Move(ctx context.Context, src *MoveOptions, dest *MoveOptions) error {
-	copySource := url.PathEscape(fmt.Sprintf("%s/%s", src.Bucket, src.Key))
+	copySource := fmt.Sprintf("%s/%s", src.Bucket, url.PathEscape(src.Key))
 
 	_, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{
 		Bucket:     aws.String(dest.Bucket),
@@ -113,6 +113,15 @@ func (s *s3Storage) Move(ctx context.Context, src *MoveOptions, dest *MoveOption
 	})
 	if err != nil {
 		return fmt.Errorf("failed to copy object: %w", err)
+	}
+
+	waiter := s3.NewObjectExistsWaiter(s.client)
+	err = waiter.Wait(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(dest.Bucket),
+		Key:    aws.String(dest.Key),
+	}, time.Second*10)
+	if err != nil {
+		return fmt.Errorf("object not available after copy: %w", err)
 	}
 
 	_, err = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
@@ -190,39 +199,39 @@ func (s *s3Storage) Delete(ctx context.Context, key string) error {
 }
 
 func (s *s3Storage) BulkDelete(ctx context.Context, keys []string) error {
-    if len(keys) == 0 {
-        return nil
-    }
+	if len(keys) == 0 {
+		return nil
+	}
 
-    batchSize := 1000
-    var hasError bool
+	batchSize := 1000
+	var hasError bool
 
-    for i := 0; i < len(keys); i += batchSize {
-        end := i + batchSize
-        if end > len(keys) {
-            end = len(keys)
-        }
+	for i := 0; i < len(keys); i += batchSize {
+		end := i + batchSize
+		if end > len(keys) {
+			end = len(keys)
+		}
 
-        batch := keys[i:end]
-        var objects []types.ObjectIdentifier
-        for _, k := range batch {
-            objects = append(objects, types.ObjectIdentifier{Key: aws.String(k)})
-        }
+		batch := keys[i:end]
+		var objects []types.ObjectIdentifier
+		for _, k := range batch {
+			objects = append(objects, types.ObjectIdentifier{Key: aws.String(k)})
+		}
 
-        _, err := s.client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-            Bucket: aws.String(s.bucket),
-            Delete: &types.Delete{Objects: objects},
-        })
+		_, err := s.client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+			Bucket: aws.String(s.bucket),
+			Delete: &types.Delete{Objects: objects},
+		})
 
-        if err != nil {
-            log.Error().Err(err).Int("start", i).Int("end", end).Msg("S3 batch delete failed")
-            hasError = true 
-            continue 
-        }
-    }
+		if err != nil {
+			log.Error().Err(err).Int("start", i).Int("end", end).Msg("S3 batch delete failed")
+			hasError = true
+			continue
+		}
+	}
 
-    if hasError {
-        return fmt.Errorf("one or more batches failed to delete")
-    }
-    return nil
+	if hasError {
+		return fmt.Errorf("one or more batches failed to delete")
+	}
+	return nil
 }
