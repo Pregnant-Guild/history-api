@@ -7,14 +7,16 @@ import (
 	"net/url"
 	"time"
 
+	ffconfig "history-api/pkg/config"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/rs/zerolog/log"
-
-	ffconfig "history-api/pkg/config"
 )
 
 type UploadOptions struct {
@@ -90,6 +92,20 @@ func NewS3Storage() (Storage, error) {
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(endpoint)
 		o.UsePathStyle = true
+		o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+			return stack.Build.Add(middleware.BuildMiddlewareFunc(
+				"AddEmptyContentLength",
+				func(ctx context.Context, in middleware.BuildInput, next middleware.BuildHandler) (
+					out middleware.BuildOutput, metadata middleware.Metadata, err error,
+				) {
+					req, ok := in.Request.(*smithyhttp.Request)
+					if ok && req.Method == "PUT" && req.Header.Get("Content-Length") == "" {
+						req.Header.Set("Content-Length", "0")
+					}
+					return next.HandleBuild(ctx, in)
+				},
+			), middleware.After)
+		})
 	})
 
 	return &s3Storage{
@@ -107,9 +123,10 @@ func (s *s3Storage) Move(ctx context.Context, src *MoveOptions, dest *MoveOption
 	copySource := fmt.Sprintf("%s/%s", src.Bucket, url.PathEscape(src.Key))
 
 	_, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{
-		Bucket:     aws.String(dest.Bucket),
-		Key:        aws.String(dest.Key),
-		CopySource: aws.String(copySource),
+		Bucket:            aws.String(dest.Bucket),
+		Key:               aws.String(dest.Key),
+		CopySource:        aws.String(copySource),
+		MetadataDirective: types.MetadataDirectiveCopy,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to copy object: %w", err)
