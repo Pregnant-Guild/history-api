@@ -90,10 +90,7 @@ func NewS3Storage() (Storage, error) {
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(endpoint)
 		o.UsePathStyle = true
-		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
-		o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
 	})
-
 	return &s3Storage{
 		client:     client,
 		ps:         s3.NewPresignClient(client),
@@ -109,10 +106,9 @@ func (s *s3Storage) Move(ctx context.Context, src *MoveOptions, dest *MoveOption
 	copySource := fmt.Sprintf("%s/%s", src.Bucket, url.PathEscape(src.Key))
 
 	_, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{
-		Bucket:            aws.String(dest.Bucket),
-		Key:               aws.String(dest.Key),
-		CopySource:        aws.String(copySource),
-		MetadataDirective: types.MetadataDirectiveCopy,
+		Bucket:     aws.String(dest.Bucket),
+		Key:        aws.String(dest.Key),
+		CopySource: aws.String(copySource),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to copy object: %w", err)
