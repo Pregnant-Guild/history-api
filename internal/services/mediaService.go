@@ -384,7 +384,7 @@ func (m *mediaService) PreSignedCompleted(ctx context.Context, userId string, dt
 	)
 
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to move file to final destination")
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
 	media, err := m.mediaRepo.Create(ctx, sqlc.CreateMediaParams{
