@@ -128,6 +128,7 @@ func (r *mediaRepository) Create(ctx context.Context, params sqlc.CreateMediaPar
 		bgCtx := context.Background()
 		_ = r.c.DelByPattern(bgCtx, "media:search*")
 		_ = r.c.DelByPattern(bgCtx, "media:count*")
+		_ = r.c.Del(ctx, fmt.Sprintf("media:userId:%s", convert.UUIDToString(params.UserID)))
 	}()
 
 	media := models.MediaEntity{
