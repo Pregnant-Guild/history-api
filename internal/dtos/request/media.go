@@ -1,9 +1,9 @@
 package request
 
 type PreSignedDto struct {
-	FileName    string `json:"fileName" validate:"required"`
-	ContentType string `json:"content_type" validate:"required"`
-	Size        int64  `json:"size" validate:"required"`
+	FileName    string `json:"fileName" query:"fileName" validate:"required"`
+	ContentType string `json:"content_type" query:"content_type" validate:"required"`
+	Size        int64  `json:"size" query:"size" validate:"required"`
 }
 
 type PreSignedCompleteDto struct {
