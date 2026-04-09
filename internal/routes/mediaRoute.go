@@ -39,7 +39,7 @@ func MediaRoutes(app *fiber.App, controller *controllers.MediaController, userRe
 	route.Post(
 		"/presigned/complete",
 		middlewares.JwtAccess(userRepo),
-		controller.GeneratePresignedURL,
+		controller.PreSignedCompleted,
 	)
 
 	route.Get(
