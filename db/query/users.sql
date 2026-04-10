@@ -26,14 +26,14 @@ RETURNING *;
 -- name: UpdateUserProfile :one
 UPDATE user_profiles
 SET
-    display_name = $1,
-    full_name = $2,
-    avatar_url = $3,
-    bio = $4,
-    location = $5,
-    website = $6,
-    country_code = $7,
-    phone = $8,
+    display_name = COALESCE($1, display_name),
+    full_name = COALESCE($2, full_name),
+    avatar_url = COALESCE($3, avatar_url),
+    bio = COALESCE($4, bio),
+    location = COALESCE($5, location),
+    website = COALESCE($6, website),
+    country_code = COALESCE($7, country_code),
+    phone = COALESCE($8, phone),
     updated_at = now()
 WHERE user_id = $9
 RETURNING *;

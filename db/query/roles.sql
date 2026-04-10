@@ -16,23 +16,23 @@ SELECT id, name, is_deleted, created_at, updated_at
 FROM roles
 WHERE id = ANY($1::uuid[]) AND is_deleted = false;
 
--- name: AddUserRole :exec
+-- name: CreateUserRole :exec
 INSERT INTO user_roles (user_id, role_id)
 SELECT $1, unnest($2::uuid[])
 ON CONFLICT DO NOTHING;
 
--- name: RemoveUserRole :exec
+-- name: DeleteUserRole :exec
 DELETE FROM user_roles ur
 USING roles r
 WHERE ur.role_id = r.id
   AND ur.user_id = $1
   AND r.name = $2;
 
--- name: RemoveAllRolesFromUser :exec
+-- name: BulkDeleteRolesFromUser :exec
 DELETE FROM user_roles 
 WHERE user_id = $1;
 
--- name: RemoveAllUsersFromRole :exec
+-- name: BulkDeleteUsersFromRole :exec
 DELETE FROM user_roles 
 WHERE role_id = $1;
 

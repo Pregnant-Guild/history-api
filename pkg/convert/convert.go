@@ -43,3 +43,13 @@ func TimeToPtr(v pgtype.Timestamptz) *time.Time {
 	t := v.Time
 	return &t
 }
+
+func PtrToText(s *string) pgtype.Text {
+	if s == nil {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{
+		String: *s,
+		Valid:  true,
+	}
+}

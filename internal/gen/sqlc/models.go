@@ -64,6 +64,7 @@ type UserVerification struct {
 	ID         pgtype.UUID        `json:"id"`
 	UserID     pgtype.UUID        `json:"user_id"`
 	VerifyType int16              `json:"verify_type"`
+	Content    pgtype.Text        `json:"content"`
 	IsDeleted  bool               `json:"is_deleted"`
 	Status     int16              `json:"status"`
 	ReviewedBy pgtype.UUID        `json:"reviewed_by"`

@@ -24,10 +24,10 @@ type RoleRepository interface {
 	Update(ctx context.Context, params sqlc.UpdateRoleParams) (*models.RoleEntity, error)
 	Delete(ctx context.Context, id pgtype.UUID) error
 	Restore(ctx context.Context, id pgtype.UUID) error
-	AddUserRole(ctx context.Context, params sqlc.AddUserRoleParams) error
-	RemoveUserRole(ctx context.Context, params sqlc.RemoveUserRoleParams) error
-	RemoveAllRolesFromUser(ctx context.Context, userId pgtype.UUID) error
-	RemoveAllUsersFromRole(ctx context.Context, roleId pgtype.UUID) error
+	CreateUserRole(ctx context.Context, params sqlc.CreateUserRoleParams) error
+	DeleteUserRole(ctx context.Context, params sqlc.DeleteUserRoleParams) error
+	BulkDeleteRolesFromUser(ctx context.Context, userId pgtype.UUID) error
+	BulkDeleteUsersFromRole(ctx context.Context, roleId pgtype.UUID) error
 }
 
 type roleRepository struct {
@@ -261,22 +261,22 @@ func (r *roleRepository) Restore(ctx context.Context, id pgtype.UUID) error {
 	return nil
 }
 
-func (r *roleRepository) AddUserRole(ctx context.Context, params sqlc.AddUserRoleParams) error {
-	err := r.q.AddUserRole(ctx, params)
+func (r *roleRepository) CreateUserRole(ctx context.Context, params sqlc.CreateUserRoleParams) error {
+	err := r.q.CreateUserRole(ctx, params)
 	return err
 }
 
-func (r *roleRepository) RemoveUserRole(ctx context.Context, params sqlc.RemoveUserRoleParams) error {
-	err := r.q.RemoveUserRole(ctx, params)
+func (r *roleRepository) DeleteUserRole(ctx context.Context, params sqlc.DeleteUserRoleParams) error {
+	err := r.q.DeleteUserRole(ctx, params)
 	return err
 }
 
-func (r *roleRepository) RemoveAllUsersFromRole(ctx context.Context, roleId pgtype.UUID) error {
-	err := r.q.RemoveAllUsersFromRole(ctx, roleId)
+func (r *roleRepository) BulkDeleteUsersFromRole(ctx context.Context, roleId pgtype.UUID) error {
+	err := r.q.BulkDeleteUsersFromRole(ctx, roleId)
 	return err
 }
 
-func (r *roleRepository) RemoveAllRolesFromUser(ctx context.Context, roleId pgtype.UUID) error {
-	err := r.q.RemoveAllRolesFromUser(ctx, roleId)
+func (r *roleRepository) BulkDeleteRolesFromUser(ctx context.Context, roleId pgtype.UUID) error {
+	err := r.q.BulkDeleteRolesFromUser(ctx, roleId)
 	return err
 }

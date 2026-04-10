@@ -11,19 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addUserRole = `-- name: AddUserRole :exec
-INSERT INTO user_roles (user_id, role_id)
-SELECT $1, unnest($2::uuid[])
-ON CONFLICT DO NOTHING
+const bulkDeleteRolesFromUser = `-- name: BulkDeleteRolesFromUser :exec
+DELETE FROM user_roles 
+WHERE user_id = $1
 `
 
-type AddUserRoleParams struct {
-	UserID  pgtype.UUID   `json:"user_id"`
-	Column2 []pgtype.UUID `json:"column_2"`
+func (q *Queries) BulkDeleteRolesFromUser(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, bulkDeleteRolesFromUser, userID)
+	return err
 }
 
-func (q *Queries) AddUserRole(ctx context.Context, arg AddUserRoleParams) error {
-	_, err := q.db.Exec(ctx, addUserRole, arg.UserID, arg.Column2)
+const bulkDeleteUsersFromRole = `-- name: BulkDeleteUsersFromRole :exec
+DELETE FROM user_roles 
+WHERE role_id = $1
+`
+
+func (q *Queries) BulkDeleteUsersFromRole(ctx context.Context, roleID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, bulkDeleteUsersFromRole, roleID)
 	return err
 }
 
@@ -46,6 +50,22 @@ func (q *Queries) CreateRole(ctx context.Context, name string) (Role, error) {
 	return i, err
 }
 
+const createUserRole = `-- name: CreateUserRole :exec
+INSERT INTO user_roles (user_id, role_id)
+SELECT $1, unnest($2::uuid[])
+ON CONFLICT DO NOTHING
+`
+
+type CreateUserRoleParams struct {
+	UserID  pgtype.UUID   `json:"user_id"`
+	Column2 []pgtype.UUID `json:"column_2"`
+}
+
+func (q *Queries) CreateUserRole(ctx context.Context, arg CreateUserRoleParams) error {
+	_, err := q.db.Exec(ctx, createUserRole, arg.UserID, arg.Column2)
+	return err
+}
+
 const deleteRole = `-- name: DeleteRole :exec
 UPDATE roles
 SET
@@ -56,6 +76,24 @@ WHERE id = $1
 
 func (q *Queries) DeleteRole(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteRole, id)
+	return err
+}
+
+const deleteUserRole = `-- name: DeleteUserRole :exec
+DELETE FROM user_roles ur
+USING roles r
+WHERE ur.role_id = r.id
+  AND ur.user_id = $1
+  AND r.name = $2
+`
+
+type DeleteUserRoleParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	Name   string      `json:"name"`
+}
+
+func (q *Queries) DeleteUserRole(ctx context.Context, arg DeleteUserRoleParams) error {
+	_, err := q.db.Exec(ctx, deleteUserRole, arg.UserID, arg.Name)
 	return err
 }
 
@@ -157,44 +195,6 @@ func (q *Queries) GetRolesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]
 		return nil, err
 	}
 	return items, nil
-}
-
-const removeAllRolesFromUser = `-- name: RemoveAllRolesFromUser :exec
-DELETE FROM user_roles 
-WHERE user_id = $1
-`
-
-func (q *Queries) RemoveAllRolesFromUser(ctx context.Context, userID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, removeAllRolesFromUser, userID)
-	return err
-}
-
-const removeAllUsersFromRole = `-- name: RemoveAllUsersFromRole :exec
-DELETE FROM user_roles 
-WHERE role_id = $1
-`
-
-func (q *Queries) RemoveAllUsersFromRole(ctx context.Context, roleID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, removeAllUsersFromRole, roleID)
-	return err
-}
-
-const removeUserRole = `-- name: RemoveUserRole :exec
-DELETE FROM user_roles ur
-USING roles r
-WHERE ur.role_id = r.id
-  AND ur.user_id = $1
-  AND r.name = $2
-`
-
-type RemoveUserRoleParams struct {
-	UserID pgtype.UUID `json:"user_id"`
-	Name   string      `json:"name"`
-}
-
-func (q *Queries) RemoveUserRole(ctx context.Context, arg RemoveUserRoleParams) error {
-	_, err := q.db.Exec(ctx, removeUserRole, arg.UserID, arg.Name)
-	return err
 }
 
 const restoreRole = `-- name: RestoreRole :exec

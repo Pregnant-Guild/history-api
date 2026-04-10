@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS user_verifications (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     verify_type SMALLINT NOT NULL,
+    content TEXT,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     status SMALLINT NOT NULL DEFAULT 1,
     reviewed_by UUID REFERENCES users(id),

@@ -318,9 +318,9 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = a.roleRepo.AddUserRole(
+	err = a.roleRepo.CreateUserRole(
 		ctx,
-		sqlc.AddUserRoleParams{
+		sqlc.CreateUserRoleParams{
 			UserID:  userId,
 			Column2: []pgtype.UUID{roleId},
 		},
@@ -464,9 +464,9 @@ func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninW
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = a.roleRepo.AddUserRole(
+	err = a.roleRepo.CreateUserRole(
 		ctx,
-		sqlc.AddUserRoleParams{
+		sqlc.CreateUserRoleParams{
 			UserID:  userId,
 			Column2: []pgtype.UUID{roleId},
 		},

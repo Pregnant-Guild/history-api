@@ -11,27 +11,82 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const bulkDeleteVerificationByMediaId = `-- name: BulkDeleteVerificationByMediaId :exec
+DELETE FROM verification_medias
+WHERE media_id = $1
+`
+
+func (q *Queries) BulkDeleteVerificationByMediaId(ctx context.Context, mediaID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, bulkDeleteVerificationByMediaId, mediaID)
+	return err
+}
+
+const countUserVerifications = `-- name: CountUserVerifications :one
+SELECT count(*) 
+FROM user_verifications uv
+WHERE 
+    uv.is_deleted = false
+    AND ($1::uuid[] IS NULL OR uv.user_id = ANY($1::uuid[]))
+    AND ($2::text[] IS NULL OR uv.verify_type = ANY($2::text[]))
+    AND ($3::text[] IS NULL OR uv.status = ANY($3::text[]))
+    AND ($4::uuid IS NULL OR uv.reviewed_by = $4::uuid)
+    AND ($5::timestamptz IS NULL OR uv.created_at >= $5::timestamptz)
+    AND ($6::timestamptz IS NULL OR uv.created_at <= $6::timestamptz)
+    AND (
+        $7::text IS NULL OR 
+        uv.id::text ILIKE '%' || $7::text || '%' OR
+        uv.content::text ILIKE '%' || $7::text || '%'
+    )
+`
+
+type CountUserVerificationsParams struct {
+	UserIds       []pgtype.UUID      `json:"user_ids"`
+	VerifyTypes   []string           `json:"verify_types"`
+	Statuses      []string           `json:"statuses"`
+	ReviewedBy    pgtype.UUID        `json:"reviewed_by"`
+	CreatedAfter  pgtype.Timestamptz `json:"created_after"`
+	CreatedBefore pgtype.Timestamptz `json:"created_before"`
+	SearchText    pgtype.Text        `json:"search_text"`
+}
+
+func (q *Queries) CountUserVerifications(ctx context.Context, arg CountUserVerificationsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countUserVerifications,
+		arg.UserIds,
+		arg.VerifyTypes,
+		arg.Statuses,
+		arg.ReviewedBy,
+		arg.CreatedAfter,
+		arg.CreatedBefore,
+		arg.SearchText,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createUserVerification = `-- name: CreateUserVerification :one
 INSERT INTO user_verifications (
-    user_id, verify_type
+    user_id, verify_type, content
 ) VALUES (
-    $1, $2
+    $1, $2, $3
 )
-RETURNING id, user_id, verify_type, is_deleted, status, reviewed_by, reviewed_at, created_at
+RETURNING id, user_id, verify_type, content, is_deleted, status, reviewed_by, reviewed_at, created_at
 `
 
 type CreateUserVerificationParams struct {
 	UserID     pgtype.UUID `json:"user_id"`
 	VerifyType int16       `json:"verify_type"`
+	Content    pgtype.Text `json:"content"`
 }
 
 func (q *Queries) CreateUserVerification(ctx context.Context, arg CreateUserVerificationParams) (UserVerification, error) {
-	row := q.db.QueryRow(ctx, createUserVerification, arg.UserID, arg.VerifyType)
+	row := q.db.QueryRow(ctx, createUserVerification, arg.UserID, arg.VerifyType, arg.Content)
 	var i UserVerification
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.VerifyType,
+		&i.Content,
 		&i.IsDeleted,
 		&i.Status,
 		&i.ReviewedBy,
@@ -44,18 +99,18 @@ func (q *Queries) CreateUserVerification(ctx context.Context, arg CreateUserVeri
 const createVerificationMedia = `-- name: CreateVerificationMedia :exec
 INSERT INTO verification_medias (
     verification_id, media_id
-) VALUES (
-    $1, $2
 )
+SELECT $1, unnest($2::uuid[])
+ON CONFLICT DO NOTHING
 `
 
 type CreateVerificationMediaParams struct {
-	VerificationID pgtype.UUID `json:"verification_id"`
-	MediaID        pgtype.UUID `json:"media_id"`
+	VerificationID pgtype.UUID   `json:"verification_id"`
+	Column2        []pgtype.UUID `json:"column_2"`
 }
 
 func (q *Queries) CreateVerificationMedia(ctx context.Context, arg CreateVerificationMediaParams) error {
-	_, err := q.db.Exec(ctx, createVerificationMedia, arg.VerificationID, arg.MediaID)
+	_, err := q.db.Exec(ctx, createVerificationMedia, arg.VerificationID, arg.Column2)
 	return err
 }
 
@@ -85,11 +140,27 @@ func (q *Queries) DeleteVerificationMedia(ctx context.Context, arg DeleteVerific
 	return err
 }
 
+const deleteVerificationMedias = `-- name: DeleteVerificationMedias :exec
+DELETE FROM verification_medias
+WHERE verification_id = $1 AND media_id = ANY($2::uuid[])
+`
+
+type DeleteVerificationMediasParams struct {
+	VerificationID pgtype.UUID   `json:"verification_id"`
+	Column2        []pgtype.UUID `json:"column_2"`
+}
+
+func (q *Queries) DeleteVerificationMedias(ctx context.Context, arg DeleteVerificationMediasParams) error {
+	_, err := q.db.Exec(ctx, deleteVerificationMedias, arg.VerificationID, arg.Column2)
+	return err
+}
+
 const getUserVerificationByID = `-- name: GetUserVerificationByID :one
 SELECT 
     uv.id, 
     uv.user_id, 
     uv.verify_type, 
+    uv.content,
     uv.is_deleted, 
     uv.status, 
     uv.reviewed_by, 
@@ -122,6 +193,7 @@ type GetUserVerificationByIDRow struct {
 	ID         pgtype.UUID        `json:"id"`
 	UserID     pgtype.UUID        `json:"user_id"`
 	VerifyType int16              `json:"verify_type"`
+	Content    pgtype.Text        `json:"content"`
 	IsDeleted  bool               `json:"is_deleted"`
 	Status     int16              `json:"status"`
 	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
@@ -137,6 +209,7 @@ func (q *Queries) GetUserVerificationByID(ctx context.Context, id pgtype.UUID) (
 		&i.ID,
 		&i.UserID,
 		&i.VerifyType,
+		&i.Content,
 		&i.IsDeleted,
 		&i.Status,
 		&i.ReviewedBy,
@@ -152,6 +225,7 @@ SELECT
     uv.id, 
     uv.user_id, 
     uv.verify_type, 
+    uv.content,
     uv.is_deleted, 
     uv.status, 
     uv.reviewed_by, 
@@ -185,6 +259,7 @@ type GetUserVerificationsRow struct {
 	ID         pgtype.UUID        `json:"id"`
 	UserID     pgtype.UUID        `json:"user_id"`
 	VerifyType int16              `json:"verify_type"`
+	Content    pgtype.Text        `json:"content"`
 	IsDeleted  bool               `json:"is_deleted"`
 	Status     int16              `json:"status"`
 	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
@@ -206,6 +281,133 @@ func (q *Queries) GetUserVerifications(ctx context.Context, userID pgtype.UUID) 
 			&i.ID,
 			&i.UserID,
 			&i.VerifyType,
+			&i.Content,
+			&i.IsDeleted,
+			&i.Status,
+			&i.ReviewedBy,
+			&i.ReviewedAt,
+			&i.CreatedAt,
+			&i.Medias,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchUserVerifications = `-- name: SearchUserVerifications :many
+SELECT 
+    uv.id, 
+    uv.user_id, 
+    uv.verify_type, 
+    uv.content,
+    uv.is_deleted, 
+    uv.status, 
+    uv.reviewed_by, 
+    uv.reviewed_at, 
+    uv.created_at,
+    (
+        SELECT COALESCE(
+            json_agg(
+                json_build_object(
+                    'id', m.id,
+                    'storage_key', m.storage_key,
+                    'original_name', m.original_name,
+                    'mime_type', m.mime_type,
+                    'size', m.size,
+                    'file_metadata', m.file_metadata,
+                    'created_at', m.created_at
+                )
+            ),
+            '[]'
+        )::json
+        FROM verification_medias vm
+        JOIN medias m ON vm.media_id = m.id
+        WHERE vm.verification_id = uv.id
+    ) AS medias
+FROM user_verifications uv
+WHERE 
+    uv.is_deleted = false
+    AND ($1::uuid[] IS NULL OR uv.user_id = ANY($1::uuid[]))
+    AND ($2::text[] IS NULL OR uv.verify_type = ANY($2::text[]))
+    AND ($3::text[] IS NULL OR uv.status = ANY($3::text[]))
+    AND ($4::uuid IS NULL OR uv.reviewed_by = $4::uuid)
+    AND ($5::timestamptz IS NULL OR uv.created_at >= $5::timestamptz)
+    AND ($6::timestamptz IS NULL OR uv.created_at <= $6::timestamptz)
+    AND (
+        $7::text IS NULL OR 
+        uv.id::text ILIKE '%' || $7::text || '%' OR
+        uv.content::text ILIKE '%' || $7::text || '%'
+    )
+ORDER BY
+    CASE WHEN $8 = 'created_at' AND $9 = 'asc' THEN uv.created_at END ASC,
+    CASE WHEN $8 = 'created_at' AND $9 = 'desc' THEN uv.created_at END DESC,
+    CASE WHEN $8 = 'reviewed_at' AND $9 = 'asc' THEN uv.reviewed_at END ASC,
+    CASE WHEN $8 = 'reviewed_at' AND $9 = 'desc' THEN uv.reviewed_at END DESC,
+    CASE WHEN $8 = 'status' AND $9 = 'asc' THEN uv.status END ASC,
+    CASE WHEN $8 = 'status' AND $9 = 'desc' THEN uv.status END DESC,
+    CASE WHEN $8 IS NULL THEN uv.created_at END DESC
+LIMIT $11
+OFFSET $10
+`
+
+type SearchUserVerificationsParams struct {
+	UserIds       []pgtype.UUID      `json:"user_ids"`
+	VerifyTypes   []string           `json:"verify_types"`
+	Statuses      []string           `json:"statuses"`
+	ReviewedBy    pgtype.UUID        `json:"reviewed_by"`
+	CreatedAfter  pgtype.Timestamptz `json:"created_after"`
+	CreatedBefore pgtype.Timestamptz `json:"created_before"`
+	SearchText    pgtype.Text        `json:"search_text"`
+	Sort          interface{}        `json:"sort"`
+	Order         interface{}        `json:"order"`
+	Offset        int32              `json:"offset"`
+	Limit         int32              `json:"limit"`
+}
+
+type SearchUserVerificationsRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	VerifyType int16              `json:"verify_type"`
+	Content    pgtype.Text        `json:"content"`
+	IsDeleted  bool               `json:"is_deleted"`
+	Status     int16              `json:"status"`
+	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Medias     []byte             `json:"medias"`
+}
+
+func (q *Queries) SearchUserVerifications(ctx context.Context, arg SearchUserVerificationsParams) ([]SearchUserVerificationsRow, error) {
+	rows, err := q.db.Query(ctx, searchUserVerifications,
+		arg.UserIds,
+		arg.VerifyTypes,
+		arg.Statuses,
+		arg.ReviewedBy,
+		arg.CreatedAfter,
+		arg.CreatedBefore,
+		arg.SearchText,
+		arg.Sort,
+		arg.Order,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchUserVerificationsRow{}
+	for rows.Next() {
+		var i SearchUserVerificationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.VerifyType,
+			&i.Content,
 			&i.IsDeleted,
 			&i.Status,
 			&i.ReviewedBy,

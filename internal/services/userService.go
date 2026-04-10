@@ -172,12 +172,12 @@ func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTCl
 		user.Roles = append(user.Roles, role.ToRoleSimple())
 	}
 
-	err = u.roleRepo.RemoveAllRolesFromUser(ctx, userId)
+	err = u.roleRepo.BulkDeleteRolesFromUser(ctx, userId)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = u.roleRepo.AddUserRole(ctx, sqlc.AddUserRoleParams{
+	err = u.roleRepo.CreateUserRole(ctx, sqlc.CreateUserRoleParams{
 		UserID:  userId,
 		Column2: roleIdList,
 	})
@@ -239,14 +239,14 @@ func (u *userService) UpdateProfile(ctx context.Context, userId string, dto *req
 	newUser, err := u.userRepo.UpdateProfile(
 		ctx,
 		sqlc.UpdateUserProfileParams{
-			DisplayName: pgtype.Text{String: dto.DisplayName, Valid: len(dto.DisplayName) > 0},
-			FullName:    pgtype.Text{String: dto.FullName, Valid: len(dto.FullName) > 0},
-			AvatarUrl:   pgtype.Text{String: dto.AvatarUrl, Valid: len(dto.AvatarUrl) > 0},
-			Bio:         pgtype.Text{String: dto.Bio, Valid: len(dto.Bio) > 0},
-			Location:    pgtype.Text{String: dto.Location, Valid: len(dto.Location) > 0},
-			Website:     pgtype.Text{String: dto.Website, Valid: len(dto.Website) > 0},
-			CountryCode: pgtype.Text{String: dto.CountryCode, Valid: len(dto.CountryCode) > 0},
-			Phone:       pgtype.Text{String: dto.Phone, Valid: len(dto.Phone) > 0},
+			DisplayName: convert.PtrToText(dto.DisplayName),
+			FullName:    convert.PtrToText(dto.FullName),
+			AvatarUrl:   convert.PtrToText(dto.AvatarUrl),
+			Bio:         convert.PtrToText(dto.Bio),
+			Location:    convert.PtrToText(dto.Location),
+			Website:     convert.PtrToText(dto.Website),
+			CountryCode: convert.PtrToText(dto.CountryCode),
+			Phone:       convert.PtrToText(dto.Phone),
 			UserID:      pgID,
 		},
 	)

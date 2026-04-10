@@ -3,9 +3,11 @@ package constants
 type VerifyType int16
 
 const (
+	VerifyUnknown   VerifyType = 0
 	VerifyIdCard    VerifyType = 1
 	VerifyEducation VerifyType = 2
 	VerifyExpert    VerifyType = 3
+	VerifyOther     VerifyType = 4
 )
 
 func (t VerifyType) String() string {
@@ -16,20 +18,24 @@ func (t VerifyType) String() string {
 		return "EDUCATION"
 	case VerifyExpert:
 		return "EXPERT"
+	case VerifyOther:
+		return "OTHER"
 	default:
 		return "UNKNOWN"
 	}
 }
 
-func ParseVerifyType(v int16) VerifyType {
+func ParseVerifyType(v string) VerifyType {
 	switch v {
-	case 1:
+	case "ID_CARD":
 		return VerifyIdCard
-	case 2:
+	case "EDUCATION":
 		return VerifyEducation
-	case 3:
+	case "EXPERT":
 		return VerifyExpert
+	case "OTHER":
+		return VerifyOther
 	default:
-		return 0
+		return VerifyUnknown
 	}
 }
