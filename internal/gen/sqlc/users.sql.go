@@ -25,8 +25,8 @@ WHERE
         )
     )
     AND ($3::text IS NULL OR u.auth_provider = $3::text)
-    AND ($4::timestamp IS NULL OR u.created_at >= $4::timestamp)
-    AND ($5::timestamp IS NULL OR u.created_at <= $5::timestamp)
+    AND ($4::timestamptz IS NULL OR u.created_at >= $4::timestamptz)
+    AND ($5::timestamptz IS NULL OR u.created_at <= $5::timestamptz)
     AND (
         $6::text IS NULL OR 
         u.id::text ILIKE '%' || $6::text || '%' OR
@@ -43,12 +43,12 @@ WHERE
 `
 
 type CountUsersParams struct {
-	IsDeleted    pgtype.Bool      `json:"is_deleted"`
-	RoleIds      []pgtype.UUID    `json:"role_ids"`
-	AuthProvider pgtype.Text      `json:"auth_provider"`
-	CreatedFrom  pgtype.Timestamp `json:"created_from"`
-	CreatedTo    pgtype.Timestamp `json:"created_to"`
-	SearchText   pgtype.Text      `json:"search_text"`
+	IsDeleted    pgtype.Bool        `json:"is_deleted"`
+	RoleIds      []pgtype.UUID      `json:"role_ids"`
+	AuthProvider pgtype.Text        `json:"auth_provider"`
+	CreatedFrom  pgtype.Timestamptz `json:"created_from"`
+	CreatedTo    pgtype.Timestamptz `json:"created_to"`
+	SearchText   pgtype.Text        `json:"search_text"`
 }
 
 func (q *Queries) CountUsers(ctx context.Context, arg CountUsersParams) (int64, error) {
@@ -399,8 +399,8 @@ WHERE
         )
     )
     AND ($3::text IS NULL OR u.auth_provider = $3::text)
-    AND ($4::timestamp IS NULL OR u.created_at >= $4::timestamp)
-    AND ($5::timestamp IS NULL OR u.created_at <= $5::timestamp)
+    AND ($4::timestamptz IS NULL OR u.created_at >= $4::timestamptz)
+    AND ($5::timestamptz IS NULL OR u.created_at <= $5::timestamptz)
     AND (
         $6::text IS NULL OR 
         u.id::text ILIKE '%' || $6::text || '%' OR
@@ -434,16 +434,16 @@ OFFSET $9
 `
 
 type SearchUsersParams struct {
-	IsDeleted    pgtype.Bool      `json:"is_deleted"`
-	RoleIds      []pgtype.UUID    `json:"role_ids"`
-	AuthProvider pgtype.Text      `json:"auth_provider"`
-	CreatedFrom  pgtype.Timestamp `json:"created_from"`
-	CreatedTo    pgtype.Timestamp `json:"created_to"`
-	SearchText   pgtype.Text      `json:"search_text"`
-	Sort         interface{}      `json:"sort"`
-	Order        interface{}      `json:"order"`
-	Offset       int32            `json:"offset"`
-	Limit        int32            `json:"limit"`
+	IsDeleted    pgtype.Bool        `json:"is_deleted"`
+	RoleIds      []pgtype.UUID      `json:"role_ids"`
+	AuthProvider pgtype.Text        `json:"auth_provider"`
+	CreatedFrom  pgtype.Timestamptz `json:"created_from"`
+	CreatedTo    pgtype.Timestamptz `json:"created_to"`
+	SearchText   pgtype.Text        `json:"search_text"`
+	Sort         interface{}        `json:"sort"`
+	Order        interface{}        `json:"order"`
+	Offset       int32              `json:"offset"`
+	Limit        int32              `json:"limit"`
 }
 
 type SearchUsersRow struct {

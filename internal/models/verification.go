@@ -10,14 +10,21 @@ import (
 type UserVerificationEntity struct {
 	ID         string               `json:"id"`
 	UserID     string               `json:"user_id"`
-	VerifyType string               `json:"verify_type"`
+	VerifyType constants.VerifyType `json:"verify_type"`
 	Content    string               `json:"content"`
 	IsDeleted  bool                 `json:"is_deleted"`
-	Status     constants.VerifyType `json:"status"`
-	ReviewedBy *string              `json:"reviewed_by"`
+	Status     constants.StatusType `json:"status"`
+	ReviewedBy string               `json:"reviewed_by"`
+	ReviewNote string               `json:"review_note"`
 	ReviewedAt *time.Time           `json:"reviewed_at"`
-	CreatedAt  time.Time            `json:"created_at"`
+	CreatedAt  *time.Time           `json:"created_at"`
 	Media      []*MediaSimpleEntity `json:"media"`
+}
+
+type UserVerificationStorageEntity struct {
+	Email      string               `json:"email"`
+	Status     constants.StatusType `json:"status"`
+	ReviewNote string               `json:"review_note"`
 }
 
 func (u *UserVerificationEntity) ParseMedia(data []byte) error {
@@ -47,15 +54,12 @@ func (u *UserVerificationEntity) ToResponse() *response.UserVerificationResponse
 	res := &response.UserVerificationResponse{
 		ID:         u.ID,
 		UserID:     u.UserID,
-		VerifyType: u.VerifyType,
+		VerifyType: u.VerifyType.String(),
 		Content:    u.Content,
 		Status:     u.Status.String(),
+		ReviewNote: u.ReviewNote,
 		CreatedAt:  u.CreatedAt,
 		Medias:     mediaResponses,
-	}
-
-	if u.ReviewedBy != nil {
-		res.ReviewedBy = u.ReviewedBy
 	}
 
 	if u.ReviewedAt != nil {
@@ -64,3 +68,12 @@ func (u *UserVerificationEntity) ToResponse() *response.UserVerificationResponse
 
 	return res
 }
+
+func UserVerificationsEntitiesToResponse(entities []*UserVerificationEntity) []*response.UserVerificationResponse {
+	responses := make([]*response.UserVerificationResponse, len(entities))
+	for i, entity := range entities {
+		responses[i] = entity.ToResponse()
+	}
+	return responses
+}
+

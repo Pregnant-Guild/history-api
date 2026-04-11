@@ -25,7 +25,26 @@ func (t VerifyType) String() string {
 	}
 }
 
-func ParseVerifyType(v string) VerifyType {
+func (t VerifyType) Int16() int16 {
+    return int16(t)
+}
+
+func ParseVerifyType(v int16) VerifyType {
+	switch v {
+	case 1:
+		return VerifyIdCard
+	case 2:
+		return VerifyEducation
+	case 3:
+		return VerifyExpert
+	case 4:
+		return VerifyOther
+	default:
+		return VerifyUnknown
+	}
+}
+
+func ParseVerifyTypeText(v string) VerifyType {
 	switch v {
 	case "ID_CARD":
 		return VerifyIdCard

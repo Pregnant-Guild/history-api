@@ -307,11 +307,11 @@ func (m *userService) fillSearchArgs(arg *sqlc.SearchUsersParams, dto *request.S
 	}
 
 	if dto.CreatedFrom != nil {
-		arg.CreatedFrom = pgtype.Timestamp{Time: *dto.CreatedFrom, Valid: true}
+		arg.CreatedFrom = pgtype.Timestamptz{Time: *dto.CreatedFrom, Valid: true}
 	}
 
 	if dto.CreatedTo != nil {
-		arg.CreatedTo = pgtype.Timestamp{Time: *dto.CreatedTo, Valid: true}
+		arg.CreatedTo = pgtype.Timestamptz{Time: *dto.CreatedTo, Valid: true}
 	}
 
 	if dto.IsDeleted != nil {

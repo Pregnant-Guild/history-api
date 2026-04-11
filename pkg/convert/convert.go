@@ -45,7 +45,7 @@ func TimeToPtr(v pgtype.Timestamptz) *time.Time {
 }
 
 func PtrToText(s *string) pgtype.Text {
-	if s == nil {
+	if s == nil || *s == "" {
 		return pgtype.Text{Valid: false}
 	}
 	return pgtype.Text{

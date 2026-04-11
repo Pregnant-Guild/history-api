@@ -242,8 +242,8 @@ WHERE
         )
     )
     AND (sqlc.narg('auth_provider')::text IS NULL OR u.auth_provider = sqlc.narg('auth_provider')::text)
-    AND (sqlc.narg('created_from')::timestamp IS NULL OR u.created_at >= sqlc.narg('created_from')::timestamp)
-    AND (sqlc.narg('created_to')::timestamp IS NULL OR u.created_at <= sqlc.narg('created_to')::timestamp)
+    AND (sqlc.narg('created_from')::timestamptz IS NULL OR u.created_at >= sqlc.narg('created_from')::timestamptz)
+    AND (sqlc.narg('created_to')::timestamptz IS NULL OR u.created_at <= sqlc.narg('created_to')::timestamptz)
     AND (
         sqlc.narg('search_text')::text IS NULL OR 
         u.id::text ILIKE '%' || sqlc.narg('search_text')::text || '%' OR
@@ -289,8 +289,8 @@ WHERE
         )
     )
     AND (sqlc.narg('auth_provider')::text IS NULL OR u.auth_provider = sqlc.narg('auth_provider')::text)
-    AND (sqlc.narg('created_from')::timestamp IS NULL OR u.created_at >= sqlc.narg('created_from')::timestamp)
-    AND (sqlc.narg('created_to')::timestamp IS NULL OR u.created_at <= sqlc.narg('created_to')::timestamp)
+    AND (sqlc.narg('created_from')::timestamptz IS NULL OR u.created_at >= sqlc.narg('created_from')::timestamptz)
+    AND (sqlc.narg('created_to')::timestamptz IS NULL OR u.created_at <= sqlc.narg('created_to')::timestamptz)
     AND (
         sqlc.narg('search_text')::text IS NULL OR 
         u.id::text ILIKE '%' || sqlc.narg('search_text')::text || '%' OR

@@ -8,6 +8,7 @@ import (
 	"history-api/internal/dtos/response"
 	"history-api/internal/models"
 	"history-api/internal/services"
+	"history-api/pkg/config"
 	"history-api/pkg/validator"
 	"strings"
 	"time"
@@ -136,7 +137,6 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 		Data:   res,
 	})
 }
-
 
 func (h *AuthController) getRefreshToken(c fiber.Ctx) string {
 	auth := c.Get("Authorization")
@@ -326,9 +326,10 @@ func (h *AuthController) GoogleLogin(c fiber.Ctx) error {
 
 	state := uuid.New().String()
 
+	feUrl := config.GetConfigWithDefault("FRONTEND_URL", "http://localhost:3000")
 	redirect := c.Query("redirect")
 	if redirect == "" {
-		redirect = "http://localhost:3000"
+		redirect = feUrl
 	}
 
 	data := models.OAuthState{
@@ -443,10 +444,10 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 		"https://localhost:3001": true,
 		"http://localhost:5500":  true,
 	}
-
+	feUrl := config.GetConfigWithDefault("FRONTEND_URL", "http://localhost:3000")
 	redirectURL := data.RedirectURL
 	if !allowed[redirectURL] {
-		redirectURL = "http://localhost:3000"
+		redirectURL = feUrl
 	}
 
 	return c.Redirect().To(redirectURL)

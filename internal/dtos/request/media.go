@@ -21,5 +21,5 @@ type SearchMediaDto struct {
 }
 
 type MediaBulkDeleteDto struct {
-	MediaIDs []string `json:"media_ids" validate:"required,dive,uuid"`
+	MediaIDs   []string `json:"media_ids" validate:"required,dive,uuid"`
 }

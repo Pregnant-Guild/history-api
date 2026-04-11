@@ -77,6 +77,7 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 	tileRepo := repositories.NewTileRepository(sqlTile, redis)
 	tokenRepo := repositories.NewTokenRepository(redis)
 	mediaRepo := repositories.NewMediaRepository(sqlPg, redis)
+	verificationRepo := repositories.NewVerificationRepository(sqlPg, redis)
 
 	// service setup
 	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis)
@@ -84,19 +85,22 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 	roleService := services.NewRoleService(roleRepo)
 	tileService := services.NewTileService(tileRepo)
 	mediaService := services.NewMediaService(mediaRepo, tokenRepo, sclient, redis)
+	verificationService := services.NewVerificationService(verificationRepo, mediaRepo, userRepo, roleRepo, redis)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)
-	userController := controllers.NewUserController(userService, mediaService)
+	userController := controllers.NewUserController(userService, mediaService, verificationService)
 	tileController := controllers.NewTileController(tileService)
 	roleController := controllers.NewRoleController(roleService)
 	mediaController := controllers.NewMediaController(mediaService)
+	verificationController := controllers.NewVerificationController(verificationService)
 
 	// route setup
 	routes.AuthRoutes(s.App, authController, userRepo)
 	routes.UserRoutes(s.App, userController, userRepo)
 	routes.MediaRoutes(s.App, mediaController, userRepo)
 	routes.RoleRoutes(s.App, roleController, userRepo)
+	routes.VerificationRoutes(s.App, verificationController, userRepo)
 	routes.TileRoutes(s.App, tileController)
 	routes.NotFoundRoute(s.App)
 }

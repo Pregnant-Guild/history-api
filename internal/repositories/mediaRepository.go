@@ -141,8 +141,7 @@ func (r *mediaRepository) Create(ctx context.Context, params sqlc.CreateMediaPar
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
 	}
-	cacheId := fmt.Sprintf("media:id:%s", media.ID)
-	_ = r.c.Set(ctx, cacheId, media, constants.NormalCacheDuration)
+	_ = r.c.Set(ctx, fmt.Sprintf("media:id:%s", media.ID), media, constants.NormalCacheDuration)
 	_ = r.c.Del(ctx, fmt.Sprintf("media:userId:%s", convert.UUIDToString(params.UserID)))
 	return &media, nil
 }

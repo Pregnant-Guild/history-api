@@ -11,14 +11,30 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const bulkDeleteVerificationByMediaId = `-- name: BulkDeleteVerificationByMediaId :exec
+const bulkDeleteVerificationMediaByMediaId = `-- name: BulkDeleteVerificationMediaByMediaId :many
 DELETE FROM verification_medias
 WHERE media_id = $1
+RETURNING verification_id
 `
 
-func (q *Queries) BulkDeleteVerificationByMediaId(ctx context.Context, mediaID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, bulkDeleteVerificationByMediaId, mediaID)
-	return err
+func (q *Queries) BulkDeleteVerificationMediaByMediaId(ctx context.Context, mediaID pgtype.UUID) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, bulkDeleteVerificationMediaByMediaId, mediaID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var verification_id pgtype.UUID
+		if err := rows.Scan(&verification_id); err != nil {
+			return nil, err
+		}
+		items = append(items, verification_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const countUserVerifications = `-- name: CountUserVerifications :one
@@ -27,8 +43,14 @@ FROM user_verifications uv
 WHERE 
     uv.is_deleted = false
     AND ($1::uuid[] IS NULL OR uv.user_id = ANY($1::uuid[]))
-    AND ($2::text[] IS NULL OR uv.verify_type = ANY($2::text[]))
-    AND ($3::text[] IS NULL OR uv.status = ANY($3::text[]))
+    AND (
+        $2::smallint[] IS NULL 
+        OR uv.verify_type = ANY($2::smallint[])
+    )
+    AND (
+        $3::smallint[] IS NULL 
+        OR uv.status = ANY($3::smallint[])
+    )
     AND ($4::uuid IS NULL OR uv.reviewed_by = $4::uuid)
     AND ($5::timestamptz IS NULL OR uv.created_at >= $5::timestamptz)
     AND ($6::timestamptz IS NULL OR uv.created_at <= $6::timestamptz)
@@ -40,13 +62,13 @@ WHERE
 `
 
 type CountUserVerificationsParams struct {
-	UserIds       []pgtype.UUID      `json:"user_ids"`
-	VerifyTypes   []string           `json:"verify_types"`
-	Statuses      []string           `json:"statuses"`
-	ReviewedBy    pgtype.UUID        `json:"reviewed_by"`
-	CreatedAfter  pgtype.Timestamptz `json:"created_after"`
-	CreatedBefore pgtype.Timestamptz `json:"created_before"`
-	SearchText    pgtype.Text        `json:"search_text"`
+	UserIds     []pgtype.UUID      `json:"user_ids"`
+	VerifyTypes []int16            `json:"verify_types"`
+	Statuses    []int16            `json:"statuses"`
+	ReviewedBy  pgtype.UUID        `json:"reviewed_by"`
+	CreatedFrom pgtype.Timestamptz `json:"created_from"`
+	CreatedTo   pgtype.Timestamptz `json:"created_to"`
+	SearchText  pgtype.Text        `json:"search_text"`
 }
 
 func (q *Queries) CountUserVerifications(ctx context.Context, arg CountUserVerificationsParams) (int64, error) {
@@ -55,8 +77,8 @@ func (q *Queries) CountUserVerifications(ctx context.Context, arg CountUserVerif
 		arg.VerifyTypes,
 		arg.Statuses,
 		arg.ReviewedBy,
-		arg.CreatedAfter,
-		arg.CreatedBefore,
+		arg.CreatedFrom,
+		arg.CreatedTo,
 		arg.SearchText,
 	)
 	var count int64
@@ -70,7 +92,7 @@ INSERT INTO user_verifications (
 ) VALUES (
     $1, $2, $3
 )
-RETURNING id, user_id, verify_type, content, is_deleted, status, reviewed_by, reviewed_at, created_at
+RETURNING id, user_id, verify_type, content, is_deleted, status, reviewed_by, review_note, reviewed_at, created_at
 `
 
 type CreateUserVerificationParams struct {
@@ -90,6 +112,7 @@ func (q *Queries) CreateUserVerification(ctx context.Context, arg CreateUserVeri
 		&i.IsDeleted,
 		&i.Status,
 		&i.ReviewedBy,
+		&i.ReviewNote,
 		&i.ReviewedAt,
 		&i.CreatedAt,
 	)
@@ -140,21 +163,6 @@ func (q *Queries) DeleteVerificationMedia(ctx context.Context, arg DeleteVerific
 	return err
 }
 
-const deleteVerificationMedias = `-- name: DeleteVerificationMedias :exec
-DELETE FROM verification_medias
-WHERE verification_id = $1 AND media_id = ANY($2::uuid[])
-`
-
-type DeleteVerificationMediasParams struct {
-	VerificationID pgtype.UUID   `json:"verification_id"`
-	Column2        []pgtype.UUID `json:"column_2"`
-}
-
-func (q *Queries) DeleteVerificationMedias(ctx context.Context, arg DeleteVerificationMediasParams) error {
-	_, err := q.db.Exec(ctx, deleteVerificationMedias, arg.VerificationID, arg.Column2)
-	return err
-}
-
 const getUserVerificationByID = `-- name: GetUserVerificationByID :one
 SELECT 
     uv.id, 
@@ -164,6 +172,7 @@ SELECT
     uv.is_deleted, 
     uv.status, 
     uv.reviewed_by, 
+    uv.review_note,
     uv.reviewed_at, 
     uv.created_at,
     (
@@ -197,6 +206,7 @@ type GetUserVerificationByIDRow struct {
 	IsDeleted  bool               `json:"is_deleted"`
 	Status     int16              `json:"status"`
 	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
+	ReviewNote pgtype.Text        `json:"review_note"`
 	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	Medias     []byte             `json:"medias"`
@@ -213,6 +223,7 @@ func (q *Queries) GetUserVerificationByID(ctx context.Context, id pgtype.UUID) (
 		&i.IsDeleted,
 		&i.Status,
 		&i.ReviewedBy,
+		&i.ReviewNote,
 		&i.ReviewedAt,
 		&i.CreatedAt,
 		&i.Medias,
@@ -229,7 +240,8 @@ SELECT
     uv.is_deleted, 
     uv.status, 
     uv.reviewed_by, 
-    uv.reviewed_at, 
+    uv.reviewed_at,
+    uv.review_note, 
     uv.created_at,
     (
         SELECT COALESCE(
@@ -264,6 +276,7 @@ type GetUserVerificationsRow struct {
 	Status     int16              `json:"status"`
 	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
 	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote pgtype.Text        `json:"review_note"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	Medias     []byte             `json:"medias"`
 }
@@ -286,6 +299,7 @@ func (q *Queries) GetUserVerifications(ctx context.Context, userID pgtype.UUID) 
 			&i.Status,
 			&i.ReviewedBy,
 			&i.ReviewedAt,
+			&i.ReviewNote,
 			&i.CreatedAt,
 			&i.Medias,
 		); err != nil {
@@ -307,7 +321,8 @@ SELECT
     uv.content,
     uv.is_deleted, 
     uv.status, 
-    uv.reviewed_by, 
+    uv.reviewed_by,
+    uv.review_note, 
     uv.reviewed_at, 
     uv.created_at,
     (
@@ -333,8 +348,14 @@ FROM user_verifications uv
 WHERE 
     uv.is_deleted = false
     AND ($1::uuid[] IS NULL OR uv.user_id = ANY($1::uuid[]))
-    AND ($2::text[] IS NULL OR uv.verify_type = ANY($2::text[]))
-    AND ($3::text[] IS NULL OR uv.status = ANY($3::text[]))
+    AND (
+        $2::smallint[] IS NULL 
+        OR uv.verify_type = ANY($2::smallint[])
+    )
+    AND (
+        $3::smallint[] IS NULL 
+        OR uv.status = ANY($3::smallint[])
+    )
     AND ($4::uuid IS NULL OR uv.reviewed_by = $4::uuid)
     AND ($5::timestamptz IS NULL OR uv.created_at >= $5::timestamptz)
     AND ($6::timestamptz IS NULL OR uv.created_at <= $6::timestamptz)
@@ -356,17 +377,17 @@ OFFSET $10
 `
 
 type SearchUserVerificationsParams struct {
-	UserIds       []pgtype.UUID      `json:"user_ids"`
-	VerifyTypes   []string           `json:"verify_types"`
-	Statuses      []string           `json:"statuses"`
-	ReviewedBy    pgtype.UUID        `json:"reviewed_by"`
-	CreatedAfter  pgtype.Timestamptz `json:"created_after"`
-	CreatedBefore pgtype.Timestamptz `json:"created_before"`
-	SearchText    pgtype.Text        `json:"search_text"`
-	Sort          interface{}        `json:"sort"`
-	Order         interface{}        `json:"order"`
-	Offset        int32              `json:"offset"`
-	Limit         int32              `json:"limit"`
+	UserIds     []pgtype.UUID      `json:"user_ids"`
+	VerifyTypes []int16            `json:"verify_types"`
+	Statuses    []int16            `json:"statuses"`
+	ReviewedBy  pgtype.UUID        `json:"reviewed_by"`
+	CreatedFrom pgtype.Timestamptz `json:"created_from"`
+	CreatedTo   pgtype.Timestamptz `json:"created_to"`
+	SearchText  pgtype.Text        `json:"search_text"`
+	Sort        interface{}        `json:"sort"`
+	Order       interface{}        `json:"order"`
+	Offset      int32              `json:"offset"`
+	Limit       int32              `json:"limit"`
 }
 
 type SearchUserVerificationsRow struct {
@@ -377,6 +398,7 @@ type SearchUserVerificationsRow struct {
 	IsDeleted  bool               `json:"is_deleted"`
 	Status     int16              `json:"status"`
 	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
+	ReviewNote pgtype.Text        `json:"review_note"`
 	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	Medias     []byte             `json:"medias"`
@@ -388,8 +410,8 @@ func (q *Queries) SearchUserVerifications(ctx context.Context, arg SearchUserVer
 		arg.VerifyTypes,
 		arg.Statuses,
 		arg.ReviewedBy,
-		arg.CreatedAfter,
-		arg.CreatedBefore,
+		arg.CreatedFrom,
+		arg.CreatedTo,
 		arg.SearchText,
 		arg.Sort,
 		arg.Order,
@@ -411,6 +433,7 @@ func (q *Queries) SearchUserVerifications(ctx context.Context, arg SearchUserVer
 			&i.IsDeleted,
 			&i.Status,
 			&i.ReviewedBy,
+			&i.ReviewNote,
 			&i.ReviewedAt,
 			&i.CreatedAt,
 			&i.Medias,
@@ -429,7 +452,8 @@ const updateUserVerificationStatus = `-- name: UpdateUserVerificationStatus :exe
 UPDATE user_verifications
 SET 
     status = $2,
-    reviewed_by = $3,
+    review_note = $3,
+    reviewed_by = $4,
     reviewed_at = now()
 WHERE id = $1 AND is_deleted = false
 `
@@ -437,10 +461,16 @@ WHERE id = $1 AND is_deleted = false
 type UpdateUserVerificationStatusParams struct {
 	ID         pgtype.UUID `json:"id"`
 	Status     int16       `json:"status"`
+	ReviewNote pgtype.Text `json:"review_note"`
 	ReviewedBy pgtype.UUID `json:"reviewed_by"`
 }
 
 func (q *Queries) UpdateUserVerificationStatus(ctx context.Context, arg UpdateUserVerificationStatusParams) error {
-	_, err := q.db.Exec(ctx, updateUserVerificationStatus, arg.ID, arg.Status, arg.ReviewedBy)
+	_, err := q.db.Exec(ctx, updateUserVerificationStatus,
+		arg.ID,
+		arg.Status,
+		arg.ReviewNote,
+		arg.ReviewedBy,
+	)
 	return err
 }

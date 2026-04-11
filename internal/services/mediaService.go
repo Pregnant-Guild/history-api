@@ -229,6 +229,7 @@ func (m *mediaService) SearchMedia(ctx context.Context, dto *request.SearchMedia
 
 	return response.BuildPaginatedResponse(rows, totalRecords, dto.Page, dto.Limit), nil
 }
+
 func (m *mediaService) UploadServerSide(ctx context.Context, userId string, fileHeader *multipart.FileHeader) (*response.MediaResponse, error) {
 	userIdUUID, err := convert.StringToUUID(userId)
 	if err != nil {

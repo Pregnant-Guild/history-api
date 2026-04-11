@@ -68,6 +68,7 @@ type UserVerification struct {
 	IsDeleted  bool               `json:"is_deleted"`
 	Status     int16              `json:"status"`
 	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
+	ReviewNote pgtype.Text        `json:"review_note"`
 	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }

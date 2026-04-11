@@ -14,12 +14,18 @@ import (
 type UserController struct {
 	service      services.UserService
 	mediaService services.MediaService
+	verificationService services.VerificationService
 }
 
-func NewUserController(svc services.UserService, mediaSvc services.MediaService) *UserController {
+func NewUserController(
+	svc services.UserService, 
+	mediaSvc services.MediaService, 
+	verificationSvc services.VerificationService,
+) *UserController {
 	return &UserController{
 		service:      svc,
 		mediaService: mediaSvc,
+		verificationService: verificationSvc,
 	}
 }
 
@@ -94,6 +100,33 @@ func (h *UserController) GetMediaByUserID(c fiber.Ctx) error {
 	defer cancel()
 	userId := c.Params("id")
 	res, err := h.mediaService.GetMediaByUserID(ctx, userId)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Error(),
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}
+
+// GetApplicationUserID godoc
+// @Summary Get user's media by user ID
+// @Description Retrieve media list by specific user ID
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /users/{id}/application [get]
+func (h *UserController) GetVerificationByUserID(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	userId := c.Params("id")
+	res, err := h.verificationService.GetVerificationByUserID(ctx, userId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
 			Status:  false,

@@ -25,6 +25,7 @@ func NewMediaController(svc services.MediaService) *MediaController {
 // @Tags Media
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path string true "Media ID"
 // @Success 200 {object} response.CommonResponse
 // @Failure 500 {object} response.CommonResponse
@@ -52,9 +53,8 @@ func (m *MediaController) GetMediaByID(c fiber.Ctx) error {
 // @Tags Media
 // @Accept json
 // @Produce json
-// @Param page query int false "Page number"
-// @Param limit query int false "Items per page"
-// @Param keyword query string false "Search keyword"
+// @Security BearerAuth
+// @Param query query request.SearchMediaDto false "Search Query"
 // @Success 200 {object} response.PaginatedResponse
 // @Failure 400 {object} response.CommonResponse
 // @Failure 500 {object} response.CommonResponse
@@ -220,9 +220,7 @@ func (m *MediaController) UploadServerSide(c fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param fileName query string true "File name"
-// @Param content_type query string true "Content type"
-// @Param size query int true "File size"
+// @Param query query request.PreSignedDto false "PreSigned"
 // @Success 200 {object} response.CommonResponse
 // @Failure 400 {object} response.CommonResponse
 // @Failure 500 {object} response.CommonResponse
@@ -255,7 +253,7 @@ func (m *MediaController) GeneratePresignedURL(c fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param data body PreSignedCompleteDto true "Request body"
+// @Param data body request.PreSignedCompleteDto true "Request body"
 // @Success 200 {object} response.CommonResponse
 // @Failure 400 {object} response.CommonResponse
 // @Failure 500 {object} response.CommonResponse

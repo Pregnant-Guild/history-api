@@ -43,6 +43,26 @@ definitions:
     - email
     - token_type
     type: object
+  history-api_internal_dtos_request.CreateUserVerificationDto:
+    properties:
+      content:
+        minLength: 10
+        type: string
+      media_ids:
+        items:
+          type: string
+        type: array
+      verify_type:
+        enum:
+        - ID_CARD
+        - EDUCATION
+        - EXPERT
+        - OTHER
+        type: string
+    required:
+    - content
+    - verify_type
+    type: object
   history-api_internal_dtos_request.ForgotPasswordDto:
     properties:
       email:
@@ -68,6 +88,13 @@ definitions:
         type: array
     required:
     - media_ids
+    type: object
+  history-api_internal_dtos_request.PreSignedCompleteDto:
+    properties:
+      token_id:
+        type: string
+    required:
+    - token_id
     type: object
   history-api_internal_dtos_request.SignInDto:
     properties:
@@ -131,6 +158,22 @@ definitions:
         type: string
       website:
         type: string
+    type: object
+  history-api_internal_dtos_request.UpdateVerificationStatusDto:
+    properties:
+      review_note:
+        maxLength: 3000
+        minLength: 5
+        type: string
+      status:
+        enum:
+        - PENDING
+        - APPROVED
+        - REJECTED
+        type: string
+    required:
+    - review_note
+    - status
     type: object
   history-api_internal_dtos_request.VerifyTokenDto:
     properties:
@@ -451,6 +494,204 @@ paths:
       summary: Verify a security token
       tags:
       - Auth
+  /historian/application:
+    get:
+      consumes:
+      - application/json
+      description: Get list of historian applications with filters
+      parameters:
+      - in: query
+        name: created_from
+        type: string
+      - in: query
+        name: created_to
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      - in: query
+        minimum: 1
+        name: page
+        type: integer
+      - in: query
+        name: reviewed_by
+        type: string
+      - in: query
+        maxLength: 200
+        minLength: 2
+        name: search
+        type: string
+      - enum:
+        - id
+        - created_at
+        - reviewed_at
+        - status
+        in: query
+        name: sort
+        type: string
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        name: statuses
+        type: array
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        name: user_ids
+        type: array
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        name: verify_types
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Search historian applications
+      tags:
+      - Historian Application
+    post:
+      consumes:
+      - application/json
+      description: Submit application to become historian
+      parameters:
+      - description: Application data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.CreateUserVerificationDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Create historian application
+      tags:
+      - Historian Application
+  /historian/application/{id}:
+    delete:
+      description: Delete historian application
+      parameters:
+      - description: Verification ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete application
+      tags:
+      - Historian Application
+    get:
+      description: Get historian application detail
+      parameters:
+      - description: Verification ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Get application by ID
+      tags:
+      - Historian Application
+  /historian/application/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Approve or reject historian application
+      parameters:
+      - description: Verification ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Status update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.UpdateVerificationStatusDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Update application status
+      tags:
+      - Historian Application
   /media:
     delete:
       consumes:
@@ -484,18 +725,55 @@ paths:
       - application/json
       description: Search media with filters, pagination
       parameters:
-      - description: Page number
-        in: query
-        name: page
-        type: integer
-      - description: Items per page
-        in: query
+      - in: query
+        maximum: 100
+        minimum: 1
         name: limit
         type: integer
-      - description: Search keyword
-        in: query
-        name: keyword
+      - in: query
+        minimum: 0
+        name: max_size
+        type: integer
+      - in: query
+        maxLength: 100
+        name: mime_type
         type: string
+      - in: query
+        minimum: 0
+        name: min_size
+        type: integer
+      - enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      - in: query
+        minimum: 1
+        name: page
+        type: integer
+      - in: query
+        maxLength: 200
+        minLength: 2
+        name: search
+        type: string
+      - enum:
+        - id
+        - created_at
+        - updated_at
+        - size
+        - original_name
+        - storage_key
+        - mime_type
+        in: query
+        name: sort
+        type: string
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        name: user_ids
+        type: array
       produces:
       - application/json
       responses:
@@ -511,6 +789,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
       summary: Search media
       tags:
       - Media
@@ -562,6 +842,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
       summary: Get media by ID
       tags:
       - Media
@@ -571,16 +853,18 @@ paths:
       - application/json
       description: Generate a presigned URL for direct upload to storage
       parameters:
-      - description: File name
-        in: query
-        name: filename
+      - in: query
+        name: content_type
         required: true
         type: string
-      - description: Content type
-        in: query
-        name: contentType
+      - in: query
+        name: fileName
         required: true
         type: string
+      - in: query
+        name: size
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -607,11 +891,12 @@ paths:
       - application/json
       description: Confirm that upload via presigned URL is completed
       parameters:
-      - description: Storage key
-        in: query
-        name: key
+      - description: Request body
+        in: body
+        name: data
         required: true
-        type: string
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.PreSignedCompleteDto'
       produces:
       - application/json
       responses:
@@ -933,6 +1218,31 @@ paths:
       security:
       - BearerAuth: []
       summary: Update user profile
+      tags:
+      - Users
+  /users/{id}/application:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve media list by specific user ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get user's media by user ID
       tags:
       - Users
   /users/{id}/media:

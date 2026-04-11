@@ -49,7 +49,7 @@ func runSingleWorker(ctx context.Context, rdb *redis.Client, consumerID int) {
 					rdb.XAck(ctx, constants.StreamEmailName, constants.GroupEmailName, message.ID)
 					continue
 				}
-				
+
 				if taskType == constants.TaskTypeSendEmailOTP.String() {
 					var data models.TokenEntity
 					if err := json.Unmarshal([]byte(payloadStr), &data); err != nil {
@@ -62,7 +62,26 @@ func runSingleWorker(ctx context.Context, rdb *redis.Client, consumerID int) {
 						Str("email", data.Email).
 						Msg("Processing email task")
 
-					errSend := email.SendMailOTP(data.Email, data.Token, data.TokenType)
+					errSend := email.SendMailOTP(&data)
+					if errSend != nil {
+						log.Error().Err(errSend).Str("email", data.Email).Msg("Failed to send email")
+						continue
+					}
+				}
+
+				if taskType == constants.TaskTypeNotifyHistorianReview.String() {
+					var data models.UserVerificationStorageEntity
+					if err := json.Unmarshal([]byte(payloadStr), &data); err != nil {
+						log.Error().Err(err).Msg("Failed to unmarshal payload")
+						continue
+					}
+
+					log.Info().
+						Str("worker", consumerName).
+						Str("email", data.Email).
+						Msg("Processing email task")
+
+					errSend := email.SendHistorianReviewMail(&data)
 					if errSend != nil {
 						log.Error().Err(errSend).Str("email", data.Email).Msg("Failed to send email")
 						continue

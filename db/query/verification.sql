@@ -15,6 +15,7 @@ SELECT
     uv.is_deleted, 
     uv.status, 
     uv.reviewed_by, 
+    uv.review_note,
     uv.reviewed_at, 
     uv.created_at,
     (
@@ -48,7 +49,8 @@ SELECT
     uv.is_deleted, 
     uv.status, 
     uv.reviewed_by, 
-    uv.reviewed_at, 
+    uv.reviewed_at,
+    uv.review_note, 
     uv.created_at,
     (
         SELECT COALESCE(
@@ -77,7 +79,8 @@ ORDER BY uv.created_at DESC;
 UPDATE user_verifications
 SET 
     status = $2,
-    reviewed_by = $3,
+    review_note = $3,
+    reviewed_by = $4,
     reviewed_at = now()
 WHERE id = $1 AND is_deleted = false;
 
@@ -97,13 +100,10 @@ INSERT INTO verification_medias (
 SELECT $1, unnest($2::uuid[])
 ON CONFLICT DO NOTHING;
 
--- name: BulkDeleteVerificationByMediaId :exec
+-- name: BulkDeleteVerificationMediaByMediaId :many
 DELETE FROM verification_medias
-WHERE media_id = $1;
-
--- name: DeleteVerificationMedias :exec
-DELETE FROM verification_medias
-WHERE verification_id = $1 AND media_id = ANY($2::uuid[]);
+WHERE media_id = $1
+RETURNING verification_id;
 
 -- name: SearchUserVerifications :many
 SELECT 
@@ -113,7 +113,8 @@ SELECT
     uv.content,
     uv.is_deleted, 
     uv.status, 
-    uv.reviewed_by, 
+    uv.reviewed_by,
+    uv.review_note, 
     uv.reviewed_at, 
     uv.created_at,
     (
@@ -139,11 +140,17 @@ FROM user_verifications uv
 WHERE 
     uv.is_deleted = false
     AND (sqlc.narg('user_ids')::uuid[] IS NULL OR uv.user_id = ANY(sqlc.narg('user_ids')::uuid[]))
-    AND (sqlc.narg('verify_types')::text[] IS NULL OR uv.verify_type = ANY(sqlc.narg('verify_types')::text[]))
-    AND (sqlc.narg('statuses')::text[] IS NULL OR uv.status = ANY(sqlc.narg('statuses')::text[]))
+    AND (
+        sqlc.narg('verify_types')::smallint[] IS NULL 
+        OR uv.verify_type = ANY(sqlc.narg('verify_types')::smallint[])
+    )
+    AND (
+        sqlc.narg('statuses')::smallint[] IS NULL 
+        OR uv.status = ANY(sqlc.narg('statuses')::smallint[])
+    )
     AND (sqlc.narg('reviewed_by')::uuid IS NULL OR uv.reviewed_by = sqlc.narg('reviewed_by')::uuid)
-    AND (sqlc.narg('created_after')::timestamptz IS NULL OR uv.created_at >= sqlc.narg('created_after')::timestamptz)
-    AND (sqlc.narg('created_before')::timestamptz IS NULL OR uv.created_at <= sqlc.narg('created_before')::timestamptz)
+    AND (sqlc.narg('created_from')::timestamptz IS NULL OR uv.created_at >= sqlc.narg('created_from')::timestamptz)
+    AND (sqlc.narg('created_to')::timestamptz IS NULL OR uv.created_at <= sqlc.narg('created_to')::timestamptz)
     AND (
         sqlc.narg('search_text')::text IS NULL OR 
         uv.id::text ILIKE '%' || sqlc.narg('search_text')::text || '%' OR
@@ -166,11 +173,17 @@ FROM user_verifications uv
 WHERE 
     uv.is_deleted = false
     AND (sqlc.narg('user_ids')::uuid[] IS NULL OR uv.user_id = ANY(sqlc.narg('user_ids')::uuid[]))
-    AND (sqlc.narg('verify_types')::text[] IS NULL OR uv.verify_type = ANY(sqlc.narg('verify_types')::text[]))
-    AND (sqlc.narg('statuses')::text[] IS NULL OR uv.status = ANY(sqlc.narg('statuses')::text[]))
+    AND (
+        sqlc.narg('verify_types')::smallint[] IS NULL 
+        OR uv.verify_type = ANY(sqlc.narg('verify_types')::smallint[])
+    )
+    AND (
+        sqlc.narg('statuses')::smallint[] IS NULL 
+        OR uv.status = ANY(sqlc.narg('statuses')::smallint[])
+    )
     AND (sqlc.narg('reviewed_by')::uuid IS NULL OR uv.reviewed_by = sqlc.narg('reviewed_by')::uuid)
-    AND (sqlc.narg('created_after')::timestamptz IS NULL OR uv.created_at >= sqlc.narg('created_after')::timestamptz)
-    AND (sqlc.narg('created_before')::timestamptz IS NULL OR uv.created_at <= sqlc.narg('created_before')::timestamptz)
+    AND (sqlc.narg('created_from')::timestamptz IS NULL OR uv.created_at >= sqlc.narg('created_from')::timestamptz)
+    AND (sqlc.narg('created_to')::timestamptz IS NULL OR uv.created_at <= sqlc.narg('created_to')::timestamptz)
     AND (
         sqlc.narg('search_text')::text IS NULL OR 
         uv.id::text ILIKE '%' || sqlc.narg('search_text')::text || '%' OR

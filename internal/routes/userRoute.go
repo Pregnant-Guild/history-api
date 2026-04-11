@@ -58,6 +58,13 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 		controller.GetMediaByUserID,
 	)
 
+	route.Get(
+		"/:id/application",
+		middlewares.JwtAccess(userRepo),
+		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		controller.GetVerificationByUserID,
+	)
+
 	route.Patch(
 		"/:id/restore",
 		middlewares.JwtAccess(userRepo),

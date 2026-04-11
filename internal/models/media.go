@@ -23,7 +23,7 @@ type MediaSimpleEntity struct {
 	MimeType     string    `json:"mime_type"`
 	Size         int64     `json:"size"`
 	FileMetadata []byte    `json:"file_metadata"`
-	CreatedAt    time.Time `json:"created_at"`
+	CreatedAt    *time.Time `json:"created_at"`
 }
 
 
@@ -53,6 +53,18 @@ func (e *MediaEntity) ToResponse() *response.MediaResponse {
 	}
 }
 
+func (e *MediaEntity) ToSimpleEntity() *MediaSimpleEntity {
+	return &MediaSimpleEntity{
+		ID:           e.ID,
+		StorageKey:   e.StorageKey,
+		OriginalName: e.OriginalName,
+		MimeType:     e.MimeType,
+		Size:         e.Size,
+		FileMetadata: e.FileMetadata,
+		CreatedAt:    e.CreatedAt,
+	}
+}
+
 func MediaEntitiesToResponse(entities []*MediaEntity) []*response.MediaResponse {
 	responses := make([]*response.MediaResponse, len(entities))
 	for i, entity := range entities {
@@ -62,7 +74,7 @@ func MediaEntitiesToResponse(entities []*MediaEntity) []*response.MediaResponse 
 }
 
 
-func MediaEntitiesToStorageEntitye(entities []*MediaEntity) []*MediaStorageEntity {
+func MediaEntitiesToStorageEntity(entities []*MediaEntity) []*MediaStorageEntity {
 	responses := make([]*MediaStorageEntity, len(entities))
 	for i, entity := range entities {
 		responses[i] = entity.ToStorageEntity()

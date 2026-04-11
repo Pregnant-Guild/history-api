@@ -20,7 +20,7 @@ ON user_profiles USING gin (display_name gin_trgm_ops);
 CREATE INDEX idx_user_profiles_country 
 ON user_profiles(country_code);
 
-CREATE UNIQUE INDEX idx_user_profiles_phone 
+CREATE INDEX idx_user_profiles_phone 
 ON user_profiles(phone);
 
 CREATE TRIGGER trigger_user_profiles_updated_at

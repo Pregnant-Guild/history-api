@@ -392,8 +392,322 @@
                 }
             }
         },
+        "/historian/application": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get list of historian applications with filters",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Historian Application"
+                ],
+                "summary": "Search historian applications",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "name": "created_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "name": "created_to",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "name": "reviewed_by",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 200,
+                        "minLength": 2,
+                        "type": "string",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "id",
+                            "created_at",
+                            "reviewed_at",
+                            "status"
+                        ],
+                        "type": "string",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "name": "statuses",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "name": "user_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "name": "verify_types",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Submit application to become historian",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Historian Application"
+                ],
+                "summary": "Create historian application",
+                "parameters": [
+                    {
+                        "description": "Application data",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.CreateUserVerificationDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/historian/application/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get historian application detail",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Historian Application"
+                ],
+                "summary": "Get application by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Verification ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete historian application",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Historian Application"
+                ],
+                "summary": "Delete application",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Verification ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/historian/application/{id}/status": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Approve or reject historian application",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Historian Application"
+                ],
+                "summary": "Update application status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Verification ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Status update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.UpdateVerificationStatusDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/media": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Search media with filters, pagination",
                 "consumes": [
                     "application/json"
@@ -407,21 +721,73 @@
                 "summary": "Search media",
                 "parameters": [
                     {
+                        "maximum": 100,
+                        "minimum": 1,
                         "type": "integer",
-                        "description": "Page number",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Items per page",
                         "name": "limit",
                         "in": "query"
                     },
                     {
+                        "minimum": 0,
+                        "type": "integer",
+                        "name": "max_size",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 100,
                         "type": "string",
-                        "description": "Search keyword",
-                        "name": "keyword",
+                        "name": "mime_type",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "name": "min_size",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 200,
+                        "minLength": 2,
+                        "type": "string",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "id",
+                            "created_at",
+                            "updated_at",
+                            "size",
+                            "original_name",
+                            "storage_key",
+                            "mime_type"
+                        ],
+                        "type": "string",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "name": "user_ids",
                         "in": "query"
                     }
                 ],
@@ -511,15 +877,19 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "File name",
-                        "name": "filename",
+                        "name": "content_type",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Content type",
-                        "name": "contentType",
+                        "name": "fileName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "name": "size",
                         "in": "query",
                         "required": true
                     }
@@ -566,11 +936,13 @@
                 "summary": "Confirm presigned upload",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Storage key",
-                        "name": "key",
-                        "in": "query",
-                        "required": true
+                        "description": "Request body",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.PreSignedCompleteDto"
+                        }
                     }
                 ],
                 "responses": {
@@ -646,6 +1018,11 @@
         },
         "/media/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Retrieve a media file by its ID",
                 "consumes": [
                     "application/json"
@@ -1211,6 +1588,44 @@
                 }
             }
         },
+        "/users/{id}/application": {
+            "get": {
+                "description": "Retrieve media list by specific user ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get user's media by user ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/users/{id}/media": {
             "get": {
                 "description": "Retrieve media list by specific user ID",
@@ -1473,6 +1888,34 @@
                 }
             }
         },
+        "history-api_internal_dtos_request.CreateUserVerificationDto": {
+            "type": "object",
+            "required": [
+                "content",
+                "verify_type"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "minLength": 10
+                },
+                "media_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "verify_type": {
+                    "type": "string",
+                    "enum": [
+                        "ID_CARD",
+                        "EDUCATION",
+                        "EXPERT",
+                        "OTHER"
+                    ]
+                }
+            }
+        },
         "history-api_internal_dtos_request.ForgotPasswordDto": {
             "type": "object",
             "required": [
@@ -1507,6 +1950,17 @@
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "history-api_internal_dtos_request.PreSignedCompleteDto": {
+            "type": "object",
+            "required": [
+                "token_id"
+            ],
+            "properties": {
+                "token_id": {
+                    "type": "string"
                 }
             }
         },
@@ -1592,6 +2046,28 @@
                 },
                 "website": {
                     "type": "string"
+                }
+            }
+        },
+        "history-api_internal_dtos_request.UpdateVerificationStatusDto": {
+            "type": "object",
+            "required": [
+                "review_note",
+                "status"
+            ],
+            "properties": {
+                "review_note": {
+                    "type": "string",
+                    "maxLength": 3000,
+                    "minLength": 5
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "PENDING",
+                        "APPROVED",
+                        "REJECTED"
+                    ]
                 }
             }
         },

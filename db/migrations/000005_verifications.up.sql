@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS user_verifications (
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     status SMALLINT NOT NULL DEFAULT 1,
     reviewed_by UUID REFERENCES users(id),
+    review_note TEXT,
     reviewed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT now()
 );

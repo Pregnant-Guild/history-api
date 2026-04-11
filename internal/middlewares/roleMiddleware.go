@@ -60,3 +60,24 @@ func RequireAllRoles(required ...constants.Role) fiber.Handler {
 		return c.Next()
 	}
 }
+
+func ForbidRoles(forbidden ...constants.Role) fiber.Handler {
+	return func(c fiber.Ctx) error {
+		userRoles, err := getRoles(c)
+		if err != nil {
+			return err
+		}
+
+		if len(userRoles) == 0 {
+			return c.Next()
+		}
+
+		for _, ur := range userRoles {
+			if slices.Contains(forbidden, ur) {
+				return fiber.ErrForbidden
+			}
+		}
+
+		return c.Next()
+	}
+}
