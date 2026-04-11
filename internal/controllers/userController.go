@@ -113,8 +113,8 @@ func (h *UserController) GetMediaByUserID(c fiber.Ctx) error {
 }
 
 // GetApplicationUserID godoc
-// @Summary Get user's media by user ID
-// @Description Retrieve media list by specific user ID
+// @Summary Get user's application by user ID
+// @Description Retrieve application list by specific user ID
 // @Tags Users
 // @Accept json
 // @Produce json
