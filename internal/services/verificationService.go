@@ -329,50 +329,53 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 
 	data := &models.UserVerificationStorageEntity{
 		Email:      userVerification.Email,
+		Name:       userVerification.Profile.DisplayName,
 		ReviewNote: dto.ReviewNote,
 		Status:     statusType,
 	}
 
-	roleIdList := make([]pgtype.UUID, 0)
-	userVerification.Roles = append(userVerification.Roles, historianRole.ToRoleSimple())
+	if statusType == constants.StatusApproved {
+		roleIdList := make([]pgtype.UUID, 0)
+		userVerification.Roles = append(userVerification.Roles, historianRole.ToRoleSimple())
 
-	roleIdList = append(roleIdList, historianRoleID)
+		roleIdList = append(roleIdList, historianRoleID)
 
-	for _, role := range userVerification.Roles {
-		roleID, err := convert.StringToUUID(role.ID)
-		if err != nil {
-			continue
+		for _, role := range userVerification.Roles {
+			roleID, err := convert.StringToUUID(role.ID)
+			if err != nil {
+				continue
+			}
+			roleIdList = append(roleIdList, roleID)
 		}
-		roleIdList = append(roleIdList, roleID)
-	}
 
-	err = v.roleRepo.BulkDeleteRolesFromUser(ctx, userVerificationUUID)
-	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
-	}
+		err = v.roleRepo.BulkDeleteRolesFromUser(ctx, userVerificationUUID)
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
 
-	err = v.roleRepo.CreateUserRole(ctx, sqlc.CreateUserRoleParams{
-		UserID:  userVerificationUUID,
-		Column2: roleIdList,
-	})
-	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
-	}
+		err = v.roleRepo.CreateUserRole(ctx, sqlc.CreateUserRoleParams{
+			UserID:  userVerificationUUID,
+			Column2: roleIdList,
+		})
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
 
-	err = v.userRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
-		ID:           userVerificationUUID,
-		TokenVersion: userVerification.TokenVersion + 1,
-	})
-	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
-	}
-	userVerification.TokenVersion += 1
+		err = v.userRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
+			ID:           userVerificationUUID,
+			TokenVersion: userVerification.TokenVersion + 1,
+		})
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		userVerification.TokenVersion += 1
 
-	mapCache := map[string]any{
-		fmt.Sprintf("user:email:%s", userVerification.Email): userVerification,
-		fmt.Sprintf("user:id:%s", userVerification.ID):       userVerification,
+		mapCache := map[string]any{
+			fmt.Sprintf("user:email:%s", userVerification.Email): userVerification,
+			fmt.Sprintf("user:id:%s", userVerification.ID):       userVerification,
+		}
+		_ = v.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 	}
-	_ = v.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 
 	v.c.PublishTask(ctx, constants.StreamEmailName, constants.TaskTypeNotifyHistorianReview, data)
 

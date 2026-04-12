@@ -99,7 +99,7 @@ func SendHistorianReviewMail(dto *models.UserVerificationStorageEntity) error {
 	}
 
 	return SendMail(dto.Email, subject, templatePath, map[string]string{
-		"NAME":    dto.Email,
+		"NAME":    dto.Name,
 		"REASON":  dto.ReviewNote,
 		"APP_URL": feUrl,
 	})

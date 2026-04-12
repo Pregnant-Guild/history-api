@@ -23,6 +23,7 @@ type UserVerificationEntity struct {
 
 type UserVerificationStorageEntity struct {
 	Email      string               `json:"email"`
+	Name       string               `json:"name"`
 	Status     constants.StatusType `json:"status"`
 	ReviewNote string               `json:"review_note"`
 }
@@ -76,4 +77,3 @@ func UserVerificationsEntitiesToResponse(entities []*UserVerificationEntity) []*
 	}
 	return responses
 }
-
