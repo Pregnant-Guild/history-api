@@ -1449,6 +1449,27 @@ paths:
       summary: Get current user profile
       tags:
       - Users
+  /users/current/application:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve application list of the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user's application
+      tags:
+      - Users
   /users/current/media:
     get:
       consumes:
