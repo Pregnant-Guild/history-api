@@ -32,6 +32,12 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 	)
 
 	route.Get(
+		"/current/application",
+		middlewares.JwtAccess(userRepo),
+		controller.GetUserApplication,
+	)
+
+	route.Get(
 		"/:id",
 		middlewares.JwtAccess(userRepo),
 		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
