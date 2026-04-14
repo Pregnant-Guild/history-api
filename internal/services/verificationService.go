@@ -178,7 +178,7 @@ func (m *verificationService) fillSearchArgs(arg *sqlc.SearchUserVerificationsPa
 
 	if len(dto.Statuses) > 0 {
 		for _, id := range dto.Statuses {
-			if u := constants.ParseStatusTypeText(id); u == constants.StatusUnknown {
+			if u := constants.ParseStatusTypeText(id); u != constants.StatusUnknown {
 				arg.Statuses = append(arg.Statuses, u.Int16())
 			}
 		}
@@ -186,7 +186,7 @@ func (m *verificationService) fillSearchArgs(arg *sqlc.SearchUserVerificationsPa
 
 	if len(dto.VerifyTypes) > 0 {
 		for _, id := range dto.VerifyTypes {
-			if u := constants.ParseVerifyTypeText(id); u == constants.VerifyUnknown {
+			if u := constants.ParseVerifyTypeText(id); u != constants.VerifyUnknown {
 				arg.VerifyTypes = append(arg.VerifyTypes, u.Int16())
 			}
 		}
