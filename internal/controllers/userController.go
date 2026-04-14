@@ -188,7 +188,7 @@ func (h *UserController) UpdateProfile(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 
@@ -225,7 +225,7 @@ func (h *UserController) ChangePassword(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 	err := h.service.ChangePassword(ctx, c.Locals("uid").(string), dto)
@@ -318,7 +318,7 @@ func (h *UserController) ChangeRoleUser(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 	claimsVal := c.Locals("user_claims")
@@ -398,7 +398,7 @@ func (h *UserController) SearchUser(c fiber.Ctx) error {
 	if err := validator.ValidateQueryDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 	res, err := h.service.SearchUser(ctx, dto)

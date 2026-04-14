@@ -48,7 +48,7 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 
@@ -102,7 +102,7 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 
@@ -221,7 +221,7 @@ func (h *AuthController) VerifyToken(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 
@@ -258,7 +258,7 @@ func (h *AuthController) CreateToken(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 
@@ -295,7 +295,7 @@ func (h *AuthController) ForgotPassword(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 

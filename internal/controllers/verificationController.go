@@ -64,7 +64,7 @@ func (m *VerificationController) SearchVerification(c fiber.Ctx) error {
 	if err := validator.ValidateQueryDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 	res, err := m.service.SearchVerification(ctx, dto)
@@ -138,7 +138,7 @@ func (m *VerificationController) CreateVerification(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 	res, err := m.service.CreateVerification(ctx, c.Locals("uid").(string), dto)
@@ -171,7 +171,7 @@ func (m *VerificationController) UpdateVerificationStatus(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 	verificationId := c.Params("id")

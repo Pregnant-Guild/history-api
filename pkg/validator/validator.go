@@ -32,7 +32,6 @@ func init() {
 		}
 		return isImageURL(val)
 	})
-
 }
 
 func isImageURL(u string) bool {
@@ -52,67 +51,68 @@ func isImageURL(u string) bool {
 }
 
 type ErrorResponse struct {
-	FailedField string `json:"failed_field"`
-	Tag         string `json:"tag"`
-	Value       string `json:"value"`
+	FailedField string `json:"failed_field,omitempty"`
+	Tag         string `json:"tag,omitempty"`
+	Value       string `json:"value,omitempty"`
 	Message     string `json:"message"`
 }
 
-func formatValidationError(err error) []ErrorResponse {
+func formatValidationError(err error) []*ErrorResponse {
 	var validationErrors validator.ValidationErrors
-	var errorsList []ErrorResponse
+	var errorsList []*ErrorResponse
 
 	if errors.As(err, &validationErrors) {
 		for _, fieldError := range validationErrors {
-			var element ErrorResponse
-			element.FailedField = fieldError.Field()
-			element.Tag = fieldError.Tag()
-			element.Value = fieldError.Param()
+			message := ""
 			switch fieldError.Tag() {
 			case "required":
-				element.Message = fieldError.Field() + " is required"
-			case "min":
-				element.Message = fieldError.Field() + " must be at least " + fieldError.Param() + " characters"
-			case "max":
-				element.Message = fieldError.Field() + " must be at most " + fieldError.Param() + " characters"
+				message = fieldError.Field() + " is mandatory"
 			case "email":
-				element.Message = "Invalid email format"
+				message = "The email address is invalid"
+			case "min":
+				message = fieldError.Field() + " is too short (min " + fieldError.Param() + ")"
+			case "max":
+				message = fieldError.Field() + " is too long (max " + fieldError.Param() + ")"
+			case "image_url":
+				message = fieldError.Field() + " must be a link to an image (jpg, png, etc.)"
 			default:
-				element.Message = fieldError.Error()
+				message = "Field " + fieldError.Field() + " failed on validation: " + fieldError.Tag()
 			}
-			errorsList = append(errorsList, element)
+
+			errorsList = append(errorsList, &ErrorResponse{
+				FailedField: fieldError.Field(),
+				Tag:         fieldError.Tag(),
+				Value:       fieldError.Param(),
+				Message:     message,
+			})
 		}
+	} else {
+		errorsList = append(errorsList, &ErrorResponse{
+			Message: "Invalid request payload: " + err.Error(),
+		})
 	}
 	return errorsList
 }
 
-func ValidateQueryDto(c fiber.Ctx, dto any) error {
+func ValidateQueryDto(c fiber.Ctx, dto any) []*ErrorResponse {
 	if err := c.Bind().Query(dto); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Failed to parse query parameters: " + err.Error(),
-		})
+		return formatValidationError(err)
 	}
 
 	if err := validate.Struct(dto); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"errors": formatValidationError(err),
-		})
+		return formatValidationError(err)
 	}
 
 	return nil
 }
 
-func ValidateBodyDto(c fiber.Ctx, dto any) error {
+func ValidateBodyDto(c fiber.Ctx, dto any) []*ErrorResponse {
 	if err := c.Bind().Body(dto); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body: " + err.Error(),
-		})
+		return formatValidationError(err)
 	}
 
 	if err := validate.Struct(dto); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"errors": formatValidationError(err),
-		})
+		return formatValidationError(err)
 	}
 
 	return nil

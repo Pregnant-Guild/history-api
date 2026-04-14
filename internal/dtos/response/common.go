@@ -9,6 +9,7 @@ import (
 type CommonResponse struct {
 	Status  bool   `json:"status"`
 	Data    any    `json:"data"`
+	Errors  any    `json:"errors"`
 	Message string `json:"message"`
 }
 
@@ -30,6 +31,7 @@ type PaginatedResponse struct {
 	Status     bool            `json:"status"`
 	Message    string          `json:"message"`
 	Data       any             `json:"data"`
+	Errors     any             `json:"errors"`
 	Pagination *PaginationMeta `json:"pagination"`
 }
 

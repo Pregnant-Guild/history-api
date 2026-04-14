@@ -67,7 +67,7 @@ func (m *MediaController) SearchMedia(c fiber.Ctx) error {
 	if err := validator.ValidateQueryDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 	res, err := m.service.SearchMedia(ctx, dto)
@@ -158,7 +158,7 @@ func (m *MediaController) BulkDeleteMedia(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 
@@ -233,7 +233,7 @@ func (m *MediaController) GeneratePresignedURL(c fiber.Ctx) error {
 	if err := validator.ValidateQueryDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 	res, err := m.service.GeneratePresignedURL(ctx, c.Locals("uid").(string), dto)
@@ -266,7 +266,7 @@ func (m *MediaController) PreSignedCompleted(c fiber.Ctx) error {
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Errors: err,
 		})
 	}
 	res, err := m.service.PreSignedCompleted(ctx, c.Locals("uid").(string), dto)
