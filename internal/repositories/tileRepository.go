@@ -27,7 +27,7 @@ func NewTileRepository(db *sql.DB, c cache.Cache) TileRepository {
 }
 
 func (r *tileRepository) GetMetadata(ctx context.Context) (map[string]string, error) {
-	cacheId := "mbtiles:metadata"
+	cacheId := "tile:metadata"
 
 	var cached map[string]string
 	err := r.c.Get(ctx, cacheId, &cached)

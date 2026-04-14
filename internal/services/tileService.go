@@ -40,12 +40,15 @@ func (t *tileService) GetTile(ctx context.Context, z, x, y int) ([]byte, map[str
 	if err != nil {
 		return nil, contentType, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	contentType["Content-Type"] = "image/png"
-	if format == "jpg" {
-		contentType["Content-Type"] = "image/jpeg"
-	}
-	if format == "pbf" {
+	switch format {
+	case "pbf":
 		contentType["Content-Type"] = "application/x-protobuf"
+	case "png":
+		contentType["Content-Type"] = "image/png"
+	case "jpg", "jpeg":
+		contentType["Content-Type"] = "image/jpeg"
+	default:
+		contentType["Content-Type"] = "application/octet-stream"
 	}
 
 	if isPBF {
