@@ -1100,6 +1100,90 @@
                 }
             }
         },
+        "/raster-tiles/metadata": {
+            "get": {
+                "description": "Retrieve map metadata",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tile"
+                ],
+                "summary": "Get raster tile metadata",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/raster-tiles/{z}/{x}/{y}": {
+            "get": {
+                "description": "Fetch vector or raster map tile data by Z, X, Y coordinates",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "Tile"
+                ],
+                "summary": "Get a map raster tile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Zoom level (0-22)",
+                        "name": "z",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "X coordinate",
+                        "name": "x",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Y coordinate",
+                        "name": "y",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/roles": {
             "get": {
                 "security": [
@@ -1590,7 +1674,7 @@
         },
         "/users/{id}/application": {
             "get": {
-                "description": "Retrieve media list by specific user ID",
+                "description": "Retrieve application list by specific user ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -1600,7 +1684,7 @@
                 "tags": [
                     "Users"
                 ],
-                "summary": "Get user's media by user ID",
+                "summary": "Get user's application by user ID",
                 "parameters": [
                     {
                         "type": "string",

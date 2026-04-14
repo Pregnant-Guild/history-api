@@ -948,6 +948,62 @@ paths:
       summary: Upload media (server-side)
       tags:
       - Media
+  /raster-tiles/{z}/{x}/{y}:
+    get:
+      description: Fetch vector or raster map tile data by Z, X, Y coordinates
+      parameters:
+      - description: Zoom level (0-22)
+        in: path
+        name: z
+        required: true
+        type: integer
+      - description: X coordinate
+        in: path
+        name: x
+        required: true
+        type: integer
+      - description: Y coordinate
+        in: path
+        name: "y"
+        required: true
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get a map raster tile
+      tags:
+      - Tile
+  /raster-tiles/metadata:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve map metadata
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get raster tile metadata
+      tags:
+      - Tile
   /roles:
     get:
       consumes:
@@ -1224,7 +1280,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve media list by specific user ID
+      description: Retrieve application list by specific user ID
       parameters:
       - description: User ID
         in: path
@@ -1242,7 +1298,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
-      summary: Get user's media by user ID
+      summary: Get user's application by user ID
       tags:
       - Users
   /users/{id}/media:
