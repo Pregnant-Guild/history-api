@@ -164,7 +164,14 @@ func (v *verificationRepository) Create(ctx context.Context, params sqlc.CreateU
 
 func (v *verificationRepository) UpdateStatus(ctx context.Context, params sqlc.UpdateUserVerificationStatusParams) error {
 	err := v.q.UpdateUserVerificationStatus(ctx, params)
-	return err
+	if err != nil {
+		return err
+	}
+
+	cacheId := fmt.Sprintf("verification:id:%s", convert.UUIDToString(params.ID))
+	_ = v.c.Del(ctx, cacheId)
+
+	return nil
 }
 
 func (v *verificationRepository) Delete(ctx context.Context, id pgtype.UUID) error {
