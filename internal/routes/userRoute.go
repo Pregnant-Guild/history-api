@@ -34,7 +34,7 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 		"/:id",
 		middlewares.JwtAccess(userRepo),
 		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
-		controller.SearchUser,
+		controller.GetMediaByUserID,
 	)
 
 	route.Put(
