@@ -1,6 +1,9 @@
 package response
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type PreSignedResponse struct {
 	TokenID       string            `json:"token_id"`
@@ -10,23 +13,23 @@ type PreSignedResponse struct {
 }
 
 type MediaResponse struct {
-	ID           string     `json:"id"`
-	UserID       string     `json:"user_id"`
-	StorageKey   string     `json:"storage_key"`
-	OriginalName string     `json:"original_name"`
-	MimeType     string     `json:"mime_type"`
-	Size         int64      `json:"size"`
-	FileMetadata []byte     `json:"file_metadata"`
-	CreatedAt    *time.Time `json:"created_at"`
-	UpdatedAt    *time.Time `json:"updated_at"`
+	ID           string          `json:"id"`
+	UserID       string          `json:"user_id"`
+	StorageKey   string          `json:"storage_key"`
+	OriginalName string          `json:"original_name"`
+	MimeType     string          `json:"mime_type"`
+	Size         int64           `json:"size"`
+	FileMetadata json.RawMessage `json:"file_metadata"`
+	CreatedAt    *time.Time      `json:"created_at"`
+	UpdatedAt    *time.Time      `json:"updated_at"`
 }
 
 type MediaSimpleResponse struct {
-	ID           string    `json:"id"`
-	StorageKey   string    `json:"storage_key"`
-	OriginalName string    `json:"original_name"`
-	MimeType     string    `json:"mime_type"`
-	Size         int64     `json:"size"`
-	FileMetadata []byte    `json:"file_metadata"`
-	CreatedAt    *time.Time `json:"created_at"`
+	ID           string          `json:"id"`
+	StorageKey   string          `json:"storage_key"`
+	OriginalName string          `json:"original_name"`
+	MimeType     string          `json:"mime_type"`
+	Size         int64           `json:"size"`
+	FileMetadata json.RawMessage `json:"file_metadata"`
+	CreatedAt    *time.Time      `json:"created_at"`
 }
