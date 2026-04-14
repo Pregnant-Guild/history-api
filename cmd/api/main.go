@@ -67,6 +67,14 @@ func StartServer() {
 	}
 	defer sqlTile.Close()
 
+
+	sqlRasterTile, err := mbtiles.NewMBTilesDB("data/raster.mbtiles")
+	if err != nil {
+		log.Error().Msg(err.Error())
+		panic(err)
+	}
+	defer sqlRasterTile.Close()
+
 	redisClient, err := cache.NewRedisClient()
 	if err != nil {
 		log.Error().Msg(err.Error())
@@ -96,7 +104,7 @@ func StartServer() {
 	}
 
 	serverHttp := NewHttpServer()
-	serverHttp.SetupServer(poolPg, sqlTile, redisClient, storageClient, googleOAuthConfig)
+	serverHttp.SetupServer(poolPg, sqlTile, sqlRasterTile, redisClient, storageClient, googleOAuthConfig)
 	Singleton = serverHttp
 
 	done := make(chan bool, 1)

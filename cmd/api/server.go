@@ -56,7 +56,14 @@ func NewHttpServer() *FiberServer {
 	return server
 }
 
-func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.Cache, sclient storage.Storage, oauth *oauth2.Config) {
+func (s *FiberServer) SetupServer(
+	sqlPg sqlc.DBTX, 
+	sqlTile *sql.DB, 
+	sqlRasterTile *sql.DB, 
+	redis cache.Cache, 
+	sclient storage.Storage, 
+	oauth *oauth2.Config,
+) {
 	// Apply CORS middleware
 	s.App.Use(cors.New(cors.Config{
 		AllowOrigins: []string{
@@ -75,6 +82,7 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 	userRepo := repositories.NewUserRepository(sqlPg, redis)
 	roleRepo := repositories.NewRoleRepository(sqlPg, redis)
 	tileRepo := repositories.NewTileRepository(sqlTile, redis)
+	rasterTileRepo := repositories.NewRasterTileRepository(sqlRasterTile, redis)
 	tokenRepo := repositories.NewTokenRepository(redis)
 	mediaRepo := repositories.NewMediaRepository(sqlPg, redis)
 	verificationRepo := repositories.NewVerificationRepository(sqlPg, redis)
@@ -84,6 +92,7 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 	userService := services.NewUserService(userRepo, roleRepo, redis)
 	roleService := services.NewRoleService(roleRepo)
 	tileService := services.NewTileService(tileRepo)
+	rasterTileService := services.NewRasterTileService(rasterTileRepo)
 	mediaService := services.NewMediaService(mediaRepo, tokenRepo, sclient, redis)
 	verificationService := services.NewVerificationService(verificationRepo, mediaRepo, userRepo, roleRepo, redis)
 
@@ -91,6 +100,7 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 	authController := controllers.NewAuthController(authService, oauth)
 	userController := controllers.NewUserController(userService, mediaService, verificationService)
 	tileController := controllers.NewTileController(tileService)
+	rasterTileController := controllers.NewRasterTileController(rasterTileService)
 	roleController := controllers.NewRoleController(roleService)
 	mediaController := controllers.NewMediaController(mediaService)
 	verificationController := controllers.NewVerificationController(verificationService)
@@ -102,5 +112,6 @@ func (s *FiberServer) SetupServer(sqlPg sqlc.DBTX, sqlTile *sql.DB, redis cache.
 	routes.RoleRoutes(s.App, roleController, userRepo)
 	routes.VerificationRoutes(s.App, verificationController, userRepo)
 	routes.TileRoutes(s.App, tileController)
+	routes.RasterTileRoutes(s.App, rasterTileController)
 	routes.NotFoundRoute(s.App)
 }
