@@ -4,7 +4,6 @@ import (
 	"time"
 )
 
-// SearchUserVerificationDto swagger model
 type SearchUserVerificationDto struct {
 	PaginationDto
 	Sort   string `json:"sort" query:"sort" validate:"omitempty,oneof=id created_at reviewed_at status"`
@@ -17,14 +16,12 @@ type SearchUserVerificationDto struct {
 	CreatedTo   *time.Time `json:"created_to" query:"created_to"`
 }
 
-// CreateUserVerificationDto swagger model
 type CreateUserVerificationDto struct {
 	VerifyType string   `json:"verify_type" validate:"required,oneof=ID_CARD EDUCATION EXPERT OTHER"`
 	Content    string   `json:"content" validate:"required,min=10"`
 	MediaIDs   []string `json:"media_ids" validate:"omitempty,dive,uuid"`
 }
 
-// UpdateVerificationStatusDto swagger model
 type UpdateVerificationStatusDto struct {
 	Status     string `json:"status" validate:"required,oneof=PENDING APPROVED REJECTED"`
 	ReviewNote string `json:"review_note" validate:"required,min=5,max=3000"`

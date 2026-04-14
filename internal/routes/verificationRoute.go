@@ -11,19 +11,6 @@ import (
 
 func VerificationRoutes(app *fiber.App, controller *controllers.VerificationController, userRepo repositories.UserRepository) {
 	route := app.Group("/historian/application")
-	route.Get(
-		"/",
-		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
-		controller.SearchVerification,
-	)
-
-	route.Post(
-		"/",
-		middlewares.JwtAccess(userRepo),
-		middlewares.ForbidRoles(constants.HISTORIAN),
-		controller.CreateVerification,
-	)
 
 	route.Get(
 		"/:id",
@@ -43,6 +30,20 @@ func VerificationRoutes(app *fiber.App, controller *controllers.VerificationCont
 		middlewares.JwtAccess(userRepo),
 		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
 		controller.UpdateVerificationStatus,
+	)
+
+	route.Get(
+		"/",
+		middlewares.JwtAccess(userRepo),
+		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		controller.SearchVerification,
+	)
+
+	route.Post(
+		"/",
+		middlewares.JwtAccess(userRepo),
+		middlewares.ForbidRoles(constants.HISTORIAN),
+		controller.CreateVerification,
 	)
 
 }

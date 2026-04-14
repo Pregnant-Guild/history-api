@@ -11,17 +11,6 @@ import (
 
 func MediaRoutes(app *fiber.App, controller *controllers.MediaController, userRepo repositories.UserRepository) {
 	route := app.Group("/media")
-	route.Get(
-		"/",
-		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
-		controller.SearchMedia,
-	)
-	route.Delete(
-		"/",
-		middlewares.JwtAccess(userRepo),
-		controller.BulkDeleteMedia,
-	)
 
 	route.Post(
 		"/upload",
@@ -53,6 +42,18 @@ func MediaRoutes(app *fiber.App, controller *controllers.MediaController, userRe
 		"/:id",
 		middlewares.JwtAccess(userRepo),
 		controller.DeleteMedia,
+	)
+
+	route.Get(
+		"/",
+		middlewares.JwtAccess(userRepo),
+		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		controller.SearchMedia,
+	)
+	route.Delete(
+		"/",
+		middlewares.JwtAccess(userRepo),
+		controller.BulkDeleteMedia,
 	)
 
 }

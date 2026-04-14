@@ -285,6 +285,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 				String: string(hashed),
 				Valid:  len(hashed) != 0,
 			},
+			AuthProvider: constants.LocalProvider.String(),
 		},
 	)
 	if err != nil {

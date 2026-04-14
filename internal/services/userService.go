@@ -376,7 +376,9 @@ func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto
 		return nil, err
 	}
 
-	return response.BuildPaginatedResponse(rows, totalRecords, dto.Page, dto.Limit), nil
+	users := models.UsersEntityToResponse(rows)
+
+	return response.BuildPaginatedResponse(users, totalRecords, dto.Page, dto.Limit), nil
 }
 
 func (u *userService) GetUserByID(ctx context.Context, userId string) (*response.UserResponse, error) {

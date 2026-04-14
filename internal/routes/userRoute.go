@@ -13,13 +13,6 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 	route := app.Group("/users")
 
 	route.Get(
-		"/",
-		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
-		controller.SearchUser,
-	)
-
-	route.Get(
 		"/current",
 		middlewares.JwtAccess(userRepo),
 		controller.GetUserCurrent,
@@ -90,4 +83,12 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 		middlewares.JwtAccess(userRepo),
 		controller.ChangePassword,
 	)
+
+	route.Get(
+		"/",
+		middlewares.JwtAccess(userRepo),
+		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		controller.SearchUser,
+	)
+
 }

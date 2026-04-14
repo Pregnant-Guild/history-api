@@ -226,8 +226,9 @@ func (m *mediaService) SearchMedia(ctx context.Context, dto *request.SearchMedia
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
+	media := models.MediaEntitiesToResponse(rows)
 
-	return response.BuildPaginatedResponse(rows, totalRecords, dto.Page, dto.Limit), nil
+	return response.BuildPaginatedResponse(media, totalRecords, dto.Page, dto.Limit), nil
 }
 
 func (m *mediaService) UploadServerSide(ctx context.Context, userId string, fileHeader *multipart.FileHeader) (*response.MediaResponse, error) {

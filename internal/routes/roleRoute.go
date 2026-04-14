@@ -10,15 +10,16 @@ import (
 
 func RoleRoutes(app *fiber.App, controller *controllers.RoleController, userRepo repositories.UserRepository) {
 	route := app.Group("/roles")
-	route.Get(
-		"/",
-		middlewares.JwtAccess(userRepo),
-		controller.GetAllRole,
-	)
 
 	route.Get(
 		"/:id",
 		middlewares.JwtAccess(userRepo),
 		controller.GetRoleById,
+	)
+
+	route.Get(
+		"/",
+		middlewares.JwtAccess(userRepo),
+		controller.GetAllRole,
 	)
 }

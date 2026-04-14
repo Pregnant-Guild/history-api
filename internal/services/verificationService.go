@@ -265,7 +265,9 @@ func (v *verificationService) SearchVerification(ctx context.Context, dto *reque
 		return nil, err
 	}
 
-	return response.BuildPaginatedResponse(rows, totalRecords, dto.Page, dto.Limit), nil
+	verifications := models.UserVerificationsEntitiesToResponse(rows)
+
+	return response.BuildPaginatedResponse(verifications, totalRecords, dto.Page, dto.Limit), nil
 }
 
 func (v *verificationService) UpdateStatusVerification(ctx context.Context, userId string, verificationId string, dto *request.UpdateVerificationStatusDto) (*response.UserVerificationResponse, error) {
