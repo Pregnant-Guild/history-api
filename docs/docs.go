@@ -2229,6 +2229,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "data": {},
+                "errors": {},
                 "message": {
                     "type": "string"
                 },
@@ -2241,6 +2242,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "data": {},
+                "errors": {},
                 "message": {
                     "type": "string"
                 },

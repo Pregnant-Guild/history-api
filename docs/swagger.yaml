@@ -197,6 +197,7 @@ definitions:
   history-api_internal_dtos_response.CommonResponse:
     properties:
       data: {}
+      errors: {}
       message:
         type: string
       status:
@@ -205,6 +206,7 @@ definitions:
   history-api_internal_dtos_response.PaginatedResponse:
     properties:
       data: {}
+      errors: {}
       message:
         type: string
       pagination:

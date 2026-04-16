@@ -16,7 +16,7 @@ func (t StatusType) String() string {
 	case StatusApproved:
 		return "APPROVED"
 	case StatusRejected:
-		return "REJECT"
+		return "REJECTED"
 	default:
 		return "UNKNOWN"
 	}
@@ -45,7 +45,7 @@ func ParseStatusTypeText(v string) StatusType {
 		return StatusPending
 	case "APPROVED":
 		return StatusApproved
-	case "REJECT":
+	case "REJECTED":
 		return StatusRejected
 	default:
 		return StatusUnknown

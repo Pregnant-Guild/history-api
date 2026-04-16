@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+ALTER TABLE users DROP CONSTRAINT IF EXISTS check_auth_provider;
 ALTER TABLE users ADD CONSTRAINT check_auth_provider 
 CHECK (auth_provider IN ('local', 'google', 'facebook', 'github'));
 

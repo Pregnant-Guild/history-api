@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS user_roles (
     PRIMARY KEY (user_id, role_id)
 );
 
-CREATE TABLE medias (
+CREATE TABLE IF NOT EXISTS medias (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     storage_key VARCHAR(255) UNIQUE NOT NULL,

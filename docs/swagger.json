@@ -2222,6 +2222,7 @@
             "type": "object",
             "properties": {
                 "data": {},
+                "errors": {},
                 "message": {
                     "type": "string"
                 },
@@ -2234,6 +2235,7 @@
             "type": "object",
             "properties": {
                 "data": {},
+                "errors": {},
                 "message": {
                     "type": "string"
                 },
