@@ -18,3 +18,7 @@ sql:
             go_type:
               import: "history-api/models"
               type: "[]Role"
+          - db_type: json
+            go_type: encoding/json.RawMessage
+          - db_type: jsonb
+            go_type: encoding/json.RawMessage

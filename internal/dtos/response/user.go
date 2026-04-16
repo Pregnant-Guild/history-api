@@ -13,6 +13,14 @@ type UserResponse struct {
 	Roles        []*RoleSimpleResponse      `json:"roles"`
 }
 
+type UserSimpleResponse struct {
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	FullName    string `json:"full_name"`
+	AvatarUrl   string `json:"avatar_url"`
+}
+
 type UserProfileSimpleResponse struct {
 	DisplayName string `json:"display_name"`
 	FullName    string `json:"full_name"`

@@ -9,12 +9,12 @@ import (
 
 type UserVerificationEntity struct {
 	ID         string               `json:"id"`
-	UserID     string               `json:"user_id"`
+	User       *UserSimpleEntity    `json:"user"`
 	VerifyType constants.VerifyType `json:"verify_type"`
 	Content    string               `json:"content"`
 	IsDeleted  bool                 `json:"is_deleted"`
 	Status     constants.StatusType `json:"status"`
-	ReviewedBy string               `json:"reviewed_by"`
+	Reviewer   *UserSimpleEntity    `json:"reviewer"`
 	ReviewNote string               `json:"review_note"`
 	ReviewedAt *time.Time           `json:"reviewed_at"`
 	CreatedAt  *time.Time           `json:"created_at"`
@@ -29,11 +29,27 @@ type UserVerificationStorageEntity struct {
 }
 
 func (u *UserVerificationEntity) ParseMedia(data []byte) error {
-	if len(data) == 0 {
+	if len(data) == 0 || string(data) == "null" {
 		u.Media = []*MediaSimpleEntity{}
 		return nil
 	}
 	return json.Unmarshal(data, &u.Media)
+}
+
+func (u *UserVerificationEntity) ParseUser(data []byte) error {
+	if len(data) == 0 || string(data) == "null" {
+		u.User = nil
+		return nil
+	}
+	return json.Unmarshal(data, &u.User)
+}
+
+func (u *UserVerificationEntity) ParseReviewer(data []byte) error {
+	if len(data) == 0 || string(data) == "null" {
+		u.Reviewer = nil
+		return nil
+	}
+	return json.Unmarshal(data, &u.Reviewer)
 }
 
 func (u *UserVerificationEntity) ToResponse() *response.UserVerificationResponse {
@@ -54,12 +70,12 @@ func (u *UserVerificationEntity) ToResponse() *response.UserVerificationResponse
 
 	res := &response.UserVerificationResponse{
 		ID:         u.ID,
-		UserID:     u.UserID,
+		User:       u.User.ToResponse(),
 		VerifyType: u.VerifyType.String(),
 		Content:    u.Content,
 		Status:     u.Status.String(),
 		ReviewNote: u.ReviewNote,
-		ReviewedBy: u.ReviewedBy,
+		Reviewer:   u.Reviewer.ToResponse(),
 		ReviewedAt: u.ReviewedAt,
 		CreatedAt:  u.CreatedAt,
 		Medias:     mediaResponses,

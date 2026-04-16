@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -173,7 +174,7 @@ type GetUserByEmailRow struct {
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	Profile      []byte             `json:"profile"`
+	Profile      json.RawMessage    `json:"profile"`
 	Roles        []byte             `json:"roles"`
 }
 
@@ -245,7 +246,7 @@ type GetUserByIDRow struct {
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	Profile      []byte             `json:"profile"`
+	Profile      json.RawMessage    `json:"profile"`
 	Roles        []byte             `json:"roles"`
 }
 
@@ -318,7 +319,7 @@ type GetUserByIDWithoutDeletedRow struct {
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	Profile      []byte             `json:"profile"`
+	Profile      json.RawMessage    `json:"profile"`
 	Roles        []byte             `json:"roles"`
 }
 
@@ -457,7 +458,7 @@ type SearchUsersRow struct {
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	Profile      []byte             `json:"profile"`
+	Profile      json.RawMessage    `json:"profile"`
 	Roles        []byte             `json:"roles"`
 }
 

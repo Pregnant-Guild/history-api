@@ -1,23 +1,61 @@
 -- name: CreateUserVerification :one
-INSERT INTO user_verifications (
-    user_id, verify_type, content
-) VALUES (
-    $1, $2, $3
+WITH inserted_uv AS (
+    INSERT INTO user_verifications (
+        user_id, verify_type, content
+    ) VALUES (
+        $1, $2, $3
+    )
+    RETURNING *
 )
-RETURNING *;
+SELECT 
+    i.id, 
+    i.verify_type, 
+    i.content,
+    i.is_deleted, 
+    i.status, 
+    i.review_note,
+    i.reviewed_at, 
+    i.created_at,
+    json_build_object(
+        'id', u.id,
+        'email', u.email,
+        'display_name', up.display_name,
+        'full_name', up.full_name,
+        'avatar_url', up.avatar_url
+    )::json AS user,
+    NULL::json AS reviewer, -- Khi mới tạo thì reviewer luôn null
+    '[]'::json AS medias
+FROM inserted_uv i
+JOIN users u ON i.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id;
+
 
 -- name: GetUserVerificationByID :one
 SELECT 
     uv.id, 
-    uv.user_id, 
     uv.verify_type, 
     uv.content,
     uv.is_deleted, 
     uv.status, 
-    uv.reviewed_by, 
     uv.review_note,
     uv.reviewed_at, 
     uv.created_at,
+    json_build_object(
+        'id', u.id,
+        'email', u.email,
+        'display_name', up.display_name,
+        'full_name', up.full_name,
+        'avatar_url', up.avatar_url
+    )::json AS user,
+    CASE WHEN uv.reviewed_by IS NOT NULL THEN
+        json_build_object(
+            'id', ru.id,
+            'email', ru.email,
+            'display_name', rup.display_name,
+            'full_name', rup.full_name,
+            'avatar_url', rup.avatar_url
+        )::json
+    ELSE NULL::json END AS reviewer,
     (
         SELECT COALESCE(
             json_agg(
@@ -38,20 +76,39 @@ SELECT
         WHERE vm.verification_id = uv.id
     ) AS medias
 FROM user_verifications uv
+JOIN users u ON uv.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id
+LEFT JOIN users ru ON uv.reviewed_by = ru.id
+LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE uv.id = $1 AND uv.is_deleted = false;
+
 
 -- name: GetUserVerifications :many
 SELECT 
     uv.id, 
-    uv.user_id, 
     uv.verify_type, 
     uv.content,
     uv.is_deleted, 
     uv.status, 
-    uv.reviewed_by, 
-    uv.reviewed_at,
-    uv.review_note, 
+    uv.review_note,
+    uv.reviewed_at, 
     uv.created_at,
+    json_build_object(
+        'id', u.id,
+        'email', u.email,
+        'display_name', up.display_name,
+        'full_name', up.full_name,
+        'avatar_url', up.avatar_url
+    )::json AS user,
+    CASE WHEN uv.reviewed_by IS NOT NULL THEN
+        json_build_object(
+            'id', ru.id,
+            'email', ru.email,
+            'display_name', rup.display_name,
+            'full_name', rup.full_name,
+            'avatar_url', rup.avatar_url
+        )::json
+    ELSE NULL::json END AS reviewer,
     (
         SELECT COALESCE(
             json_agg(
@@ -72,8 +129,13 @@ SELECT
         WHERE vm.verification_id = uv.id
     ) AS medias
 FROM user_verifications uv
+JOIN users u ON uv.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id
+LEFT JOIN users ru ON uv.reviewed_by = ru.id
+LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE uv.user_id = $1 AND uv.is_deleted = false
 ORDER BY uv.created_at DESC;
+
 
 -- name: UpdateUserVerificationStatus :exec
 UPDATE user_verifications
@@ -84,14 +146,17 @@ SET
     reviewed_at = now()
 WHERE id = $1 AND is_deleted = false;
 
+
 -- name: DeleteUserVerification :exec
 UPDATE user_verifications
 SET is_deleted = true
 WHERE id = $1;
 
+
 -- name: DeleteVerificationMedia :exec
 DELETE FROM verification_medias
 WHERE verification_id = $1 AND media_id = $2;
+
 
 -- name: CreateVerificationMedia :exec
 INSERT INTO verification_medias (
@@ -100,23 +165,39 @@ INSERT INTO verification_medias (
 SELECT $1, unnest($2::uuid[])
 ON CONFLICT DO NOTHING;
 
+
 -- name: BulkDeleteVerificationMediaByMediaId :many
 DELETE FROM verification_medias
 WHERE media_id = $1
 RETURNING verification_id;
 
+
 -- name: SearchUserVerifications :many
 SELECT 
     uv.id, 
-    uv.user_id, 
     uv.verify_type, 
     uv.content,
     uv.is_deleted, 
     uv.status, 
-    uv.reviewed_by,
     uv.review_note, 
     uv.reviewed_at, 
     uv.created_at,
+    json_build_object(
+        'id', u.id,
+        'email', u.email,
+        'display_name', up.display_name,
+        'full_name', up.full_name,
+        'avatar_url', up.avatar_url
+    )::json AS user,
+    CASE WHEN uv.reviewed_by IS NOT NULL THEN
+        json_build_object(
+            'id', ru.id,
+            'email', ru.email,
+            'display_name', rup.display_name,
+            'full_name', rup.full_name,
+            'avatar_url', rup.avatar_url
+        )::json
+    ELSE NULL::json END AS reviewer,
     (
         SELECT COALESCE(
             json_agg(
@@ -137,6 +218,10 @@ SELECT
         WHERE vm.verification_id = uv.id
     ) AS medias
 FROM user_verifications uv
+JOIN users u ON uv.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id
+LEFT JOIN users ru ON uv.reviewed_by = ru.id
+LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE 
     uv.is_deleted = false
     AND (sqlc.narg('user_ids')::uuid[] IS NULL OR uv.user_id = ANY(sqlc.narg('user_ids')::uuid[]))
@@ -166,6 +251,7 @@ ORDER BY
     CASE WHEN sqlc.narg('sort') IS NULL THEN uv.created_at END DESC
 LIMIT sqlc.arg('limit')
 OFFSET sqlc.arg('offset');
+
 
 -- name: CountUserVerifications :one
 SELECT count(*) 

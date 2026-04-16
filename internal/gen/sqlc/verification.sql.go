@@ -87,12 +87,35 @@ func (q *Queries) CountUserVerifications(ctx context.Context, arg CountUserVerif
 }
 
 const createUserVerification = `-- name: CreateUserVerification :one
-INSERT INTO user_verifications (
-    user_id, verify_type, content
-) VALUES (
-    $1, $2, $3
+WITH inserted_uv AS (
+    INSERT INTO user_verifications (
+        user_id, verify_type, content
+    ) VALUES (
+        $1, $2, $3
+    )
+    RETURNING id, user_id, verify_type, content, is_deleted, status, reviewed_by, review_note, reviewed_at, created_at
 )
-RETURNING id, user_id, verify_type, content, is_deleted, status, reviewed_by, review_note, reviewed_at, created_at
+SELECT 
+    i.id, 
+    i.verify_type, 
+    i.content,
+    i.is_deleted, 
+    i.status, 
+    i.review_note,
+    i.reviewed_at, 
+    i.created_at,
+    json_build_object(
+        'id', u.id,
+        'email', u.email,
+        'display_name', up.display_name,
+        'full_name', up.full_name,
+        'avatar_url', up.avatar_url
+    )::json AS user,
+    NULL::json AS reviewer, -- Khi mới tạo thì reviewer luôn null
+    '[]'::json AS medias
+FROM inserted_uv i
+JOIN users u ON i.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id
 `
 
 type CreateUserVerificationParams struct {
@@ -101,20 +124,35 @@ type CreateUserVerificationParams struct {
 	Content    pgtype.Text `json:"content"`
 }
 
-func (q *Queries) CreateUserVerification(ctx context.Context, arg CreateUserVerificationParams) (UserVerification, error) {
+type CreateUserVerificationRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	VerifyType int16              `json:"verify_type"`
+	Content    pgtype.Text        `json:"content"`
+	IsDeleted  bool               `json:"is_deleted"`
+	Status     int16              `json:"status"`
+	ReviewNote pgtype.Text        `json:"review_note"`
+	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	User       []byte             `json:"user"`
+	Reviewer   []byte             `json:"reviewer"`
+	Medias     []byte             `json:"medias"`
+}
+
+func (q *Queries) CreateUserVerification(ctx context.Context, arg CreateUserVerificationParams) (CreateUserVerificationRow, error) {
 	row := q.db.QueryRow(ctx, createUserVerification, arg.UserID, arg.VerifyType, arg.Content)
-	var i UserVerification
+	var i CreateUserVerificationRow
 	err := row.Scan(
 		&i.ID,
-		&i.UserID,
 		&i.VerifyType,
 		&i.Content,
 		&i.IsDeleted,
 		&i.Status,
-		&i.ReviewedBy,
 		&i.ReviewNote,
 		&i.ReviewedAt,
 		&i.CreatedAt,
+		&i.User,
+		&i.Reviewer,
+		&i.Medias,
 	)
 	return i, err
 }
@@ -166,15 +204,29 @@ func (q *Queries) DeleteVerificationMedia(ctx context.Context, arg DeleteVerific
 const getUserVerificationByID = `-- name: GetUserVerificationByID :one
 SELECT 
     uv.id, 
-    uv.user_id, 
     uv.verify_type, 
     uv.content,
     uv.is_deleted, 
     uv.status, 
-    uv.reviewed_by, 
     uv.review_note,
     uv.reviewed_at, 
     uv.created_at,
+    json_build_object(
+        'id', u.id,
+        'email', u.email,
+        'display_name', up.display_name,
+        'full_name', up.full_name,
+        'avatar_url', up.avatar_url
+    )::json AS user,
+    CASE WHEN uv.reviewed_by IS NOT NULL THEN
+        json_build_object(
+            'id', ru.id,
+            'email', ru.email,
+            'display_name', rup.display_name,
+            'full_name', rup.full_name,
+            'avatar_url', rup.avatar_url
+        )::json
+    ELSE NULL::json END AS reviewer,
     (
         SELECT COALESCE(
             json_agg(
@@ -195,20 +247,24 @@ SELECT
         WHERE vm.verification_id = uv.id
     ) AS medias
 FROM user_verifications uv
+JOIN users u ON uv.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id
+LEFT JOIN users ru ON uv.reviewed_by = ru.id
+LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE uv.id = $1 AND uv.is_deleted = false
 `
 
 type GetUserVerificationByIDRow struct {
 	ID         pgtype.UUID        `json:"id"`
-	UserID     pgtype.UUID        `json:"user_id"`
 	VerifyType int16              `json:"verify_type"`
 	Content    pgtype.Text        `json:"content"`
 	IsDeleted  bool               `json:"is_deleted"`
 	Status     int16              `json:"status"`
-	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
 	ReviewNote pgtype.Text        `json:"review_note"`
 	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	User       []byte             `json:"user"`
+	Reviewer   []byte             `json:"reviewer"`
 	Medias     []byte             `json:"medias"`
 }
 
@@ -217,15 +273,15 @@ func (q *Queries) GetUserVerificationByID(ctx context.Context, id pgtype.UUID) (
 	var i GetUserVerificationByIDRow
 	err := row.Scan(
 		&i.ID,
-		&i.UserID,
 		&i.VerifyType,
 		&i.Content,
 		&i.IsDeleted,
 		&i.Status,
-		&i.ReviewedBy,
 		&i.ReviewNote,
 		&i.ReviewedAt,
 		&i.CreatedAt,
+		&i.User,
+		&i.Reviewer,
 		&i.Medias,
 	)
 	return i, err
@@ -234,15 +290,29 @@ func (q *Queries) GetUserVerificationByID(ctx context.Context, id pgtype.UUID) (
 const getUserVerifications = `-- name: GetUserVerifications :many
 SELECT 
     uv.id, 
-    uv.user_id, 
     uv.verify_type, 
     uv.content,
     uv.is_deleted, 
     uv.status, 
-    uv.reviewed_by, 
-    uv.reviewed_at,
-    uv.review_note, 
+    uv.review_note,
+    uv.reviewed_at, 
     uv.created_at,
+    json_build_object(
+        'id', u.id,
+        'email', u.email,
+        'display_name', up.display_name,
+        'full_name', up.full_name,
+        'avatar_url', up.avatar_url
+    )::json AS user,
+    CASE WHEN uv.reviewed_by IS NOT NULL THEN
+        json_build_object(
+            'id', ru.id,
+            'email', ru.email,
+            'display_name', rup.display_name,
+            'full_name', rup.full_name,
+            'avatar_url', rup.avatar_url
+        )::json
+    ELSE NULL::json END AS reviewer,
     (
         SELECT COALESCE(
             json_agg(
@@ -263,21 +333,25 @@ SELECT
         WHERE vm.verification_id = uv.id
     ) AS medias
 FROM user_verifications uv
+JOIN users u ON uv.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id
+LEFT JOIN users ru ON uv.reviewed_by = ru.id
+LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE uv.user_id = $1 AND uv.is_deleted = false
 ORDER BY uv.created_at DESC
 `
 
 type GetUserVerificationsRow struct {
 	ID         pgtype.UUID        `json:"id"`
-	UserID     pgtype.UUID        `json:"user_id"`
 	VerifyType int16              `json:"verify_type"`
 	Content    pgtype.Text        `json:"content"`
 	IsDeleted  bool               `json:"is_deleted"`
 	Status     int16              `json:"status"`
-	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
-	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
 	ReviewNote pgtype.Text        `json:"review_note"`
+	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	User       []byte             `json:"user"`
+	Reviewer   []byte             `json:"reviewer"`
 	Medias     []byte             `json:"medias"`
 }
 
@@ -292,15 +366,15 @@ func (q *Queries) GetUserVerifications(ctx context.Context, userID pgtype.UUID) 
 		var i GetUserVerificationsRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.UserID,
 			&i.VerifyType,
 			&i.Content,
 			&i.IsDeleted,
 			&i.Status,
-			&i.ReviewedBy,
-			&i.ReviewedAt,
 			&i.ReviewNote,
+			&i.ReviewedAt,
 			&i.CreatedAt,
+			&i.User,
+			&i.Reviewer,
 			&i.Medias,
 		); err != nil {
 			return nil, err
@@ -316,15 +390,29 @@ func (q *Queries) GetUserVerifications(ctx context.Context, userID pgtype.UUID) 
 const searchUserVerifications = `-- name: SearchUserVerifications :many
 SELECT 
     uv.id, 
-    uv.user_id, 
     uv.verify_type, 
     uv.content,
     uv.is_deleted, 
     uv.status, 
-    uv.reviewed_by,
     uv.review_note, 
     uv.reviewed_at, 
     uv.created_at,
+    json_build_object(
+        'id', u.id,
+        'email', u.email,
+        'display_name', up.display_name,
+        'full_name', up.full_name,
+        'avatar_url', up.avatar_url
+    )::json AS user,
+    CASE WHEN uv.reviewed_by IS NOT NULL THEN
+        json_build_object(
+            'id', ru.id,
+            'email', ru.email,
+            'display_name', rup.display_name,
+            'full_name', rup.full_name,
+            'avatar_url', rup.avatar_url
+        )::json
+    ELSE NULL::json END AS reviewer,
     (
         SELECT COALESCE(
             json_agg(
@@ -345,6 +433,10 @@ SELECT
         WHERE vm.verification_id = uv.id
     ) AS medias
 FROM user_verifications uv
+JOIN users u ON uv.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id
+LEFT JOIN users ru ON uv.reviewed_by = ru.id
+LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE 
     uv.is_deleted = false
     AND ($1::uuid[] IS NULL OR uv.user_id = ANY($1::uuid[]))
@@ -392,15 +484,15 @@ type SearchUserVerificationsParams struct {
 
 type SearchUserVerificationsRow struct {
 	ID         pgtype.UUID        `json:"id"`
-	UserID     pgtype.UUID        `json:"user_id"`
 	VerifyType int16              `json:"verify_type"`
 	Content    pgtype.Text        `json:"content"`
 	IsDeleted  bool               `json:"is_deleted"`
 	Status     int16              `json:"status"`
-	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
 	ReviewNote pgtype.Text        `json:"review_note"`
 	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	User       []byte             `json:"user"`
+	Reviewer   []byte             `json:"reviewer"`
 	Medias     []byte             `json:"medias"`
 }
 
@@ -427,15 +519,15 @@ func (q *Queries) SearchUserVerifications(ctx context.Context, arg SearchUserVer
 		var i SearchUserVerificationsRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.UserID,
 			&i.VerifyType,
 			&i.Content,
 			&i.IsDeleted,
 			&i.Status,
-			&i.ReviewedBy,
 			&i.ReviewNote,
 			&i.ReviewedAt,
 			&i.CreatedAt,
+			&i.User,
+			&i.Reviewer,
 			&i.Medias,
 		); err != nil {
 			return nil, err

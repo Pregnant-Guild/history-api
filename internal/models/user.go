@@ -20,9 +20,26 @@ type UserEntity struct {
 	UpdatedAt    *time.Time         `json:"updated_at"`
 	Roles        []*RoleSimple      `json:"roles"`
 }
+type UserSimpleEntity struct {
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	FullName    string `json:"full_name"`
+	AvatarUrl   string `json:"avatar_url"`
+}
+
+func (u *UserSimpleEntity) ToResponse() *response.UserSimpleResponse {
+	return &response.UserSimpleResponse{
+		ID:          u.ID,
+		Email:       u.Email,
+		DisplayName: u.DisplayName,
+		FullName:    u.FullName,
+		AvatarUrl:   u.AvatarUrl,
+	}
+}
 
 func (u *UserEntity) ParseRoles(data []byte) error {
-	if len(data) == 0 {
+	if len(data) == 0 || string(data) == "null" {
 		u.Roles = []*RoleSimple{}
 		return nil
 	}
@@ -30,7 +47,7 @@ func (u *UserEntity) ParseRoles(data []byte) error {
 }
 
 func (u *UserEntity) ParseProfile(data []byte) error {
-	if len(data) == 0 {
+	if len(data) == 0 || string(data) == "null" {
 		u.Profile = &UserProfileSimple{}
 		return nil
 	}

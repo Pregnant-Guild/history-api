@@ -124,7 +124,7 @@ func (v *verificationService) DeleteVerification(ctx context.Context, claims *re
 	}
 
 	shoudDelete := false
-	if slices.Contains(claims.Roles, constants.ADMIN) || slices.Contains(claims.Roles, constants.MOD) || verification.UserID == claims.UId {
+	if slices.Contains(claims.Roles, constants.ADMIN) || slices.Contains(claims.Roles, constants.MOD) || verification.User.ID == claims.UId {
 		shoudDelete = true
 	}
 
@@ -304,7 +304,7 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid status!")
 	}
 
-	userVerificationUUID, err := convert.StringToUUID(verification.UserID)
+	userVerificationUUID, err := convert.StringToUUID(verification.User.ID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}

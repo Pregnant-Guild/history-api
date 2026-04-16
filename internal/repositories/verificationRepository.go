@@ -60,17 +60,24 @@ func (v *verificationRepository) GetByID(ctx context.Context, id pgtype.UUID) (*
 
 	verification = models.UserVerificationEntity{
 		ID:         convert.UUIDToString(row.ID),
-		UserID:     convert.UUIDToString(row.UserID),
 		VerifyType: constants.ParseVerifyType(row.VerifyType),
 		Content:    convert.TextToString(row.Content),
 		IsDeleted:  row.IsDeleted,
 		Status:     constants.ParseStatusType(row.Status),
 		ReviewNote: convert.TextToString(row.ReviewNote),
-		ReviewedBy: convert.UUIDToString(row.ReviewedBy),
 		ReviewedAt: convert.TimeToPtr(row.ReviewedAt),
 		CreatedAt:  convert.TimeToPtr(row.CreatedAt),
 	}
+
 	if err := verification.ParseMedia(row.Medias); err != nil {
+		return nil, err
+	}
+
+	if err := verification.ParseUser(row.User); err != nil {
+		return nil, err
+	}
+
+	if err := verification.ParseReviewer(row.Reviewer); err != nil {
 		return nil, err
 	}
 
@@ -148,16 +155,27 @@ func (v *verificationRepository) Create(ctx context.Context, params sqlc.CreateU
 
 	verification := models.UserVerificationEntity{
 		ID:         convert.UUIDToString(row.ID),
-		UserID:     convert.UUIDToString(row.UserID),
 		VerifyType: constants.ParseVerifyType(row.VerifyType),
 		Content:    convert.TextToString(row.Content),
 		IsDeleted:  row.IsDeleted,
 		Status:     constants.ParseStatusType(row.Status),
 		ReviewNote: convert.TextToString(row.ReviewNote),
-		ReviewedBy: convert.UUIDToString(row.ReviewedBy),
 		ReviewedAt: convert.TimeToPtr(row.ReviewedAt),
 		CreatedAt:  convert.TimeToPtr(row.CreatedAt),
 	}
+
+	if err := verification.ParseMedia(row.Medias); err != nil {
+		return nil, err
+	}
+
+	if err := verification.ParseUser(row.User); err != nil {
+		return nil, err
+	}
+
+	if err := verification.ParseReviewer(row.Reviewer); err != nil {
+		return nil, err
+	}
+
 	_ = v.c.Del(ctx, fmt.Sprintf("verification:userId:%s", convert.UUIDToString(params.UserID)))
 	return &verification, nil
 }
@@ -246,19 +264,26 @@ func (v *verificationRepository) GetByUserID(ctx context.Context, userId pgtype.
 	for _, row := range rows {
 		verification := &models.UserVerificationEntity{
 			ID:         convert.UUIDToString(row.ID),
-			UserID:     convert.UUIDToString(row.UserID),
 			VerifyType: constants.ParseVerifyType(row.VerifyType),
 			Content:    convert.TextToString(row.Content),
 			IsDeleted:  row.IsDeleted,
 			Status:     constants.ParseStatusType(row.Status),
 			ReviewNote: convert.TextToString(row.ReviewNote),
-			ReviewedBy: convert.UUIDToString(row.ReviewedBy),
 			ReviewedAt: convert.TimeToPtr(row.ReviewedAt),
 			CreatedAt:  convert.TimeToPtr(row.CreatedAt),
 		}
 		if err := verification.ParseMedia(row.Medias); err != nil {
 			return nil, err
 		}
+
+		if err := verification.ParseUser(row.User); err != nil {
+			return nil, err
+		}
+
+		if err := verification.ParseReviewer(row.Reviewer); err != nil {
+			return nil, err
+		}
+
 		ids = append(ids, verification.ID)
 		items = append(items, verification)
 
@@ -303,17 +328,24 @@ func (v *verificationRepository) Search(ctx context.Context, params sqlc.SearchU
 	for _, row := range rows {
 		verification := &models.UserVerificationEntity{
 			ID:         convert.UUIDToString(row.ID),
-			UserID:     convert.UUIDToString(row.UserID),
 			VerifyType: constants.ParseVerifyType(row.VerifyType),
 			Content:    convert.TextToString(row.Content),
 			IsDeleted:  row.IsDeleted,
 			Status:     constants.ParseStatusType(row.Status),
 			ReviewNote: convert.TextToString(row.ReviewNote),
-			ReviewedBy: convert.UUIDToString(row.ReviewedBy),
 			ReviewedAt: convert.TimeToPtr(row.ReviewedAt),
 			CreatedAt:  convert.TimeToPtr(row.CreatedAt),
 		}
+
 		if err := verification.ParseMedia(row.Medias); err != nil {
+			return nil, err
+		}
+
+		if err := verification.ParseUser(row.User); err != nil {
+			return nil, err
+		}
+
+		if err := verification.ParseReviewer(row.Reviewer); err != nil {
 			return nil, err
 		}
 

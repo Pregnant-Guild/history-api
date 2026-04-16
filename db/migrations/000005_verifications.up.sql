@@ -21,9 +21,20 @@ CREATE INDEX idx_user_verifications_user_type
 ON user_verifications(user_id, verify_type)
 WHERE is_deleted = false;
 
+CREATE INDEX idx_user_verifications_user_created 
+ON user_verifications(user_id, created_at DESC) 
+WHERE is_deleted = false;
+
+CREATE INDEX idx_user_verifications_reviewed_by 
+ON user_verifications(reviewed_by)
+WHERE is_deleted = false;;
+
 CREATE INDEX idx_user_verifications_status_created 
 ON user_verifications(status, created_at DESC)
 WHERE is_deleted = false;
 
 CREATE INDEX idx_verification_medias_media_id 
 ON verification_medias(media_id);
+
+CREATE INDEX idx_verification_medias_verification_id 
+ON verification_medias(verification_id);
