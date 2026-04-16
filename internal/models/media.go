@@ -33,6 +33,9 @@ type MediaStorageEntity struct {
 }
 
 func (e *MediaEntity) ToStorageEntity() *MediaStorageEntity {
+	if e == nil {
+		return nil
+	}
 	return &MediaStorageEntity{
 		ID:         e.ID,
 		StorageKey: e.StorageKey,
@@ -40,6 +43,9 @@ func (e *MediaEntity) ToStorageEntity() *MediaStorageEntity {
 }
 
 func (e *MediaEntity) ToResponse() *response.MediaResponse {
+	if e == nil {
+		return nil
+	}
 	return &response.MediaResponse{
 		ID:           e.ID,
 		UserID:       e.UserID,
@@ -54,6 +60,9 @@ func (e *MediaEntity) ToResponse() *response.MediaResponse {
 }
 
 func (e *MediaEntity) ToSimpleEntity() *MediaSimpleEntity {
+	if e == nil {
+		return nil
+	}
 	return &MediaSimpleEntity{
 		ID:           e.ID,
 		StorageKey:   e.StorageKey,
@@ -67,16 +76,22 @@ func (e *MediaEntity) ToSimpleEntity() *MediaSimpleEntity {
 
 func MediaEntitiesToResponse(entities []*MediaEntity) []*response.MediaResponse {
 	responses := make([]*response.MediaResponse, len(entities))
-	for i, entity := range entities {
-		responses[i] = entity.ToResponse()
+	for _, entity := range entities {
+		if entity == nil {
+			continue
+		}
+		responses = append(responses, entity.ToResponse())
 	}
 	return responses
 }
 
 func MediaEntitiesToStorageEntity(entities []*MediaEntity) []*MediaStorageEntity {
 	responses := make([]*MediaStorageEntity, len(entities))
-	for i, entity := range entities {
-		responses[i] = entity.ToStorageEntity()
+	for _, entity := range entities {
+		if entity == nil {
+			continue
+		}
+		responses = append(responses, entity.ToStorageEntity())
 	}
 	return responses
 }

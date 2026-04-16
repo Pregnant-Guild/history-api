@@ -29,6 +29,9 @@ type UserSimpleEntity struct {
 }
 
 func (u *UserSimpleEntity) ToResponse() *response.UserSimpleResponse {
+	if u == nil {
+		return nil
+	}
 	return &response.UserSimpleResponse{
 		ID:          u.ID,
 		Email:       u.Email,
@@ -55,6 +58,9 @@ func (u *UserEntity) ParseProfile(data []byte) error {
 }
 
 func (u *UserEntity) ToResponse() *response.UserResponse {
+	if u == nil {
+		return nil
+	}
 	return &response.UserResponse{
 		ID:           u.ID,
 		Email:        u.Email,
@@ -67,10 +73,13 @@ func (u *UserEntity) ToResponse() *response.UserResponse {
 	}
 }
 
-func UsersEntityToResponse(rs []*UserEntity) []*response.UserResponse {
-	out := make([]*response.UserResponse, len(rs))
-	for i := range rs {
-		out[i] = rs[i].ToResponse()
+func UsersEntityToResponse(users []*UserEntity) []*response.UserResponse {
+	out := make([]*response.UserResponse, len(users))
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+		out = append(out, user.ToResponse())
 	}
 	return out
 }

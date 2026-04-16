@@ -90,8 +90,12 @@ func (u *UserVerificationEntity) ToResponse() *response.UserVerificationResponse
 
 func UserVerificationsEntitiesToResponse(entities []*UserVerificationEntity) []*response.UserVerificationResponse {
 	responses := make([]*response.UserVerificationResponse, len(entities))
-	for i, entity := range entities {
-		responses[i] = entity.ToResponse()
+	for _, entity := range entities {
+		if entity == nil {
+			continue
+		}
+		responses = append(responses, entity.ToResponse())
+
 	}
 	return responses
 }

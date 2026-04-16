@@ -12,6 +12,9 @@ type RoleSimple struct {
 }
 
 func (r *RoleSimple) ToResponse() *response.RoleSimpleResponse {
+	if r == nil {
+		return nil
+	}
 	return &response.RoleSimpleResponse{
 		ID:   r.ID,
 		Name: r.Name,
@@ -35,6 +38,9 @@ type RoleEntity struct {
 }
 
 func (r *RoleEntity) ToResponse() *response.RoleResponse {
+	if r == nil {
+		return nil
+	}
 	return &response.RoleResponse{
 		ID:        r.ID,
 		Name:      r.Name,
@@ -45,6 +51,9 @@ func (r *RoleEntity) ToResponse() *response.RoleResponse {
 }
 
 func (r *RoleEntity) ToRoleSimple() *RoleSimple {
+	if r == nil {
+		return nil
+	}
 	return &RoleSimple{
 		ID:   r.ID,
 		Name: r.Name,
@@ -53,20 +62,23 @@ func (r *RoleEntity) ToRoleSimple() *RoleSimple {
 
 func RolesEntityToResponse(rs []*RoleEntity) []*response.RoleResponse {
 	out := make([]*response.RoleResponse, len(rs))
-	for i := range rs {
-		out[i] = rs[i].ToResponse()
+	for _, role := range rs {
+		if role == nil {
+			continue
+		}
+		out = append(out, role.ToResponse())
 	}
 	return out
 }
 
 func RolesEntityToRoleConstant(rs []*RoleSimple) []constants.Role {
 	out := make([]constants.Role, len(rs))
-	for i := range rs {
-		data, ok := constants.ParseRole(rs[i].Name)
+	for _, role := range rs {
+		data, ok := constants.ParseRole(role.Name)
 		if !ok {
 			continue
 		}
-		out[i] = data
+		out= append(out, data)
 	}
 	return out
 }

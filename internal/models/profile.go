@@ -14,6 +14,9 @@ type UserProfileSimple struct {
 }
 
 func (p *UserProfileSimple) ToResponse() *response.UserProfileSimpleResponse {
+	if p == nil {
+		return nil
+	}
 	return &response.UserProfileSimpleResponse{
 		DisplayName: p.DisplayName,
 		FullName:    p.FullName,
