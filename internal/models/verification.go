@@ -59,6 +59,8 @@ func (u *UserVerificationEntity) ToResponse() *response.UserVerificationResponse
 		Content:    u.Content,
 		Status:     u.Status.String(),
 		ReviewNote: u.ReviewNote,
+		ReviewedBy: u.ReviewedBy,
+		ReviewedAt: u.ReviewedAt,
 		CreatedAt:  u.CreatedAt,
 		Medias:     mediaResponses,
 	}
