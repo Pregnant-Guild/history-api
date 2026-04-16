@@ -74,7 +74,7 @@ func (u *UserEntity) ToResponse() *response.UserResponse {
 }
 
 func UsersEntityToResponse(users []*UserEntity) []*response.UserResponse {
-	out := make([]*response.UserResponse, len(users))
+	out := make([]*response.UserResponse, 0)
 	for _, user := range users {
 		if user == nil {
 			continue

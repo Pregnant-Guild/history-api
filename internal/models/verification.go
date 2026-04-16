@@ -89,7 +89,7 @@ func (u *UserVerificationEntity) ToResponse() *response.UserVerificationResponse
 }
 
 func UserVerificationsEntitiesToResponse(entities []*UserVerificationEntity) []*response.UserVerificationResponse {
-	responses := make([]*response.UserVerificationResponse, len(entities))
+	responses := make([]*response.UserVerificationResponse, 0)
 	for _, entity := range entities {
 		if entity == nil {
 			continue
