@@ -179,7 +179,7 @@ func (h *UserController) GetVerificationByUserID(c fiber.Ctx) error {
 // @Success 200 {object} response.CommonResponse
 // @Failure 400 {object} response.CommonResponse
 // @Failure 500 {object} response.CommonResponse
-// @Router /users/{id} [put]
+// @Router /users/current [put]
 func (h *UserController) UpdateProfile(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -187,7 +187,7 @@ func (h *UserController) UpdateProfile(c fiber.Ctx) error {
 	dto := &request.UpdateProfileDto{}
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
@@ -217,14 +217,14 @@ func (h *UserController) UpdateProfile(c fiber.Ctx) error {
 // @Success 200 {object} response.CommonResponse
 // @Failure 400 {object} response.CommonResponse
 // @Failure 500 {object} response.CommonResponse
-// @Router /users/{id}/password [patch]
+// @Router /users/current/password [patch]
 func (h *UserController) ChangePassword(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	dto := &request.ChangePasswordDto{}
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
@@ -317,7 +317,7 @@ func (h *UserController) ChangeRoleUser(c fiber.Ctx) error {
 	dto := &request.ChangeRoleDto{}
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
@@ -336,8 +336,8 @@ func (h *UserController) ChangeRoleUser(c fiber.Ctx) error {
 			Message: "Invalid user claims",
 		})
 	}
-
-	user, err := h.service.ChangeRoleUser(ctx, claims, dto)
+	userId := c.Params("id")
+	user, err := h.service.ChangeRoleUser(ctx, userId, claims, dto)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
 			Status:  false,
@@ -397,7 +397,7 @@ func (h *UserController) SearchUser(c fiber.Ctx) error {
 	dto := &request.SearchUserDto{}
 	if err := validator.ValidateQueryDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}

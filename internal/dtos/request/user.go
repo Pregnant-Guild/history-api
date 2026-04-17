@@ -18,7 +18,6 @@ type ChangePasswordDto struct {
 }
 
 type ChangeRoleDto struct {
-	UserID string   `json:"user_id" validate:"required,uuid"`
 	Roles  []string `json:"role_ids" validate:"required,min=1,dive,required,uuid"`
 }
 

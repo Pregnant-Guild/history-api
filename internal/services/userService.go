@@ -27,7 +27,7 @@ type UserService interface {
 
 	//admin
 	DeleteUser(ctx context.Context, userId string) error
-	ChangeRoleUser(ctx context.Context, claims *response.JWTClaims, dto *request.ChangeRoleDto) (*response.UserResponse, error)
+	ChangeRoleUser(ctx context.Context, userId string, claims *response.JWTClaims, dto *request.ChangeRoleDto) (*response.UserResponse, error)
 	RestoreUser(ctx context.Context, userId string) (*response.UserResponse, error)
 	GetUserByID(ctx context.Context, userId string) (*response.UserResponse, error)
 	SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, error)
@@ -84,13 +84,13 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 	return nil
 }
 
-func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTClaims, dto *request.ChangeRoleDto) (*response.UserResponse, error) {
-	userId, err := convert.StringToUUID(dto.UserID)
+func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims *response.JWTClaims, dto *request.ChangeRoleDto) (*response.UserResponse, error) {
+	userUUID, err := convert.StringToUUID(userId)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	user, err := u.userRepo.GetByID(ctx, userId)
+	user, err := u.userRepo.GetByID(ctx, userUUID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusNotFound, err.Error())
 	}
@@ -132,11 +132,11 @@ func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTCl
 			return nil, fiber.NewError(fiber.StatusForbidden, "MOD cannot assign ADMIN role to any user")
 		}
 
-		if dto.UserID == claims.UId && !hasModRole {
+		if userId == claims.UId && !hasModRole {
 			return nil, fiber.NewError(fiber.StatusForbidden, "You can't remove MOD role of yourself")
 		}
 
-		if dto.UserID == claims.UId && hasBannedRole {
+		if userId == claims.UId && hasBannedRole {
 			return nil, fiber.NewError(fiber.StatusForbidden, "You can't assign BANNED role to yourself")
 		}
 		isTargetAdminOrMod := false
@@ -152,11 +152,11 @@ func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTCl
 	}
 
 	if slices.Contains(claims.Roles, constants.ADMIN) {
-		if dto.UserID == claims.UId && hasBannedRole {
+		if userId == claims.UId && hasBannedRole {
 			return nil, fiber.NewError(fiber.StatusForbidden, "You can't assign BANNED role to yourself")
 		}
 
-		if dto.UserID == claims.UId && !hasAdminRole {
+		if userId == claims.UId && !hasAdminRole {
 			return nil, fiber.NewError(fiber.StatusForbidden, "You can't remove ADMIN role of yourself")
 		}
 	}
@@ -172,13 +172,13 @@ func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTCl
 		user.Roles = append(user.Roles, role.ToRoleSimple())
 	}
 
-	err = u.roleRepo.BulkDeleteRolesFromUser(ctx, userId)
+	err = u.roleRepo.BulkDeleteRolesFromUser(ctx, userUUID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
 	err = u.roleRepo.CreateUserRole(ctx, sqlc.CreateUserRoleParams{
-		UserID:  userId,
+		UserID:  userUUID,
 		Column2: roleIdList,
 	})
 	if err != nil {
@@ -186,7 +186,7 @@ func (u *userService) ChangeRoleUser(ctx context.Context, claims *response.JWTCl
 	}
 
 	err = u.userRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
-		ID:           userId,
+		ID:           userUUID,
 		TokenVersion: user.TokenVersion + 1,
 	})
 	if err != nil {

@@ -17,6 +17,12 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 		middlewares.JwtAccess(userRepo),
 		controller.GetUserCurrent,
 	)
+	
+	route.Put(
+		"/current",
+		middlewares.JwtAccess(userRepo),
+		controller.UpdateProfile,
+	)
 
 	route.Get(
 		"/current/media",
@@ -30,17 +36,17 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 		controller.GetUserApplication,
 	)
 
+	route.Patch(
+		"/current/password",
+		middlewares.JwtAccess(userRepo),
+		controller.ChangePassword,
+	)
+
 	route.Get(
 		"/:id",
 		middlewares.JwtAccess(userRepo),
 		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
 		controller.GetUserById,
-	)
-
-	route.Put(
-		"/:id",
-		middlewares.JwtAccess(userRepo),
-		controller.UpdateProfile,
 	)
 
 	route.Delete(
@@ -74,14 +80,8 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 	route.Patch(
 		"/:id/role",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN),
+		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
 		controller.ChangeRoleUser,
-	)
-
-	route.Patch(
-		"/:id/password",
-		middlewares.JwtAccess(userRepo),
-		controller.ChangePassword,
 	)
 
 	route.Get(
