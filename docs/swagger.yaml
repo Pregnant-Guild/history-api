@@ -21,11 +21,8 @@ definitions:
           type: string
         minItems: 1
         type: array
-      user_id:
-        type: string
     required:
     - role_ids
-    - user_id
     type: object
   history-api_internal_dtos_request.CreateTokenDto:
     properties:
@@ -1242,42 +1239,6 @@ paths:
       summary: Get user by ID
       tags:
       - Users
-    put:
-      consumes:
-      - application/json
-      description: Update the profile details of the currently authenticated user
-      parameters:
-      - description: User ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Update Profile request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/history-api_internal_dtos_request.UpdateProfileDto'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
-      security:
-      - BearerAuth: []
-      summary: Update user profile
-      tags:
-      - Users
   /users/{id}/application:
     get:
       consumes:
@@ -1326,43 +1287,6 @@ paths:
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
       summary: Get user's media by user ID
-      tags:
-      - Users
-  /users/{id}/password:
-    patch:
-      consumes:
-      - application/json
-      description: Update the password for the currently authenticated user
-      parameters:
-      - description: User ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Change Password request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/history-api_internal_dtos_request.ChangePasswordDto'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
-      security:
-      - BearerAuth: []
-      summary: Change user password
       tags:
       - Users
   /users/{id}/restore:
@@ -1451,6 +1375,42 @@ paths:
       summary: Get current user profile
       tags:
       - Users
+    put:
+      consumes:
+      - application/json
+      description: Update the profile details of the currently authenticated user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update Profile request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.UpdateProfileDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - Users
   /users/current/application:
     get:
       consumes:
@@ -1491,6 +1451,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Get current user's media
+      tags:
+      - Users
+  /users/current/password:
+    patch:
+      consumes:
+      - application/json
+      description: Update the password for the currently authenticated user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Change Password request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.ChangePasswordDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Change user password
       tags:
       - Users
 securityDefinitions:

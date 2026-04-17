@@ -124,7 +124,11 @@ func (v *verificationService) DeleteVerification(ctx context.Context, claims *re
 	}
 
 	shoudDelete := false
-	if slices.Contains(claims.Roles, constants.ADMIN) || slices.Contains(claims.Roles, constants.MOD) || verification.User.ID == claims.UId {
+	if slices.Contains(claims.Roles, constants.ADMIN) || slices.Contains(claims.Roles, constants.MOD) {
+		shoudDelete = true
+	}
+
+	if verification.User.ID == claims.UId && verification.Status == constants.StatusPending {
 		shoudDelete = true
 	}
 
@@ -132,7 +136,7 @@ func (v *verificationService) DeleteVerification(ctx context.Context, claims *re
 		return fiber.NewError(fiber.StatusForbidden, "You don't have permission to delete this verification")
 	}
 
-	err = v.mediaRepo.Delete(ctx, verificationIdUUID)
+	err = v.verificationRepo.Delete(ctx, verificationIdUUID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
