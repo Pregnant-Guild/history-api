@@ -177,6 +177,11 @@ func (v *verificationRepository) Create(ctx context.Context, params sqlc.CreateU
 	}
 
 	_ = v.c.Del(ctx, fmt.Sprintf("verification:userId:%s", convert.UUIDToString(params.UserID)))
+	go func() {
+		bgCtx := context.Background()
+		_ = v.c.DelByPattern(bgCtx, "verification:count*")
+	}()
+
 	return &verification, nil
 }
 

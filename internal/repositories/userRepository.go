@@ -353,6 +353,10 @@ func (r *userRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 		fmt.Sprintf("user:email:%s", user.Email),
 		fmt.Sprintf("user:token:%s", user.ID),
 	)
+	go func() {
+		bgCtx := context.Background()
+		_ = r.c.DelByPattern(bgCtx, "user:count*")
+	}()
 	return nil
 }
 

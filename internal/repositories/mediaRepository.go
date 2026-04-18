@@ -154,7 +154,10 @@ func (r *mediaRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 
 	cacheId := fmt.Sprintf("media:id:%s", convert.UUIDToString(id))
 	_ = r.c.Del(ctx, cacheId)
-
+	go func() {
+		bgCtx := context.Background()
+		_ = r.c.DelByPattern(bgCtx, "media:count*")
+	}()
 	return nil
 }
 
