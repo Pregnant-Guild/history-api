@@ -1380,11 +1380,6 @@ paths:
       - application/json
       description: Update the profile details of the currently authenticated user
       parameters:
-      - description: User ID
-        in: path
-        name: id
-        required: true
-        type: string
       - description: Update Profile request
         in: body
         name: request
@@ -1459,11 +1454,6 @@ paths:
       - application/json
       description: Update the password for the currently authenticated user
       parameters:
-      - description: User ID
-        in: path
-        name: id
-        required: true
-        type: string
       - description: Change Password request
         in: body
         name: request

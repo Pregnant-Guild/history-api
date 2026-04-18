@@ -174,7 +174,6 @@ func (h *UserController) GetVerificationByUserID(c fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path string true "User ID"
 // @Param request body request.UpdateProfileDto true "Update Profile request"
 // @Success 200 {object} response.CommonResponse
 // @Failure 400 {object} response.CommonResponse
@@ -212,7 +211,6 @@ func (h *UserController) UpdateProfile(c fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path string true "User ID"
 // @Param request body request.ChangePasswordDto true "Change Password request"
 // @Success 200 {object} response.CommonResponse
 // @Failure 400 {object} response.CommonResponse

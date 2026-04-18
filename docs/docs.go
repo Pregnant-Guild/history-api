@@ -1523,13 +1523,6 @@ const docTemplate = `{
                 "summary": "Update user profile",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
                         "description": "Update Profile request",
                         "name": "request",
                         "in": "body",
@@ -1648,13 +1641,6 @@ const docTemplate = `{
                 ],
                 "summary": "Change user password",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "description": "Change Password request",
                         "name": "request",
