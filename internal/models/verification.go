@@ -53,21 +53,9 @@ func (u *UserVerificationEntity) ParseReviewer(data []byte) error {
 }
 
 func (u *UserVerificationEntity) ToResponse() *response.UserVerificationResponse {
-	mediaResponses := make([]*response.MediaSimpleResponse, 0)
-	for _, m := range u.Media {
-		if m != nil {
-			mediaResponses = append(mediaResponses, &response.MediaSimpleResponse{
-				ID:           m.ID,
-				StorageKey:   m.StorageKey,
-				OriginalName: m.OriginalName,
-				MimeType:     m.MimeType,
-				Size:         m.Size,
-				FileMetadata: m.FileMetadata,
-				CreatedAt:    m.CreatedAt,
-			})
-		}
+	if u == nil {
+		return nil
 	}
-
 	res := &response.UserVerificationResponse{
 		ID:         u.ID,
 		User:       u.User.ToResponse(),
@@ -78,7 +66,7 @@ func (u *UserVerificationEntity) ToResponse() *response.UserVerificationResponse
 		Reviewer:   u.Reviewer.ToResponse(),
 		ReviewedAt: u.ReviewedAt,
 		CreatedAt:  u.CreatedAt,
-		Medias:     mediaResponses,
+		Medias:     MediaSimpleEntitiesToResponse(u.Media),
 	}
 
 	if u.ReviewedAt != nil {
@@ -90,6 +78,9 @@ func (u *UserVerificationEntity) ToResponse() *response.UserVerificationResponse
 
 func UserVerificationsEntitiesToResponse(entities []*UserVerificationEntity) []*response.UserVerificationResponse {
 	responses := make([]*response.UserVerificationResponse, 0)
+	if entities == nil {
+		return responses
+	}
 	for _, entity := range entities {
 		if entity == nil {
 			continue

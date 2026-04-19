@@ -59,6 +59,21 @@ func (e *MediaEntity) ToResponse() *response.MediaResponse {
 	}
 }
 
+func (e *MediaSimpleEntity) ToResponse() *response.MediaSimpleResponse {
+	if e == nil {
+		return nil
+	}
+	return &response.MediaSimpleResponse{
+		ID:           e.ID,
+		StorageKey:   e.StorageKey,
+		OriginalName: e.OriginalName,
+		MimeType:     e.MimeType,
+		Size:         e.Size,
+		FileMetadata: e.FileMetadata,
+		CreatedAt:    e.CreatedAt,
+	}
+}
+
 func (e *MediaEntity) ToSimpleEntity() *MediaSimpleEntity {
 	if e == nil {
 		return nil
@@ -76,6 +91,9 @@ func (e *MediaEntity) ToSimpleEntity() *MediaSimpleEntity {
 
 func MediaEntitiesToResponse(entities []*MediaEntity) []*response.MediaResponse {
 	responses := make([]*response.MediaResponse, 0)
+	if entities == nil {
+		return responses
+	}
 	for _, entity := range entities {
 		if entity == nil {
 			continue
@@ -87,11 +105,28 @@ func MediaEntitiesToResponse(entities []*MediaEntity) []*response.MediaResponse 
 
 func MediaEntitiesToStorageEntity(entities []*MediaEntity) []*MediaStorageEntity {
 	responses := make([]*MediaStorageEntity, 0)
+	if entities == nil {
+		return responses
+	}
 	for _, entity := range entities {
 		if entity == nil {
 			continue
 		}
 		responses = append(responses, entity.ToStorageEntity())
+	}
+	return responses
+}
+
+func MediaSimpleEntitiesToResponse(entities []*MediaSimpleEntity) []*response.MediaSimpleResponse {
+	responses := make([]*response.MediaSimpleResponse, 0)
+	if entities == nil {
+		return responses
+	}
+	for _, entity := range entities {
+		if entity == nil {
+			continue
+		}
+		responses = append(responses, entity.ToResponse())
 	}
 	return responses
 }

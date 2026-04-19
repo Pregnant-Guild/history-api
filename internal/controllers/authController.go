@@ -47,7 +47,7 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
@@ -101,7 +101,7 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
@@ -220,7 +220,7 @@ func (h *AuthController) VerifyToken(c fiber.Ctx) error {
 
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
@@ -257,7 +257,7 @@ func (h *AuthController) CreateToken(c fiber.Ctx) error {
 
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
@@ -294,7 +294,7 @@ func (h *AuthController) ForgotPassword(c fiber.Ctx) error {
 
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
@@ -438,11 +438,9 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 	})
 
 	allowed := map[string]bool{
-		"http://localhost:3000":  true,
-		"https://localhost:3000": true,
-		"http://localhost:3001":  true,
-		"https://localhost:3001": true,
-		"http://localhost:5500":  true,
+		"http://localhost:3000":            true,
+		"http://localhost:3001":            true,
+		"https://history-admin.kain.id.vn": true,
 	}
 	feUrl := config.GetConfigWithDefault("FRONTEND_URL", "http://localhost:3000")
 	redirectURL := data.RedirectURL
