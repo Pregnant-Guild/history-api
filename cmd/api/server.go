@@ -57,21 +57,19 @@ func NewHttpServer() *FiberServer {
 }
 
 func (s *FiberServer) SetupServer(
-	sqlPg sqlc.DBTX, 
-	sqlTile *sql.DB, 
-	sqlRasterTile *sql.DB, 
-	redis cache.Cache, 
-	sclient storage.Storage, 
+	sqlPg sqlc.DBTX,
+	sqlTile *sql.DB,
+	sqlRasterTile *sql.DB,
+	redis cache.Cache,
+	sclient storage.Storage,
 	oauth *oauth2.Config,
 ) {
 	// Apply CORS middleware
 	s.App.Use(cors.New(cors.Config{
 		AllowOrigins: []string{
 			"http://localhost:3000",
-			"https://localhost:3000",
 			"http://localhost:3001",
-			"https://localhost:3001",
-			"http://localhost:3344",
+			"https://history-admin.kain.id.vn",
 		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type", "Origin"},
