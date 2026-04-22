@@ -562,25 +562,25 @@ paths:
       - in: query
         maximum: 90
         minimum: -90
-        name: maxLat
+        name: max_lat
         required: true
         type: number
       - in: query
         maximum: 180
         minimum: -180
-        name: maxLng
+        name: max_lng
         required: true
         type: number
       - in: query
         maximum: 90
         minimum: -90
-        name: minLat
+        name: min_lat
         required: true
         type: number
       - in: query
         maximum: 180
         minimum: -180
-        name: minLng
+        name: min_lng
         required: true
         type: number
       - in: query

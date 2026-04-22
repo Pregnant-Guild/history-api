@@ -509,7 +509,7 @@ const docTemplate = `{
                         "maximum": 90,
                         "minimum": -90,
                         "type": "number",
-                        "name": "maxLat",
+                        "name": "max_lat",
                         "in": "query",
                         "required": true
                     },
@@ -517,7 +517,7 @@ const docTemplate = `{
                         "maximum": 180,
                         "minimum": -180,
                         "type": "number",
-                        "name": "maxLng",
+                        "name": "max_lng",
                         "in": "query",
                         "required": true
                     },
@@ -525,7 +525,7 @@ const docTemplate = `{
                         "maximum": 90,
                         "minimum": -90,
                         "type": "number",
-                        "name": "minLat",
+                        "name": "min_lat",
                         "in": "query",
                         "required": true
                     },
@@ -533,7 +533,7 @@ const docTemplate = `{
                         "maximum": 180,
                         "minimum": -180,
                         "type": "number",
-                        "name": "minLng",
+                        "name": "min_lng",
                         "in": "query",
                         "required": true
                     },
