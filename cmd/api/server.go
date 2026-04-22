@@ -84,6 +84,9 @@ func (s *FiberServer) SetupServer(
 	tokenRepo := repositories.NewTokenRepository(redis)
 	mediaRepo := repositories.NewMediaRepository(sqlPg, redis)
 	verificationRepo := repositories.NewVerificationRepository(sqlPg, redis)
+	entityRepo := repositories.NewEntityRepository(sqlPg, redis)
+	geometryRepo := repositories.NewGeometryRepository(sqlPg, redis)
+	wikiRepo := repositories.NewWikiRepository(sqlPg, redis)
 
 	// service setup
 	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis)
@@ -93,6 +96,9 @@ func (s *FiberServer) SetupServer(
 	rasterTileService := services.NewRasterTileService(rasterTileRepo)
 	mediaService := services.NewMediaService(mediaRepo, tokenRepo, sclient, redis)
 	verificationService := services.NewVerificationService(verificationRepo, mediaRepo, userRepo, roleRepo, redis)
+	entityService := services.NewEntityService(entityRepo)
+	geometryService := services.NewGeometryService(geometryRepo)
+	wikiService := services.NewWikiService(wikiRepo)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)
@@ -102,6 +108,9 @@ func (s *FiberServer) SetupServer(
 	roleController := controllers.NewRoleController(roleService)
 	mediaController := controllers.NewMediaController(mediaService)
 	verificationController := controllers.NewVerificationController(verificationService)
+	entityController := controllers.NewEntityController(entityService)
+	geometryController := controllers.NewGeometryController(geometryService)
+	wikiController := controllers.NewWikiController(wikiService)
 
 	// route setup
 	routes.AuthRoutes(s.App, authController, userRepo)
@@ -111,5 +120,8 @@ func (s *FiberServer) SetupServer(
 	routes.VerificationRoutes(s.App, verificationController, userRepo)
 	routes.TileRoutes(s.App, tileController)
 	routes.RasterTileRoutes(s.App, rasterTileController)
+	routes.EntityRoutes(s.App, entityController)
+	routes.GeometryRoutes(s.App, geometryController)
+	routes.WikiRoutes(s.App, wikiController)
 	routes.NotFoundRoute(s.App)
 }

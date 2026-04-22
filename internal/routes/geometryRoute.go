@@ -6,7 +6,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func SetupGeometryRoutes(router fiber.Router, geometryController *controllers.GeometryController) {
+func GeometryRoutes(router fiber.Router, geometryController *controllers.GeometryController) {
 	geometry := router.Group("/geometries")
 	geometry.Get("/", geometryController.SearchGeometries)
 	geometry.Get("/:id", geometryController.GetGeometryById)
