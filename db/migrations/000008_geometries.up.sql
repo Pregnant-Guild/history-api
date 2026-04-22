@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 CREATE TABLE IF NOT EXISTS geometries (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
-    geo_type VARCHAR(50) NOT NULL DEFAULT 'id'
+    geo_type VARCHAR(50) NOT NULL DEFAULT 'id',
     draw_geometry JSONB NOT NULL,
     binding JSONB,
     time_start INT,
