@@ -1,2 +1,1 @@
-DROP TABLE IF EXISTS entity_types;
 DROP TABLE IF EXISTS entities;

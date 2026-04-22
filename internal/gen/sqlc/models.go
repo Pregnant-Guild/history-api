@@ -5,8 +5,43 @@
 package sqlc
 
 import (
+	"encoding/json"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type Entity struct {
+	ID           pgtype.UUID        `json:"id"`
+	Name         string             `json:"name"`
+	Description  pgtype.Text        `json:"description"`
+	ThumbnailUrl pgtype.Text        `json:"thumbnail_url"`
+	IsDeleted    bool               `json:"is_deleted"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type EntityGeometry struct {
+	EntityID   pgtype.UUID `json:"entity_id"`
+	GeometryID pgtype.UUID `json:"geometry_id"`
+}
+
+type EntityWiki struct {
+	EntityID pgtype.UUID `json:"entity_id"`
+	WikiID   pgtype.UUID `json:"wiki_id"`
+}
+
+type Geometry struct {
+	ID           pgtype.UUID        `json:"id"`
+	GeoType      string             `json:"geo_type"`
+	DrawGeometry json.RawMessage    `json:"draw_geometry"`
+	Binding      []byte             `json:"binding"`
+	TimeStart    pgtype.Int4        `json:"time_start"`
+	TimeEnd      pgtype.Int4        `json:"time_end"`
+	Bbox         interface{}        `json:"bbox"`
+	IsDeleted    bool               `json:"is_deleted"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
 
 type Media struct {
 	ID           pgtype.UUID        `json:"id"`
@@ -76,4 +111,13 @@ type UserVerification struct {
 type VerificationMedia struct {
 	VerificationID pgtype.UUID `json:"verification_id"`
 	MediaID        pgtype.UUID `json:"media_id"`
+}
+
+type Wiki struct {
+	ID        pgtype.UUID        `json:"id"`
+	Title     pgtype.Text        `json:"title"`
+	Content   pgtype.Text        `json:"content"`
+	IsDeleted bool               `json:"is_deleted"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }

@@ -64,8 +64,16 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 		return fiber.NewError(fiber.StatusNotFound, "User not found")
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(dto.OldPassword)); err != nil {
-		return fiber.NewError(fiber.StatusUnauthorized, "Invalid identity or password!")
+	if user.PasswordHash != "" {
+		if dto.OldPassword == "" {
+			return fiber.NewError(fiber.StatusBadRequest, "Old password required")
+		}
+
+		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(dto.OldPassword)); err != nil {
+			return fiber.NewError(fiber.StatusUnauthorized, "Invalid password!")
+		}
+	} else if user.PasswordHash == "" && dto.OldPassword != "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
 	}
 
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(dto.NewPassword), bcrypt.DefaultCost)

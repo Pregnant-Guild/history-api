@@ -53,3 +53,24 @@ func PtrToText(s *string) pgtype.Text {
 		Valid:  true,
 	}
 }
+
+func TextToPtr(v pgtype.Text) *string {
+	if !v.Valid {
+		return nil
+	}
+	return &v.String
+}
+
+func Int4ToPtr(v pgtype.Int4) *int32 {
+	if !v.Valid {
+		return nil
+	}
+	return &v.Int32
+}
+
+func Int4ToInt32(v pgtype.Int4) int32 {
+	if v.Valid {
+		return v.Int32
+	}
+	return 0
+}

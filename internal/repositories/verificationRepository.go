@@ -225,8 +225,7 @@ func (v *verificationRepository) BulkVerificationMediaByMediaId(ctx context.Cont
 	}
 
 	go func() {
-		bgCtx := context.Background()
-		_ = v.c.Del(bgCtx, listCacheId...)
+		_ = v.c.Del(context.Background(), listCacheId...)
 	}()
 
 	return nil

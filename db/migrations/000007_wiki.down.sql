@@ -1,2 +1,2 @@
-DROP TABLE IF EXISTS wiki_pages;
-DROP TABLE IF EXISTS wiki_versions;
+DROP TABLE IF EXISTS wikis;
+DROP TABLE IF EXISTS entity_wikis;

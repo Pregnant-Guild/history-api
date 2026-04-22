@@ -148,8 +148,9 @@ func (r *roleRepository) Create(ctx context.Context, name string) (*models.RoleE
 	if err != nil {
 		return nil, err
 	}
-		go func() {
-	bgCtx := context.Background()
+
+	go func() {
+		bgCtx := context.Background()
 		_ = r.c.DelByPattern(bgCtx, "role:all*")
 	}()
 

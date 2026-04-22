@@ -20,8 +20,8 @@ type MediaResponse struct {
 	MimeType     string          `json:"mime_type"`
 	Size         int64           `json:"size"`
 	FileMetadata json.RawMessage `json:"file_metadata"`
-	CreatedAt    *time.Time      `json:"created_at"`
-	UpdatedAt    *time.Time      `json:"updated_at"`
+	CreatedAt    *time.Time      `json:"created_at,omitempty"`
+	UpdatedAt    *time.Time      `json:"updated_at,omitempty"`
 }
 
 type MediaSimpleResponse struct {
@@ -31,5 +31,5 @@ type MediaSimpleResponse struct {
 	MimeType     string          `json:"mime_type"`
 	Size         int64           `json:"size"`
 	FileMetadata json.RawMessage `json:"file_metadata"`
-	CreatedAt    *time.Time      `json:"created_at"`
+	CreatedAt    *time.Time      `json:"created_at,omitempty"`
 }

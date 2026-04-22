@@ -69,3 +69,48 @@ CREATE TABLE IF NOT EXISTS verification_medias (
     media_id UUID REFERENCES medias(id) ON DELETE CASCADE,
     PRIMARY KEY (verification_id, media_id)
 );
+
+CREATE TABLE IF NOT EXISTS entities (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    name TEXT NOT NULL,
+    description TEXT,
+    thumbnail_url TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS wikis (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    title TEXT,
+    content TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+
+CREATE TABLE IF NOT EXISTS entity_wikis (
+    entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
+    wiki_id UUID REFERENCES wikis(id) ON DELETE CASCADE,
+    PRIMARY KEY (entity_id, wiki_id)
+);
+
+CREATE TABLE IF NOT EXISTS geometries (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    geo_type VARCHAR(50) NOT NULL DEFAULT 'id',
+    draw_geometry JSONB NOT NULL,
+    binding JSONB,
+    time_start INT,
+    time_end INT,
+    bbox GEOMETRY,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS entity_geometries (
+    entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
+    geometry_id UUID REFERENCES geometries(id) ON DELETE CASCADE,
+    PRIMARY KEY (entity_id, geometry_id)
+);

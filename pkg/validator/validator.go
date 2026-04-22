@@ -32,6 +32,33 @@ func init() {
 		}
 		return isImageURL(val)
 	})
+
+	validate.RegisterValidation("optional_url", func(fl validator.FieldLevel) bool {
+		val := fl.Field().String()
+		if val == "" {
+			return true
+		}
+		return isValidURL(val)
+	})
+}
+
+
+
+func isValidURL(s string) bool {
+	u, err := url.ParseRequestURI(s)
+	if err != nil {
+		return false
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+
+	if u.Host == "" || !strings.Contains(u.Host, ".") {
+		return false
+	}
+
+	return true
 }
 
 func isImageURL(u string) bool {

@@ -493,6 +493,138 @@ paths:
       summary: Verify a security token
       tags:
       - Auth
+  /entities:
+    get:
+      consumes:
+      - application/json
+      description: Search entities with cursor pagination
+      parameters:
+      - in: query
+        name: cursor
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - in: query
+        maxLength: 255
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Search entities
+      tags:
+      - Entities
+  /entities/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific entity
+      parameters:
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get entity by ID
+      tags:
+      - Entities
+  /geometries:
+    get:
+      consumes:
+      - application/json
+      description: Search geometries with cursor pagination and spatial filtering
+      parameters:
+      - in: query
+        name: entity_id
+        type: string
+      - in: query
+        maximum: 90
+        minimum: -90
+        name: maxLat
+        required: true
+        type: number
+      - in: query
+        maximum: 180
+        minimum: -180
+        name: maxLng
+        required: true
+        type: number
+      - in: query
+        maximum: 90
+        minimum: -90
+        name: minLat
+        required: true
+        type: number
+      - in: query
+        maximum: 180
+        minimum: -180
+        name: minLng
+        required: true
+        type: number
+      - in: query
+        name: time
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Search geometries
+      tags:
+      - Geometries
+  /geometries/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific geometry
+      parameters:
+      - description: Geometry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get geometry by ID
+      tags:
+      - Geometries
   /historian/application:
     get:
       consumes:
@@ -1480,6 +1612,66 @@ paths:
       summary: Change user password
       tags:
       - Users
+  /wikis:
+    get:
+      consumes:
+      - application/json
+      description: Search wikis with cursor pagination
+      parameters:
+      - in: query
+        name: cursor
+        type: string
+      - in: query
+        name: entity_id
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - in: query
+        maxLength: 1000
+        name: title
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Search wikis
+      tags:
+      - Wikis
+  /wikis/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific wiki
+      parameters:
+      - description: Wiki ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get wiki by ID
+      tags:
+      - Wikis
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer " followed by a space and JWT token.

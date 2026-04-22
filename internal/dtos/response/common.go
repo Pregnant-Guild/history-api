@@ -8,9 +8,9 @@ import (
 
 type CommonResponse struct {
 	Status  bool   `json:"status"`
-	Data    any    `json:"data"`
-	Errors  any    `json:"errors"`
-	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+	Errors  any    `json:"errors,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 type JWTClaims struct {
@@ -29,10 +29,10 @@ type PaginationMeta struct {
 
 type PaginatedResponse struct {
 	Status     bool            `json:"status"`
-	Message    string          `json:"message"`
-	Data       any             `json:"data"`
-	Errors     any             `json:"errors"`
-	Pagination *PaginationMeta `json:"pagination"`
+	Message    string          `json:"message,omitempty"`
+	Data       any             `json:"data,omitempty"`
+	Errors     any             `json:"errors,omitempty"`
+	Pagination *PaginationMeta `json:"pagination,omitempty"`
 }
 
 func BuildPaginatedResponse(data any, totalRecords int64, page int, limit int) *PaginatedResponse {

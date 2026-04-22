@@ -2,14 +2,10 @@ package response
 
 import "time"
 
-type RoleSimpleResponse struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
-type RoleResponse struct {
+type WikiResponse struct {
 	ID        string     `json:"id"`
-	Name      string     `json:"name"`
+	Title     string     `json:"title,omitempty"`
+	Content   string     `json:"content,omitempty"`
 	IsDeleted bool       `json:"is_deleted,omitempty"`
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
