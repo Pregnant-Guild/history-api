@@ -14,7 +14,7 @@ type UpdateProfileDto struct {
 }
 
 type ChangePasswordDto struct {
-	OldPassword string `json:"old_password" validate:"required,min=8,max=64"`
+	OldPassword string `json:"old_password" validate:"omitempty,min=8,max=64"`
 	NewPassword string `json:"new_password" validate:"required,min=8,max=64,nefield=OldPassword"`
 }
 
