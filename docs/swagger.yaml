@@ -12,7 +12,6 @@ definitions:
         type: string
     required:
     - new_password
-    - old_password
     type: object
   history-api_internal_dtos_request.ChangeRoleDto:
     properties:

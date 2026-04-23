@@ -171,7 +171,6 @@ func (a *authService) Signin(ctx context.Context, dto *request.SignInDto) (*resp
 
 }
 
-
 func (a *authService) Logout(ctx context.Context, userId string) error {
 	pgID, err := convert.StringToUUID(userId)
 	if err != nil {

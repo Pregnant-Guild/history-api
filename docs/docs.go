@@ -2229,8 +2229,7 @@ const docTemplate = `{
         "history-api_internal_dtos_request.ChangePasswordDto": {
             "type": "object",
             "required": [
-                "new_password",
-                "old_password"
+                "new_password"
             ],
             "properties": {
                 "new_password": {
