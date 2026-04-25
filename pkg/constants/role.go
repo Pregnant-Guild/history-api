@@ -1,39 +1,39 @@
 package constants
 
-type Role string
+type RoleType string
 
 const (
-	ADMIN     Role = "ADMIN"
-	MOD       Role = "MOD"
-	USER      Role = "USER"
-	HISTORIAN Role = "HISTORIAN"
-	BANNED    Role = "BANNED"
+	RoleTypeAdmin     RoleType = "ADMIN"
+	RoleTypeMod       RoleType = "MOD"
+	RoleTypeUser      RoleType = "USER"
+	RoleTypeHistorian RoleType = "HISTORIAN"
+	RoleTypeBanned    RoleType = "BANNED"
 )
 
-func (r Role) String() string {
+func (r RoleType) String() string {
 	return string(r)
 }
 
-func (r Role) Compare(other Role) bool {
+func (r RoleType) Compare(other RoleType) bool {
 	return r == other
 }
 
-func (r Role) IsValid() bool {
+func (r RoleType) IsValid() bool {
 	return CheckValidRole(r)
 }
 
-func CheckValidRole(r Role) bool {
-	return r == ADMIN || r == MOD || r == HISTORIAN || r == USER || r == BANNED
+func CheckValidRole(r RoleType) bool {
+	return r == RoleTypeAdmin || r == RoleTypeMod || r == RoleTypeHistorian || r == RoleTypeUser || r == RoleTypeBanned
 }
 
 
-func ParseRole(s string) (Role, bool) {
-	r := Role(s)
+func ParseRole(s string) (RoleType, bool) {
+	r := RoleType(s)
 	if CheckValidRole(r) {
 		return r, true
 	}
 	return "", false
 }
-func (r Role) ToSlice() []Role {
-	return []Role{r}
+func (r RoleType) ToSlice() []RoleType {
+	return []RoleType{r}
 }

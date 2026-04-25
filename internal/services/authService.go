@@ -136,7 +136,7 @@ func (a *authService) Signin(ctx context.Context, dto *request.SignInDto) (*resp
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	if user.AuthProvider != constants.LocalProvider.String() && user.PasswordHash == "" {
+	if user.AuthProvider != constants.ProviderTypeLocal.String() && user.PasswordHash == "" {
 		return nil, fiber.NewError(fiber.StatusUnauthorized, "Please sign in with "+user.AuthProvider)
 	}
 
@@ -219,7 +219,7 @@ func (a *authService) RefreshToken(ctx context.Context, id string, refreshToken 
 
 	roles := models.RolesEntityToRoleConstant(user.Roles)
 
-	if slices.Contains(roles, constants.BANNED) {
+	if slices.Contains(roles, constants.RoleTypeBanned) {
 		return nil, fiber.NewError(fiber.StatusUnauthorized, "User is banned!")
 	}
 
@@ -254,7 +254,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 		return nil, fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	ok, err := a.tokenRepo.CheckVerified(ctx, dto.Email, constants.TokenEmailVerify, dto.TokenID)
+	ok, err := a.tokenRepo.CheckVerified(ctx, dto.Email, constants.TokenTypeEmailVerify, dto.TokenID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -284,7 +284,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 				String: string(hashed),
 				Valid:  len(hashed) != 0,
 			},
-			AuthProvider: constants.LocalProvider.String(),
+			AuthProvider: constants.ProviderTypeLocal.String(),
 		},
 	)
 	if err != nil {
@@ -308,7 +308,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	role, err := a.roleRepo.GetByname(ctx, constants.USER.String())
+	role, err := a.roleRepo.GetByname(ctx, constants.RoleTypeUser.String())
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -352,7 +352,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 }
 
 func (a *authService) ForgotPassword(ctx context.Context, dto *request.ForgotPasswordDto) error {
-	ok, err := a.tokenRepo.CheckVerified(ctx, dto.Email, constants.TokenPasswordReset, dto.TokenID)
+	ok, err := a.tokenRepo.CheckVerified(ctx, dto.Email, constants.TokenTypePasswordReset, dto.TokenID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -423,7 +423,7 @@ func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninW
 		ctx,
 		sqlc.UpsertUserParams{
 			Email:        dto.Email,
-			AuthProvider: constants.GoogleProvider.String(),
+			AuthProvider: constants.ProviderTypeGoogle.String(),
 			GoogleID: pgtype.Text{
 				String: dto.Sub,
 				Valid:  dto.Sub != "",
@@ -454,7 +454,7 @@ func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninW
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	role, err := a.roleRepo.GetByname(ctx, constants.USER.String())
+	role, err := a.roleRepo.GetByname(ctx, constants.RoleTypeUser.String())
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -521,8 +521,8 @@ func (a *authService) CreateToken(ctx context.Context, dto *request.CreateTokenD
 	}
 
 	shouldSend := true
-	if (dto.TokenType == constants.TokenEmailVerify && user != nil) ||
-		(dto.TokenType == constants.TokenPasswordReset && user == nil) {
+	if (dto.TokenType == constants.TokenTypeEmailVerify && user != nil) ||
+		(dto.TokenType == constants.TokenTypePasswordReset && user == nil) {
 		shouldSend = false
 	}
 
@@ -575,8 +575,8 @@ func (a *authService) VerifyToken(ctx context.Context, dto *request.VerifyTokenD
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Internal Server Error")
 	}
 
-	if (dto.TokenType == constants.TokenEmailVerify && user != nil) ||
-		(dto.TokenType == constants.TokenPasswordReset && user == nil) {
+	if (dto.TokenType == constants.TokenTypeEmailVerify && user != nil) ||
+		(dto.TokenType == constants.TokenTypePasswordReset && user == nil) {
 		return nil, genericError
 	}
 

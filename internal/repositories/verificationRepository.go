@@ -99,6 +99,40 @@ func (v *verificationRepository) getByIDsWithFallback(ctx context.Context, ids [
 	var verification []*models.UserVerificationEntity
 	missingVerificationToCache := make(map[string]any)
 
+	var missingPgIds []pgtype.UUID
+	for i, b := range raws {
+		if len(b) == 0 {
+			pgId := pgtype.UUID{}
+			err := pgId.Scan(ids[i])
+			if err == nil {
+				missingPgIds = append(missingPgIds, pgId)
+			}
+		}
+	}
+
+	dbMap := make(map[string]*models.UserVerificationEntity)
+	if len(missingPgIds) > 0 {
+		dbRows, err := v.q.GetUserVerificationsByIDs(ctx, missingPgIds)
+		if err == nil {
+			for _, row := range dbRows {
+				item := models.UserVerificationEntity{
+					ID:         convert.UUIDToString(row.ID),
+					VerifyType: constants.ParseVerifyType(row.VerifyType),
+					Content:    convert.TextToString(row.Content),
+					IsDeleted:  row.IsDeleted,
+					Status:     constants.ParseStatusType(row.Status),
+					ReviewNote: convert.TextToString(row.ReviewNote),
+					ReviewedAt: convert.TimeToPtr(row.ReviewedAt),
+					CreatedAt:  convert.TimeToPtr(row.CreatedAt),
+				}
+				_ = item.ParseMedia(row.Medias)
+				_ = item.ParseUser(row.User)
+				_ = item.ParseReviewer(row.Reviewer)
+				dbMap[item.ID] = &item
+			}
+		}
+	}
+
 	for i, b := range raws {
 		if len(b) > 0 {
 			var u models.UserVerificationEntity
@@ -106,15 +140,9 @@ func (v *verificationRepository) getByIDsWithFallback(ctx context.Context, ids [
 				verification = append(verification, &u)
 			}
 		} else {
-			pgId := pgtype.UUID{}
-			err := pgId.Scan(ids[i])
-			if err != nil {
-				continue
-			}
-			dbUser, err := v.GetByID(ctx, pgId)
-			if err == nil && dbUser != nil {
-				verification = append(verification, dbUser)
-				missingVerificationToCache[keys[i]] = dbUser
+			if item, ok := dbMap[ids[i]]; ok {
+				verification = append(verification, item)
+				missingVerificationToCache[keys[i]] = item
 			}
 		}
 	}

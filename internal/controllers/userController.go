@@ -15,17 +15,20 @@ type UserController struct {
 	service             services.UserService
 	mediaService        services.MediaService
 	verificationService services.VerificationService
+	projectService      services.ProjectService
 }
 
 func NewUserController(
 	svc services.UserService,
 	mediaSvc services.MediaService,
 	verificationSvc services.VerificationService,
+	projectSvc services.ProjectService,
 ) *UserController {
 	return &UserController{
 		service:             svc,
 		mediaService:        mediaSvc,
 		verificationService: verificationSvc,
+		projectService:      projectSvc,
 	}
 }
 
@@ -407,4 +410,81 @@ func (h *UserController) SearchUser(c fiber.Ctx) error {
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(res)
+}
+
+// GetUserProject godoc
+// @Summary Get current user's projects
+// @Description Retrieve project list of the currently authenticated user
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param query query request.GetProjectsByUserDto false "Pagination Query"
+// @Success 200 {object} response.CommonResponse
+// @Failure 400 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /users/current/project [get]
+func (h *UserController) GetUserProject(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dto := &request.GetProjectsByUserDto{}
+	if err := validator.ValidateQueryDto(c, dto); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
+			Status: false,
+			Errors: err,
+		})
+	}
+
+	res, err := h.projectService.GetProjectByUserID(ctx, c.Locals("uid").(string), dto)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}
+
+// GetProjectByUserID godoc
+// @Summary Get user's projects by user ID
+// @Description Retrieve project list by specific user ID
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param query query request.GetProjectsByUserDto false "Pagination Query"
+// @Success 200 {object} response.CommonResponse
+// @Failure 400 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /users/{id}/project [get]
+func (h *UserController) GetProjectByUserID(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	userID := c.Params("id")
+	dto := &request.GetProjectsByUserDto{}
+	if err := validator.ValidateQueryDto(c, dto); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
+			Status: false,
+			Errors: err,
+		})
+	}
+
+	res, err := h.projectService.GetProjectByUserID(ctx, userID, dto)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
 }

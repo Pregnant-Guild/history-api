@@ -15,7 +15,7 @@ func VerificationRoutes(app *fiber.App, controller *controllers.VerificationCont
 	route.Get(
 		"/:id",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.GetVerificationByID,
 	)
 
@@ -28,21 +28,21 @@ func VerificationRoutes(app *fiber.App, controller *controllers.VerificationCont
 	route.Put(
 		"/:id/status",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.UpdateVerificationStatus,
 	)
 
 	route.Get(
 		"/",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.SearchVerification,
 	)
 
 	route.Post(
 		"/",
 		middlewares.JwtAccess(userRepo),
-		middlewares.ForbidRoles(constants.HISTORIAN),
+		middlewares.ForbidRoles(constants.RoleTypeHistorian),
 		controller.CreateVerification,
 	)
 

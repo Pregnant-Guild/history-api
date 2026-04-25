@@ -32,7 +32,7 @@ type EntityWiki struct {
 
 type Geometry struct {
 	ID           pgtype.UUID        `json:"id"`
-	GeoType      string             `json:"geo_type"`
+	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
 	Binding      []byte             `json:"binding"`
 	TimeStart    pgtype.Int4        `json:"time_start"`
@@ -55,12 +55,52 @@ type Media struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Project struct {
+	ID               pgtype.UUID        `json:"id"`
+	Title            string             `json:"title"`
+	Description      pgtype.Text        `json:"description"`
+	LatestRevisionID pgtype.UUID        `json:"latest_revision_id"`
+	VersionCount     int32              `json:"version_count"`
+	ProjectStatus    int16              `json:"project_status"`
+	LockedBy         pgtype.UUID        `json:"locked_by"`
+	IsDeleted        bool               `json:"is_deleted"`
+	UserID           pgtype.UUID        `json:"user_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Revision struct {
+	ID           pgtype.UUID        `json:"id"`
+	ProjectID    pgtype.UUID        `json:"project_id"`
+	VersionNo    int32              `json:"version_no"`
+	SnapshotJson json.RawMessage    `json:"snapshot_json"`
+	SnapshotHash pgtype.Text        `json:"snapshot_hash"`
+	ParentID     pgtype.UUID        `json:"parent_id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	EditSummary  pgtype.Text        `json:"edit_summary"`
+	IsDeleted    bool               `json:"is_deleted"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type Role struct {
 	ID        pgtype.UUID        `json:"id"`
 	Name      string             `json:"name"`
 	IsDeleted bool               `json:"is_deleted"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Submission struct {
+	ID          pgtype.UUID        `json:"id"`
+	ProjectID   pgtype.UUID        `json:"project_id"`
+	RevisionID  pgtype.UUID        `json:"revision_id"`
+	SubmittedBy pgtype.UUID        `json:"submitted_by"`
+	SubmittedAt pgtype.Timestamptz `json:"submitted_at"`
+	Status      int16              `json:"status"`
+	ReviewedBy  pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt  pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote  pgtype.Text        `json:"review_note"`
+	IsDeleted   bool               `json:"is_deleted"`
 }
 
 type User struct {

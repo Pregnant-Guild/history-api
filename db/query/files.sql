@@ -79,3 +79,7 @@ ORDER BY created_at DESC;
 -- name: GetMediaByID :one
 SELECT * FROM medias
 WHERE id = $1;
+
+-- name: GetMediaByIDs :many
+SELECT * FROM medias
+WHERE id = ANY($1::uuid[]);

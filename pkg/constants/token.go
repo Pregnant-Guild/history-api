@@ -3,21 +3,21 @@ package constants
 type TokenType int16
 
 const (
-	TokenPasswordReset TokenType = 1
-	TokenEmailVerify   TokenType = 2
-	TokenMagicLink     TokenType = 3
-	TokenUpload        TokenType = 4
+	TokenTypePasswordReset TokenType = 1
+	TokenTypeEmailVerify   TokenType = 2
+	TokenTypeMagicLink     TokenType = 3
+	TokenTypeUpload        TokenType = 4
 )
 
 func (t TokenType) String() string {
 	switch t {
-	case TokenPasswordReset:
+	case TokenTypePasswordReset:
 		return "PASSWORD_RESET"
-	case TokenEmailVerify:
+	case TokenTypeEmailVerify:
 		return "EMAIL_VERIFY"
-	case TokenMagicLink:
+	case TokenTypeMagicLink:
 		return "LOGIN_MAGIC_LINK"
-	case TokenUpload:
+	case TokenTypeUpload:
 		return "UPLOAD"
 	default:
 		return "UNKNOWN"
@@ -31,13 +31,13 @@ func (t TokenType) Value() int16 {
 func ParseTokenType(v int16) TokenType {
 	switch v {
 	case 1:
-		return TokenPasswordReset
+		return TokenTypePasswordReset
 	case 2:
-		return TokenEmailVerify
+		return TokenTypeEmailVerify
 	case 3:
-		return TokenMagicLink
+		return TokenTypeMagicLink
 	case 4:
-		return TokenUpload
+		return TokenTypeUpload
 	default:
 		return 0
 	}
@@ -46,13 +46,13 @@ func ParseTokenType(v int16) TokenType {
 func ParseTokenTypeFromString(s string) TokenType {
 	switch s {
 	case "PASSWORD_RESET":
-		return TokenPasswordReset
+		return TokenTypePasswordReset
 	case "EMAIL_VERIFY":
-		return TokenEmailVerify
+		return TokenTypeEmailVerify
 	case "LOGIN_MAGIC_LINK":
-		return TokenMagicLink
+		return TokenTypeMagicLink
 	case "UPLOAD":
-		return TokenUpload
+		return TokenTypeUpload
 	default:
 		return 0
 	}

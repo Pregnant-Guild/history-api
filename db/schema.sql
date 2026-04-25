@@ -98,12 +98,12 @@ CREATE TABLE IF NOT EXISTS entity_wikis (
 
 CREATE TABLE IF NOT EXISTS geometries (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
-    geo_type VARCHAR(50) NOT NULL DEFAULT 'id',
+    geo_type SMALLINT NOT NULL DEFAULT 1,
     draw_geometry JSONB NOT NULL,
     binding JSONB,
     time_start INT,
     time_end INT,
-    bbox GEOMETRY,
+    bbox GEOMETRY(Polygon, 4326), 
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -113,4 +113,44 @@ CREATE TABLE IF NOT EXISTS entity_geometries (
     entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
     geometry_id UUID REFERENCES geometries(id) ON DELETE CASCADE,
     PRIMARY KEY (entity_id, geometry_id)
+);
+
+CREATE TABLE IF NOT EXISTS projects (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    title TEXT NOT NULL,
+    description TEXT,
+    latest_revision_id UUID, 
+    version_count INT NOT NULL DEFAULT 0,
+    project_status SMALLINT NOT NULL DEFAULT 1,
+    locked_by UUID, 
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS revisions (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    version_no INT NOT NULL,
+    snapshot_json JSONB NOT NULL,
+    snapshot_hash TEXT,
+    parent_id UUID REFERENCES revisions(id), 
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    edit_summary TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS submissions (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    revision_id UUID NOT NULL REFERENCES revisions(id) ON DELETE CASCADE,
+    submitted_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    status SMALLINT NOT NULL DEFAULT 1,
+    reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMPTZ,
+    review_note TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT false
 );

@@ -38,3 +38,6 @@ WHERE is_deleted = false
   AND (sqlc.narg('cursor_id')::uuid IS NULL OR id < sqlc.narg('cursor_id')::uuid)
 ORDER BY id DESC
 LIMIT sqlc.arg('limit_count');
+
+-- name: GetEntitiesByIDs :many
+SELECT * FROM entities WHERE id = ANY($1::uuid[]) AND is_deleted = false;

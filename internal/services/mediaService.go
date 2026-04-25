@@ -71,7 +71,7 @@ func (m *mediaService) DeleteMedia(ctx context.Context, claims *response.JWTClai
 	}
 
 	shoudDelete := false
-	if slices.Contains(claims.Roles, constants.ADMIN) || slices.Contains(claims.Roles, constants.MOD) || media.UserID == claims.UId {
+	if slices.Contains(claims.Roles, constants.RoleTypeAdmin) || slices.Contains(claims.Roles, constants.RoleTypeMod) || media.UserID == claims.UId {
 		shoudDelete = true
 	}
 
@@ -95,7 +95,7 @@ func (m *mediaService) BulkDeleteMedia(ctx context.Context, claims *response.JWT
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 	shoudDelete := false
-	if slices.Contains(claims.Roles, constants.ADMIN) || slices.Contains(claims.Roles, constants.MOD) {
+	if slices.Contains(claims.Roles, constants.RoleTypeAdmin) || slices.Contains(claims.Roles, constants.RoleTypeMod) {
 		shoudDelete = true
 	}
 	listMediaIds := make([]pgtype.UUID, len(listMedia))

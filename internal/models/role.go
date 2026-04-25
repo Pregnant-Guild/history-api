@@ -74,8 +74,8 @@ func RolesEntityToResponse(rs []*RoleEntity) []*response.RoleResponse {
 	return out
 }
 
-func RolesEntityToRoleConstant(rs []*RoleSimple) []constants.Role {
-	out := make([]constants.Role, 0)
+func RolesEntityToRoleConstant(rs []*RoleSimple) []constants.RoleType {
+	out := make([]constants.RoleType, 0)
 	if rs == nil {
 		return out
 	}

@@ -3,10 +3,10 @@ package constants
 type ProviderType string
 
 const (
-	GoogleProvider   ProviderType = "google"
-	GithubProvider   ProviderType = "github"
-	FacebookProvider ProviderType = "facebook"
-	LocalProvider    ProviderType = "local"
+	ProviderTypeGoogle   ProviderType = "google"
+	ProviderTypeGithub   ProviderType = "github"
+	ProviderTypeFacebook ProviderType = "facebook"
+	ProviderTypeLocal    ProviderType = "local"
 )
 
 func (p ProviderType) String() string {

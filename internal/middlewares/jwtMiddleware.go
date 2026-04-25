@@ -68,7 +68,7 @@ func jwtSuccess(userRepo repositories.UserRepository) fiber.Handler {
 			return unauthorized()
 		}
 
-		if slices.Contains(claims.Roles, constants.BANNED) {
+		if slices.Contains(claims.Roles, constants.RoleTypeBanned) {
 			return c.Status(fiber.StatusForbidden).JSON(response.CommonResponse{
 				Status:  false,
 				Message: "User account is banned",
@@ -119,7 +119,7 @@ func jwtSuccessRefresh() fiber.Handler {
 			return unauthorized()
 		}
 
-		if slices.Contains(claims.Roles, constants.BANNED) {
+		if slices.Contains(claims.Roles, constants.RoleTypeBanned) {
 			return c.Status(fiber.StatusForbidden).JSON(response.CommonResponse{
 				Status:  false,
 				Message: "User account is banned",

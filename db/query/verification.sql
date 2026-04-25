@@ -23,7 +23,7 @@ SELECT
         'full_name', up.full_name,
         'avatar_url', up.avatar_url
     )::json AS user,
-    NULL::json AS reviewer, -- Khi mới tạo thì reviewer luôn null
+    NULL::json AS reviewer,
     '[]'::json AS medias
 FROM inserted_uv i
 JOIN users u ON i.user_id = u.id
@@ -275,3 +275,51 @@ WHERE
         uv.id::text ILIKE '%' || sqlc.narg('search_text')::text || '%' OR
         uv.content::text ILIKE '%' || sqlc.narg('search_text')::text || '%'
     );
+
+-- name: GetUserVerificationsByIDs :many
+SELECT 
+    uv.id, uv.verify_type, uv.content,
+    uv.is_deleted, uv.status, uv.review_note,
+    uv.reviewed_at, uv.created_at,
+    json_build_object(
+        'id', u.id,
+        'email', u.email,
+        'display_name', up.display_name,
+        'full_name', up.full_name,
+        'avatar_url', up.avatar_url
+    )::json AS user,
+    CASE WHEN uv.reviewed_by IS NOT NULL THEN
+        json_build_object(
+            'id', ru.id,
+            'email', ru.email,
+            'display_name', rup.display_name,
+            'full_name', rup.full_name,
+            'avatar_url', rup.avatar_url
+        )::json
+    ELSE NULL::json END AS reviewer,
+    (
+        SELECT COALESCE(
+            json_agg(
+                json_build_object(
+                    'id', m.id,
+                    'storage_key', m.storage_key,
+                    'original_name', m.original_name,
+                    'mime_type', m.mime_type,
+                    'size', m.size,
+                    'file_metadata', m.file_metadata,
+                    'created_at', m.created_at
+                )
+            ),
+            '[]'
+        )::json
+        FROM verification_medias vm
+        JOIN medias m ON vm.media_id = m.id
+        WHERE vm.verification_id = uv.id
+    ) AS medias
+FROM user_verifications uv
+JOIN users u ON uv.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id
+LEFT JOIN users ru ON uv.reviewed_by = ru.id
+LEFT JOIN user_profiles rup ON ru.id = rup.user_id
+WHERE uv.id = ANY($1::uuid[]) 
+    AND uv.is_deleted = false;

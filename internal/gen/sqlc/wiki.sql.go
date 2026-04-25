@@ -114,6 +114,37 @@ func (q *Queries) GetWikiById(ctx context.Context, id pgtype.UUID) (Wiki, error)
 	return i, err
 }
 
+const getWikisByIDs = `-- name: GetWikisByIDs :many
+SELECT id, title, content, is_deleted, created_at, updated_at FROM wikis WHERE id = ANY($1::uuid[]) AND is_deleted = false
+`
+
+func (q *Queries) GetWikisByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Wiki, error) {
+	rows, err := q.db.Query(ctx, getWikisByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Wiki{}
+	for rows.Next() {
+		var i Wiki
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Content,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchWikis = `-- name: SearchWikis :many
 SELECT w.id, w.title, w.content, w.is_deleted, w.created_at, w.updated_at
 FROM wikis w

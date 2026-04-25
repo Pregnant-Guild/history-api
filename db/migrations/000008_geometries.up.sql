@@ -4,7 +4,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 CREATE TABLE IF NOT EXISTS geometries (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
-    geo_type VARCHAR(50) NOT NULL DEFAULT 'id',
+    geo_type SMALLINT NOT NULL DEFAULT 1,
     draw_geometry JSONB NOT NULL,
     binding JSONB,
     time_start INT,
@@ -14,10 +14,6 @@ CREATE TABLE IF NOT EXISTS geometries (
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
-
-ALTER TABLE geometries DROP CONSTRAINT IF EXISTS check_geo_type;
-ALTER TABLE geometries ADD CONSTRAINT check_geo_type 
-CHECK (geo_type IN ('id', 'name', 'icon', 'variant', 'description'));
 
 CREATE TABLE IF NOT EXISTS entity_geometries (
     entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,

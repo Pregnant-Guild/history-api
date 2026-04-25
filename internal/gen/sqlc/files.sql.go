@@ -132,6 +132,41 @@ func (q *Queries) GetMediaByID(ctx context.Context, id pgtype.UUID) (Media, erro
 	return i, err
 }
 
+const getMediaByIDs = `-- name: GetMediaByIDs :many
+SELECT id, user_id, storage_key, original_name, mime_type, size, file_metadata, created_at, updated_at FROM medias
+WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) GetMediaByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Media, error) {
+	rows, err := q.db.Query(ctx, getMediaByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Media{}
+	for rows.Next() {
+		var i Media
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.StorageKey,
+			&i.OriginalName,
+			&i.MimeType,
+			&i.Size,
+			&i.FileMetadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMediasByUserID = `-- name: GetMediasByUserID :many
 SELECT id, user_id, storage_key, original_name, mime_type, size, file_metadata, created_at, updated_at FROM medias
 WHERE user_id = $1

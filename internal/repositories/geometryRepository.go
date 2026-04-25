@@ -58,22 +58,54 @@ func (r *geometryRepository) getByIDsWithFallback(ctx context.Context, ids []str
 	var geometries []*models.GeometryEntity
 	missingToCache := make(map[string]any)
 
+	var missingPgIds []pgtype.UUID
 	for i, b := range raws {
-		if len(b) > 0 {
-			var g models.GeometryEntity
-			if err := json.Unmarshal(b, &g); err == nil {
-				geometries = append(geometries, &g)
-			}
-		} else {
+		if len(b) == 0 {
 			pgId := pgtype.UUID{}
 			err := pgId.Scan(ids[i])
-			if err != nil {
-				continue
+			if err == nil {
+				missingPgIds = append(missingPgIds, pgId)
 			}
-			dbGeometry, err := r.GetByID(ctx, pgId)
-			if err == nil && dbGeometry != nil {
-				geometries = append(geometries, dbGeometry)
-				missingToCache[keys[i]] = dbGeometry
+		}
+	}
+
+	dbMap := make(map[string]*models.GeometryEntity)
+	if len(missingPgIds) > 0 {
+		dbRows, err := r.q.GetGeometriesByIDs(ctx, missingPgIds)
+		if err == nil {
+			for _, row := range dbRows {
+				item := models.GeometryEntity{
+					ID:           convert.UUIDToString(row.ID),
+					GeoType:      constants.ParseGeoType(row.GeoType),
+					DrawGeometry: row.DrawGeometry,
+					Binding:      row.Binding,
+					TimeStart:    convert.Int4ToInt32(row.TimeStart),
+					TimeEnd:      convert.Int4ToInt32(row.TimeEnd),
+					Bbox: &response.Bbox{
+						MinLng: row.MinLng,
+						MinLat: row.MinLat,
+						MaxLng: row.MaxLng,
+						MaxLat: row.MaxLat,
+					},
+					IsDeleted:    row.IsDeleted,
+					CreatedAt:    convert.TimeToPtr(row.CreatedAt),
+					UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+				}
+				dbMap[item.ID] = &item
+			}
+		}
+	}
+
+	for i, b := range raws {
+		if len(b) > 0 {
+			var u models.GeometryEntity
+			if err := json.Unmarshal(b, &u); err == nil {
+				geometries = append(geometries, &u)
+			}
+		} else {
+			if item, ok := dbMap[ids[i]]; ok {
+				geometries = append(geometries, item)
+				missingToCache[keys[i]] = item
 			}
 		}
 	}
@@ -105,7 +137,7 @@ func (r *geometryRepository) GetByID(ctx context.Context, id pgtype.UUID) (*mode
 
 	geometry = models.GeometryEntity{
 		ID:           convert.UUIDToString(row.ID),
-		GeoType:      row.GeoType,
+		GeoType:      constants.ParseGeoType(row.GeoType),
 		DrawGeometry: row.DrawGeometry,
 		Binding:      row.Binding,
 		TimeStart:    convert.Int4ToInt32(row.TimeStart),
@@ -143,7 +175,7 @@ func (r *geometryRepository) Search(ctx context.Context, params sqlc.SearchGeome
 	for _, row := range rows {
 		geometry := &models.GeometryEntity{
 			ID:           convert.UUIDToString(row.ID),
-			GeoType:      row.GeoType,
+			GeoType:      constants.ParseGeoType(row.GeoType),
 			DrawGeometry: row.DrawGeometry,
 			Binding:      row.Binding,
 			TimeStart:    convert.Int4ToInt32(row.TimeStart),
@@ -181,7 +213,7 @@ func (r *geometryRepository) Create(ctx context.Context, params sqlc.CreateGeome
 
 	geometry := models.GeometryEntity{
 		ID:           convert.UUIDToString(row.ID),
-		GeoType:      row.GeoType,
+		GeoType:      constants.ParseGeoType(row.GeoType),
 		DrawGeometry: row.DrawGeometry,
 		Binding:      row.Binding,
 		TimeStart:    convert.Int4ToInt32(row.TimeStart),
@@ -212,7 +244,7 @@ func (r *geometryRepository) Update(ctx context.Context, params sqlc.UpdateGeome
 	}
 	geometry := models.GeometryEntity{
 		ID:           convert.UUIDToString(row.ID),
-		GeoType:      row.GeoType,
+		GeoType:      constants.ParseGeoType(row.GeoType),
 		DrawGeometry: row.DrawGeometry,
 		Binding:      row.Binding,
 		TimeStart:    convert.Int4ToInt32(row.TimeStart),

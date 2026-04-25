@@ -23,6 +23,22 @@ definitions:
     required:
     - role_ids
     type: object
+  history-api_internal_dtos_request.CreateProjectDto:
+    properties:
+      description:
+        type: string
+      status:
+        enum:
+        - PRIVATE
+        - PUBLIC
+        - ARCHIVE
+        type: string
+      title:
+        maxLength: 255
+        type: string
+    required:
+    - title
+    type: object
   history-api_internal_dtos_request.CreateTokenDto:
     properties:
       email:
@@ -155,6 +171,20 @@ definitions:
       website:
         type: string
     type: object
+  history-api_internal_dtos_request.UpdateProjectDto:
+    properties:
+      description:
+        type: string
+      status:
+        enum:
+        - PRIVATE
+        - PUBLIC
+        - ARCHIVE
+        type: string
+      title:
+        maxLength: 255
+        type: string
+    type: object
   history-api_internal_dtos_request.UpdateVerificationStatusDto:
     properties:
       review_note:
@@ -230,10 +260,10 @@ definitions:
     format: int32
     type: integer
     x-enum-varnames:
-    - TokenPasswordReset
-    - TokenEmailVerify
-    - TokenMagicLink
-    - TokenUpload
+    - TokenTypePasswordReset
+    - TokenTypeEmailVerify
+    - TokenTypeMagicLink
+    - TokenTypeUpload
 info:
   contact:
     email: support@swagger.io
@@ -1078,6 +1108,212 @@ paths:
       summary: Upload media (server-side)
       tags:
       - Media
+  /projects:
+    get:
+      consumes:
+      - application/json
+      description: Search and filter projects with pagination
+      parameters:
+      - in: query
+        name: created_from
+        type: string
+      - in: query
+        name: created_to
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      - in: query
+        minimum: 1
+        name: page
+        type: integer
+      - in: query
+        maxLength: 200
+        name: search
+        type: string
+      - enum:
+        - created_at
+        - updated_at
+        - title
+        in: query
+        name: sort
+        type: string
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        name: statuses
+        type: array
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        name: user_ids
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.PaginatedResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Search projects
+      tags:
+      - Projects
+    post:
+      consumes:
+      - application/json
+      description: Create a project for the current authenticated user
+      parameters:
+      - description: Project Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.CreateProjectDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new project
+      tags:
+      - Projects
+  /projects/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete project by ID
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a project
+      tags:
+      - Projects
+    get:
+      consumes:
+      - application/json
+      description: Retrieve project details by specific ID
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get project by ID
+      tags:
+      - Projects
+    put:
+      consumes:
+      - application/json
+      description: Update project properties (Title, Description, Status)
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Project Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.UpdateProjectDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a project
+      tags:
+      - Projects
   /raster-tiles/{z}/{x}/{y}:
     get:
       description: Fetch vector or raster map tile data by Z, X, Y coordinates
@@ -1420,6 +1656,43 @@ paths:
       summary: Get user's media by user ID
       tags:
       - Users
+  /users/{id}/project:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve project list by specific user ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - in: query
+        name: cursor_id
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get user's projects by user ID
+      tags:
+      - Users
   /users/{id}/restore:
     patch:
       consumes:
@@ -1609,6 +1882,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Change user password
+      tags:
+      - Users
+  /users/current/project:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve project list of the currently authenticated user
+      parameters:
+      - in: query
+        name: cursor_id
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user's projects
       tags:
       - Users
   /wikis:

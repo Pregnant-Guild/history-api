@@ -3,19 +3,19 @@ package constants
 type StatusType int16
 
 const (
-	StatusUnknown  StatusType = 0
-	StatusPending  StatusType = 1
-	StatusApproved StatusType = 2
-	StatusRejected StatusType = 3
+	StatusTypeUnknown  StatusType = 0
+	StatusTypePending  StatusType = 1
+	StatusTypeApproved StatusType = 2
+	StatusTypeRejected StatusType = 3
 )
 
 func (t StatusType) String() string {
 	switch t {
-	case StatusPending:
+	case StatusTypePending:
 		return "PENDING"
-	case StatusApproved:
+	case StatusTypeApproved:
 		return "APPROVED"
-	case StatusRejected:
+	case StatusTypeRejected:
 		return "REJECTED"
 	default:
 		return "UNKNOWN"
@@ -29,25 +29,25 @@ func (t StatusType) Int16() int16 {
 func ParseStatusType(v int16) StatusType {
 	switch v {
 	case 1:
-		return StatusPending
+		return StatusTypePending
 	case 2:
-		return StatusApproved
+		return StatusTypeApproved
 	case 3:
-		return StatusRejected
+		return StatusTypeRejected
 	default:
-		return StatusUnknown
+		return StatusTypeUnknown
 	}
 }
 
 func ParseStatusTypeText(v string) StatusType {
 	switch v {
 	case "PENDING":
-		return StatusPending
+		return StatusTypePending
 	case "APPROVED":
-		return StatusApproved
+		return StatusTypeApproved
 	case "REJECTED":
-		return StatusRejected
+		return StatusTypeRejected
 	default:
-		return StatusUnknown
+		return StatusTypeUnknown
 	}
 }

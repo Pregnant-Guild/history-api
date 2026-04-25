@@ -57,22 +57,45 @@ func (r *wikiRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 	var wikis []*models.WikiEntity
 	missingToCache := make(map[string]any)
 
+	var missingPgIds []pgtype.UUID
 	for i, b := range raws {
-		if len(b) > 0 {
-			var w models.WikiEntity
-			if err := json.Unmarshal(b, &w); err == nil {
-				wikis = append(wikis, &w)
-			}
-		} else {
+		if len(b) == 0 {
 			pgId := pgtype.UUID{}
 			err := pgId.Scan(ids[i])
-			if err != nil {
-				continue
+			if err == nil {
+				missingPgIds = append(missingPgIds, pgId)
 			}
-			dbWiki, err := r.GetByID(ctx, pgId)
-			if err == nil && dbWiki != nil {
-				wikis = append(wikis, dbWiki)
-				missingToCache[keys[i]] = dbWiki
+		}
+	}
+
+	dbMap := make(map[string]*models.WikiEntity)
+	if len(missingPgIds) > 0 {
+		dbRows, err := r.q.GetWikisByIDs(ctx, missingPgIds)
+		if err == nil {
+			for _, row := range dbRows {
+				item := models.WikiEntity{
+					ID:        convert.UUIDToString(row.ID),
+					Title:     convert.TextToString(row.Title),
+					Content:   convert.TextToString(row.Content),
+					IsDeleted: row.IsDeleted,
+					CreatedAt: convert.TimeToPtr(row.CreatedAt),
+					UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
+				}
+				dbMap[item.ID] = &item
+			}
+		}
+	}
+
+	for i, b := range raws {
+		if len(b) > 0 {
+			var u models.WikiEntity
+			if err := json.Unmarshal(b, &u); err == nil {
+				wikis = append(wikis, &u)
+			}
+		} else {
+			if item, ok := dbMap[ids[i]]; ok {
+				wikis = append(wikis, item)
+				missingToCache[keys[i]] = item
 			}
 		}
 	}

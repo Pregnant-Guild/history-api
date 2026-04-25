@@ -13,6 +13,27 @@ func UUIDToString(v pgtype.UUID) string {
 	return ""
 }
 
+func UUIDToStringPtr(v pgtype.UUID) *string {
+	if v.Valid {
+		str := v.String()
+		return &str
+	}
+	return nil
+}
+
+func ListUUIDToString(v []pgtype.UUID) []string {
+	if len(v) == 0 {
+		return []string{}
+	}
+	res := make([]string, 0, len(v))
+	for _, u := range v {
+		if u.Valid {
+			res = append(res, UUIDToString(u))
+		}
+	}
+	return res
+}
+
 func StringToUUID(s string) (pgtype.UUID, error) {
 	var pgId pgtype.UUID
 	err := pgId.Scan(s)

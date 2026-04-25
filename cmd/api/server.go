@@ -87,6 +87,7 @@ func (s *FiberServer) SetupServer(
 	entityRepo := repositories.NewEntityRepository(sqlPg, redis)
 	geometryRepo := repositories.NewGeometryRepository(sqlPg, redis)
 	wikiRepo := repositories.NewWikiRepository(sqlPg, redis)
+	projectRepo := repositories.NewProjectRepository(sqlPg, redis)
 
 	// service setup
 	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis)
@@ -99,10 +100,11 @@ func (s *FiberServer) SetupServer(
 	entityService := services.NewEntityService(entityRepo)
 	geometryService := services.NewGeometryService(geometryRepo)
 	wikiService := services.NewWikiService(wikiRepo)
+	projectService := services.NewProjectService(projectRepo)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)
-	userController := controllers.NewUserController(userService, mediaService, verificationService)
+	userController := controllers.NewUserController(userService, mediaService, verificationService, projectService)
 	tileController := controllers.NewTileController(tileService)
 	rasterTileController := controllers.NewRasterTileController(rasterTileService)
 	roleController := controllers.NewRoleController(roleService)
@@ -111,6 +113,7 @@ func (s *FiberServer) SetupServer(
 	entityController := controllers.NewEntityController(entityService)
 	geometryController := controllers.NewGeometryController(geometryService)
 	wikiController := controllers.NewWikiController(wikiService)
+	projectController := controllers.NewProjectController(projectService)
 
 	// route setup
 	routes.AuthRoutes(s.App, authController, userRepo)
@@ -123,5 +126,6 @@ func (s *FiberServer) SetupServer(
 	routes.EntityRoutes(s.App, entityController)
 	routes.GeometryRoutes(s.App, geometryController)
 	routes.WikiRoutes(s.App, wikiController)
+	routes.ProjectRoutes(s.App, projectController, userRepo)
 	routes.NotFoundRoute(s.App)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func getRoles(c fiber.Ctx) ([]constants.Role, error) {
+func getRoles(c fiber.Ctx) ([]constants.RoleType, error) {
 	claimsVal := c.Locals("user_claims")
 	if claimsVal == nil {
 		return nil, fiber.ErrUnauthorized
@@ -22,7 +22,7 @@ func getRoles(c fiber.Ctx) ([]constants.Role, error) {
 	return claims.Roles, nil
 }
 
-func RequireAnyRole(required ...constants.Role) fiber.Handler {
+func RequireAnyRole(required ...constants.RoleType) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		userRoles, err := getRoles(c)
 		if err != nil {
@@ -43,7 +43,7 @@ func RequireAnyRole(required ...constants.Role) fiber.Handler {
 	}
 }
 
-func RequireAllRoles(required ...constants.Role) fiber.Handler {
+func RequireAllRoles(required ...constants.RoleType) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		userRoles, err := getRoles(c)
 		if err != nil {
@@ -61,7 +61,7 @@ func RequireAllRoles(required ...constants.Role) fiber.Handler {
 	}
 }
 
-func ForbidRoles(forbidden ...constants.Role) fiber.Handler {
+func ForbidRoles(forbidden ...constants.RoleType) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		userRoles, err := getRoles(c)
 		if err != nil {

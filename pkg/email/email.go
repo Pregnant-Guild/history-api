@@ -66,10 +66,10 @@ func SendMailOTP(dto *models.TokenEntity) error {
 	var templatePath string
 
 	switch dto.TokenType {
-	case constants.TokenPasswordReset:
+	case constants.TokenTypePasswordReset:
 		subject = "Your Password Reset Code"
 		templatePath = "resources/password_reset.html"
-	case constants.TokenEmailVerify:
+	case constants.TokenTypeEmailVerify:
 		subject = "Verify your email address"
 		templatePath = "resources/email_verify.html"
 	default:
@@ -86,11 +86,11 @@ func SendHistorianReviewMail(dto *models.UserVerificationStorageEntity) error {
 	var templatePath string
 	feUrl := config.GetConfigWithDefault("FRONTEND_URL", "http://localhost:3000")
 	switch dto.Status {
-	case constants.StatusApproved:
+	case constants.StatusTypeApproved:
 		subject = "Your Historian Application is Approved"
 		templatePath = "resources/historian_approved.html"
 
-	case constants.StatusRejected:
+	case constants.StatusTypeRejected:
 		subject = "Your Historian Application is Rejected"
 		templatePath = "resources/historian_rejected.html"
 

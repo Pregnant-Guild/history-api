@@ -111,7 +111,7 @@ SELECT
         'full_name', up.full_name,
         'avatar_url', up.avatar_url
     )::json AS user,
-    NULL::json AS reviewer, -- Khi mới tạo thì reviewer luôn null
+    NULL::json AS reviewer,
     '[]'::json AS medias
 FROM inserted_uv i
 JOIN users u ON i.user_id = u.id
@@ -364,6 +364,101 @@ func (q *Queries) GetUserVerifications(ctx context.Context, userID pgtype.UUID) 
 	items := []GetUserVerificationsRow{}
 	for rows.Next() {
 		var i GetUserVerificationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.VerifyType,
+			&i.Content,
+			&i.IsDeleted,
+			&i.Status,
+			&i.ReviewNote,
+			&i.ReviewedAt,
+			&i.CreatedAt,
+			&i.User,
+			&i.Reviewer,
+			&i.Medias,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUserVerificationsByIDs = `-- name: GetUserVerificationsByIDs :many
+SELECT 
+    uv.id, uv.verify_type, uv.content,
+    uv.is_deleted, uv.status, uv.review_note,
+    uv.reviewed_at, uv.created_at,
+    json_build_object(
+        'id', u.id,
+        'email', u.email,
+        'display_name', up.display_name,
+        'full_name', up.full_name,
+        'avatar_url', up.avatar_url
+    )::json AS user,
+    CASE WHEN uv.reviewed_by IS NOT NULL THEN
+        json_build_object(
+            'id', ru.id,
+            'email', ru.email,
+            'display_name', rup.display_name,
+            'full_name', rup.full_name,
+            'avatar_url', rup.avatar_url
+        )::json
+    ELSE NULL::json END AS reviewer,
+    (
+        SELECT COALESCE(
+            json_agg(
+                json_build_object(
+                    'id', m.id,
+                    'storage_key', m.storage_key,
+                    'original_name', m.original_name,
+                    'mime_type', m.mime_type,
+                    'size', m.size,
+                    'file_metadata', m.file_metadata,
+                    'created_at', m.created_at
+                )
+            ),
+            '[]'
+        )::json
+        FROM verification_medias vm
+        JOIN medias m ON vm.media_id = m.id
+        WHERE vm.verification_id = uv.id
+    ) AS medias
+FROM user_verifications uv
+JOIN users u ON uv.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id
+LEFT JOIN users ru ON uv.reviewed_by = ru.id
+LEFT JOIN user_profiles rup ON ru.id = rup.user_id
+WHERE uv.id = ANY($1::uuid[]) 
+    AND uv.is_deleted = false
+`
+
+type GetUserVerificationsByIDsRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	VerifyType int16              `json:"verify_type"`
+	Content    pgtype.Text        `json:"content"`
+	IsDeleted  bool               `json:"is_deleted"`
+	Status     int16              `json:"status"`
+	ReviewNote pgtype.Text        `json:"review_note"`
+	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	User       []byte             `json:"user"`
+	Reviewer   []byte             `json:"reviewer"`
+	Medias     []byte             `json:"medias"`
+}
+
+func (q *Queries) GetUserVerificationsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetUserVerificationsByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getUserVerificationsByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetUserVerificationsByIDsRow{}
+	for rows.Next() {
+		var i GetUserVerificationsByIDsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.VerifyType,

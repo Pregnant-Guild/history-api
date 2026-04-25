@@ -56,22 +56,48 @@ func (r *mediaRepository) getByIDsWithFallback(ctx context.Context, ids []string
 	var medias []*models.MediaEntity
 	missingMediasToCache := make(map[string]any)
 
+	var missingPgIds []pgtype.UUID
 	for i, b := range raws {
-		if len(b) > 0 {
-			var m models.MediaEntity
-			if err := json.Unmarshal(b, &m); err == nil {
-				medias = append(medias, &m)
-			}
-		} else {
+		if len(b) == 0 {
 			pgId := pgtype.UUID{}
 			err := pgId.Scan(ids[i])
-			if err != nil {
-				continue
+			if err == nil {
+				missingPgIds = append(missingPgIds, pgId)
 			}
-			dbMedia, err := r.GetByID(ctx, pgId)
-			if err == nil && dbMedia != nil {
-				medias = append(medias, dbMedia)
-				missingMediasToCache[keys[i]] = dbMedia
+		}
+	}
+
+	dbMap := make(map[string]*models.MediaEntity)
+	if len(missingPgIds) > 0 {
+		dbRows, err := r.q.GetMediaByIDs(ctx, missingPgIds)
+		if err == nil {
+			for _, row := range dbRows {
+				item := models.MediaEntity{
+					ID:           convert.UUIDToString(row.ID),
+					UserID:       convert.UUIDToString(row.UserID),
+					StorageKey:   row.StorageKey,
+					OriginalName: row.OriginalName,
+					MimeType:     row.MimeType,
+					Size:         row.Size,
+					FileMetadata: row.FileMetadata,
+					CreatedAt:    convert.TimeToPtr(row.CreatedAt),
+					UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+				}
+				dbMap[item.ID] = &item
+			}
+		}
+	}
+
+	for i, b := range raws {
+		if len(b) > 0 {
+			var u models.MediaEntity
+			if err := json.Unmarshal(b, &u); err == nil {
+				medias = append(medias, &u)
+			}
+		} else {
+			if item, ok := dbMap[ids[i]]; ok {
+				medias = append(medias, item)
+				missingMediasToCache[keys[i]] = item
 			}
 		}
 	}

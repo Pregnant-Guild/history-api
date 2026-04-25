@@ -53,6 +53,38 @@ func (q *Queries) DeleteEntity(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const getEntitiesByIDs = `-- name: GetEntitiesByIDs :many
+SELECT id, name, description, thumbnail_url, is_deleted, created_at, updated_at FROM entities WHERE id = ANY($1::uuid[]) AND is_deleted = false
+`
+
+func (q *Queries) GetEntitiesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Entity, error) {
+	rows, err := q.db.Query(ctx, getEntitiesByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Entity{}
+	for rows.Next() {
+		var i Entity
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.ThumbnailUrl,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getEntityById = `-- name: GetEntityById :one
 SELECT id, name, description, thumbnail_url, is_deleted, created_at, updated_at
 FROM entities

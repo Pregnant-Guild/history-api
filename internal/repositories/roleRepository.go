@@ -61,6 +61,34 @@ func (r *roleRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 	var roles []*models.RoleEntity
 	missingRolesToCache := make(map[string]any)
 
+	var missingPgIds []pgtype.UUID
+	for i, b := range raws {
+		if len(b) == 0 {
+			pgId := pgtype.UUID{}
+			err := pgId.Scan(ids[i])
+			if err == nil {
+				missingPgIds = append(missingPgIds, pgId)
+			}
+		}
+	}
+
+	dbMap := make(map[string]*models.RoleEntity)
+	if len(missingPgIds) > 0 {
+		dbRows, err := r.q.GetRolesByIDs(ctx, missingPgIds)
+		if err == nil {
+			for _, row := range dbRows {
+				item := models.RoleEntity{
+					ID:        convert.UUIDToString(row.ID),
+					Name:      row.Name,
+					IsDeleted: row.IsDeleted,
+					CreatedAt: convert.TimeToPtr(row.CreatedAt),
+					UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
+				}
+				dbMap[item.ID] = &item
+			}
+		}
+	}
+
 	for i, b := range raws {
 		if len(b) > 0 {
 			var u models.RoleEntity
@@ -68,15 +96,9 @@ func (r *roleRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 				roles = append(roles, &u)
 			}
 		} else {
-			pgId := pgtype.UUID{}
-			err := pgId.Scan(ids[i])
-			if err != nil {
-				continue
-			}
-			dbRole, err := r.GetByID(ctx, pgId)
-			if err == nil && dbRole != nil {
-				roles = append(roles, dbRole)
-				missingRolesToCache[keys[i]] = dbRole
+			if item, ok := dbMap[ids[i]]; ok {
+				roles = append(roles, item)
+				missingRolesToCache[keys[i]] = item
 			}
 		}
 	}

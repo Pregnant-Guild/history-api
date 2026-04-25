@@ -36,6 +36,12 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 		controller.GetUserApplication,
 	)
 
+	route.Get(
+		"/current/project",
+		middlewares.JwtAccess(userRepo),
+		controller.GetUserProject,
+	)
+
 	route.Patch(
 		"/current/password",
 		middlewares.JwtAccess(userRepo),
@@ -45,49 +51,56 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 	route.Get(
 		"/:id",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.GetUserById,
 	)
 
 	route.Delete(
 		"/:id",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.DeleteUser,
 	)
 
 	route.Get(
 		"/:id/media",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.GetMediaByUserID,
 	)
 
 	route.Get(
 		"/:id/application",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.GetVerificationByUserID,
+	)
+
+	route.Get(
+		"/:id/project",
+		middlewares.JwtAccess(userRepo),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
+		controller.GetProjectByUserID,
 	)
 
 	route.Patch(
 		"/:id/restore",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.RestoreUser,
 	)
 
 	route.Patch(
 		"/:id/role",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.ChangeRoleUser,
 	)
 
 	route.Get(
 		"/",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.SearchUser,
 	)
 

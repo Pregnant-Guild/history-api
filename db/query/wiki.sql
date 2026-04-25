@@ -54,3 +54,7 @@ INSERT INTO entity_wikis (
     entity_id, wiki_id
 )
 SELECT $1, unnest(@wiki_ids::uuid[]);
+
+
+-- name: GetWikisByIDs :many
+SELECT * FROM wikis WHERE id = ANY($1::uuid[]) AND is_deleted = false;

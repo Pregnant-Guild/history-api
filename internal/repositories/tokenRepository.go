@@ -49,7 +49,7 @@ func (t *tokenRepository) CheckVerified(ctx context.Context, email string, token
 }
 
 func (t *tokenRepository) CreateUploadToken(ctx context.Context, userId string, token *models.TokenUploadEntity) error {
-	cacheKey := fmt.Sprintf("token:%d:%s:%s", constants.TokenUpload.Value(), userId, token.ID)
+	cacheKey := fmt.Sprintf("token:%d:%s:%s", constants.TokenTypeUpload.Value(), userId, token.ID)
 	err := t.c.Set(ctx, cacheKey, token, constants.TokenUploadDuration)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func (t *tokenRepository) CreateUploadToken(ctx context.Context, userId string, 
 }
 
 func (t *tokenRepository) GetUploadToken(ctx context.Context, userId string, id string) (*models.TokenUploadEntity, error) {
-	cacheKey := fmt.Sprintf("token:%d:%s:%s", constants.TokenUpload.Value(), userId, id)
+	cacheKey := fmt.Sprintf("token:%d:%s:%s", constants.TokenTypeUpload.Value(), userId, id)
 	var token models.TokenUploadEntity
 	err := t.c.Get(ctx, cacheKey, &token)
 	if err != nil {
@@ -68,7 +68,7 @@ func (t *tokenRepository) GetUploadToken(ctx context.Context, userId string, id 
 }
 
 func (t *tokenRepository) DeleteUploadToken(ctx context.Context, userId string, id string) error {
-	cacheKey := fmt.Sprintf("token:%d:%s:%s", constants.TokenUpload.Value(), userId, id)
+	cacheKey := fmt.Sprintf("token:%d:%s:%s", constants.TokenTypeUpload.Value(), userId, id)
 	return t.c.Del(ctx, cacheKey)
 }
 

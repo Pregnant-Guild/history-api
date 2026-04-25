@@ -117,16 +117,16 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 	hasModRole := false
 
 	for _, r := range newListRole {
-		if r.Name == constants.USER.String() {
+		if r.Name == constants.RoleTypeUser.String() {
 			hasUserRole = true
 		}
-		if r.Name == constants.ADMIN.String() {
+		if r.Name == constants.RoleTypeAdmin.String() {
 			hasAdminRole = true
 		}
-		if r.Name == constants.BANNED.String() {
+		if r.Name == constants.RoleTypeBanned.String() {
 			hasBannedRole = true
 		}
-		if r.Name == constants.MOD.String() {
+		if r.Name == constants.RoleTypeMod.String() {
 			hasModRole = true
 		}
 	}
@@ -135,7 +135,7 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 		return nil, fiber.NewError(fiber.StatusNotFound, "User must have the USER role")
 	}
 
-	if slices.Contains(claims.Roles, constants.MOD) && !slices.Contains(claims.Roles, constants.ADMIN) {
+	if slices.Contains(claims.Roles, constants.RoleTypeMod) && !slices.Contains(claims.Roles, constants.RoleTypeAdmin) {
 		if hasAdminRole {
 			return nil, fiber.NewError(fiber.StatusForbidden, "MOD cannot assign ADMIN role to any user")
 		}
@@ -149,7 +149,7 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 		}
 		isTargetAdminOrMod := false
 		for _, r := range user.Roles {
-			if r.Name == constants.ADMIN.String() || r.Name == constants.MOD.String() {
+			if r.Name == constants.RoleTypeAdmin.String() || r.Name == constants.RoleTypeMod.String() {
 				isTargetAdminOrMod = true
 				break
 			}
@@ -159,7 +159,7 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 		}
 	}
 
-	if slices.Contains(claims.Roles, constants.ADMIN) {
+	if slices.Contains(claims.Roles, constants.RoleTypeAdmin) {
 		if userId == claims.UId && hasBannedRole {
 			return nil, fiber.NewError(fiber.StatusForbidden, "You can't assign BANNED role to yourself")
 		}

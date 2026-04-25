@@ -53,7 +53,7 @@ func SeedSuperAdmin(pool *pgxpool.Pool) error {
 			String: string(hashed),
 			Valid:  len(hashed) != 0,
 		},
-		AuthProvider: constants.LocalProvider.String(),
+		AuthProvider: constants.ProviderTypeLocal.String(),
 	})
 	if err != nil {
 		return err
@@ -70,12 +70,12 @@ func SeedSuperAdmin(pool *pgxpool.Pool) error {
 		return err
 	}
 
-	adminRole, err := q.GetRoleByName(ctx, constants.ADMIN.String())
+	adminRole, err := q.GetRoleByName(ctx, constants.RoleTypeAdmin.String())
 	if err != nil {
 		return err
 	}
 
-	useRole, err := q.GetRoleByName(ctx, constants.USER.String())
+	useRole, err := q.GetRoleByName(ctx, constants.RoleTypeUser.String())
 	if err != nil {
 		return err
 	}

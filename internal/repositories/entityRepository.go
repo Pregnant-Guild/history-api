@@ -55,22 +55,46 @@ func (r *entityRepository) getByIDsWithFallback(ctx context.Context, ids []strin
 	var entities []*models.EntityEntity
 	missingToCache := make(map[string]any)
 
+	var missingPgIds []pgtype.UUID
 	for i, b := range raws {
-		if len(b) > 0 {
-			var e models.EntityEntity
-			if err := json.Unmarshal(b, &e); err == nil {
-				entities = append(entities, &e)
-			}
-		} else {
+		if len(b) == 0 {
 			pgId := pgtype.UUID{}
 			err := pgId.Scan(ids[i])
-			if err != nil {
-				continue
+			if err == nil {
+				missingPgIds = append(missingPgIds, pgId)
 			}
-			dbEntity, err := r.GetByID(ctx, pgId)
-			if err == nil && dbEntity != nil {
-				entities = append(entities, dbEntity)
-				missingToCache[keys[i]] = dbEntity
+		}
+	}
+
+	dbMap := make(map[string]*models.EntityEntity)
+	if len(missingPgIds) > 0 {
+		dbRows, err := r.q.GetEntitiesByIDs(ctx, missingPgIds)
+		if err == nil {
+			for _, row := range dbRows {
+				item := models.EntityEntity{
+					ID:           convert.UUIDToString(row.ID),
+					Name:         row.Name,
+					Description:  convert.TextToString(row.Description),
+					ThumbnailUrl: convert.TextToString(row.ThumbnailUrl),
+					IsDeleted:    row.IsDeleted,
+					CreatedAt:    convert.TimeToPtr(row.CreatedAt),
+					UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+				}
+				dbMap[item.ID] = &item
+			}
+		}
+	}
+
+	for i, b := range raws {
+		if len(b) > 0 {
+			var u models.EntityEntity
+			if err := json.Unmarshal(b, &u); err == nil {
+				entities = append(entities, &u)
+			}
+		} else {
+			if item, ok := dbMap[ids[i]]; ok {
+				entities = append(entities, item)
+				missingToCache[keys[i]] = item
 			}
 		}
 	}

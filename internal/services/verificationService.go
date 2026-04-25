@@ -53,7 +53,7 @@ func NewVerificationService(
 
 func (v *verificationService) CreateVerification(ctx context.Context, userId string, dto *request.CreateUserVerificationDto) (*response.UserVerificationResponse, error) {
 	verifyType := constants.ParseVerifyTypeText(dto.VerifyType)
-	if verifyType == constants.VerifyUnknown {
+	if verifyType == constants.VerifyTypeUnknown {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Unknown verify type!")
 	}
 
@@ -124,11 +124,11 @@ func (v *verificationService) DeleteVerification(ctx context.Context, claims *re
 	}
 
 	shoudDelete := false
-	if slices.Contains(claims.Roles, constants.ADMIN) || slices.Contains(claims.Roles, constants.MOD) {
+	if slices.Contains(claims.Roles, constants.RoleTypeAdmin) || slices.Contains(claims.Roles, constants.RoleTypeMod) {
 		shoudDelete = true
 	}
 
-	if verification.User.ID == claims.UId && verification.Status == constants.StatusPending {
+	if verification.User.ID == claims.UId && verification.Status == constants.StatusTypePending {
 		shoudDelete = true
 	}
 
@@ -182,7 +182,7 @@ func (m *verificationService) fillSearchArgs(arg *sqlc.SearchUserVerificationsPa
 
 	if len(dto.Statuses) > 0 {
 		for _, id := range dto.Statuses {
-			if u := constants.ParseStatusTypeText(id); u != constants.StatusUnknown {
+			if u := constants.ParseStatusTypeText(id); u != constants.StatusTypeUnknown {
 				arg.Statuses = append(arg.Statuses, u.Int16())
 			}
 		}
@@ -190,7 +190,7 @@ func (m *verificationService) fillSearchArgs(arg *sqlc.SearchUserVerificationsPa
 
 	if len(dto.VerifyTypes) > 0 {
 		for _, id := range dto.VerifyTypes {
-			if u := constants.ParseVerifyTypeText(id); u != constants.VerifyUnknown {
+			if u := constants.ParseVerifyTypeText(id); u != constants.VerifyTypeUnknown {
 				arg.VerifyTypes = append(arg.VerifyTypes, u.Int16())
 			}
 		}
@@ -276,7 +276,7 @@ func (v *verificationService) SearchVerification(ctx context.Context, dto *reque
 
 func (v *verificationService) UpdateStatusVerification(ctx context.Context, userId string, verificationId string, dto *request.UpdateVerificationStatusDto) (*response.UserVerificationResponse, error) {
 	statusType := constants.ParseStatusTypeText(dto.Status)
-	if statusType == constants.StatusUnknown {
+	if statusType == constants.StatusTypeUnknown {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Unknown status type!")
 	}
 	verificationUUID, err := convert.StringToUUID(verificationId)
@@ -289,7 +289,7 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	historianRole, err := v.roleRepo.GetByname(ctx, constants.HISTORIAN.String())
+	historianRole, err := v.roleRepo.GetByname(ctx, constants.RoleTypeHistorian.String())
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -304,7 +304,7 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	if verification.Status != constants.StatusPending {
+	if verification.Status != constants.StatusTypePending {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid status!")
 	}
 
@@ -340,7 +340,7 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 		Status:     statusType,
 	}
 
-	if statusType == constants.StatusApproved {
+	if statusType == constants.StatusTypeApproved {
 		roleIdList := make([]pgtype.UUID, 0)
 		userVerification.Roles = append(userVerification.Roles, historianRole.ToRoleSimple())
 

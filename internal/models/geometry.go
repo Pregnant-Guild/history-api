@@ -3,20 +3,21 @@ package models
 import (
 	"encoding/json"
 	"history-api/internal/dtos/response"
+	"history-api/pkg/constants"
 	"time"
 )
 
 type GeometryEntity struct {
-	ID           string          `json:"id"`
-	GeoType      string          `json:"geo_type"`
-	DrawGeometry json.RawMessage `json:"draw_geometry"`
-	Binding      json.RawMessage `json:"binding"`
-	TimeStart    int32           `json:"time_start"`
-	TimeEnd      int32           `json:"time_end"`
-	Bbox         *response.Bbox  `json:"bbox"`
-	IsDeleted    bool            `json:"is_deleted"`
-	CreatedAt    *time.Time      `json:"created_at"`
-	UpdatedAt    *time.Time      `json:"updated_at"`
+	ID           string            `json:"id"`
+	GeoType      constants.GeoType `json:"geo_type"`
+	DrawGeometry json.RawMessage   `json:"draw_geometry"`
+	Binding      json.RawMessage   `json:"binding"`
+	TimeStart    int32             `json:"time_start"`
+	TimeEnd      int32             `json:"time_end"`
+	Bbox         *response.Bbox    `json:"bbox"`
+	IsDeleted    bool              `json:"is_deleted"`
+	CreatedAt    *time.Time        `json:"created_at"`
+	UpdatedAt    *time.Time        `json:"updated_at"`
 }
 
 func (g *GeometryEntity) ToResponse() *response.GeometryResponse {
@@ -25,7 +26,7 @@ func (g *GeometryEntity) ToResponse() *response.GeometryResponse {
 	}
 	return &response.GeometryResponse{
 		ID:           g.ID,
-		GeoType:      g.GeoType,
+		GeoType:      g.GeoType.String(),
 		DrawGeometry: g.DrawGeometry,
 		Binding:      g.Binding,
 		TimeStart:    g.TimeStart,

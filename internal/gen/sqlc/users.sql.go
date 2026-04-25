@@ -341,6 +341,84 @@ func (q *Queries) GetUserByIDWithoutDeleted(ctx context.Context, id pgtype.UUID)
 	return i, err
 }
 
+const getUsersByIDs = `-- name: GetUsersByIDs :many
+SELECT 
+    u.id, 
+    u.email, 
+    u.password_hash, 
+    u.token_version, 
+    u.is_deleted, 
+    u.created_at, 
+    u.updated_at,
+    (
+        SELECT json_build_object(
+            'display_name', p.display_name,
+            'full_name', p.full_name,
+            'avatar_url', p.avatar_url,
+            'bio', p.bio,
+            'location', p.location,
+            'website', p.website,
+            'country_code', p.country_code,
+            'phone', p.phone
+        )
+        FROM user_profiles p
+        WHERE p.user_id = u.id
+    ) AS profile,
+    (
+        SELECT COALESCE(
+            json_agg(json_build_object('id', r.id, 'name', r.name)),
+            '[]'
+        )::json
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
+        WHERE ur.user_id = u.id
+    ) AS roles
+FROM users u
+WHERE u.id = ANY($1::uuid[]) AND u.is_deleted = false
+`
+
+type GetUsersByIDsRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Email        string             `json:"email"`
+	PasswordHash pgtype.Text        `json:"password_hash"`
+	TokenVersion int32              `json:"token_version"`
+	IsDeleted    bool               `json:"is_deleted"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Profile      json.RawMessage    `json:"profile"`
+	Roles        []byte             `json:"roles"`
+}
+
+func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetUsersByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getUsersByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetUsersByIDsRow{}
+	for rows.Next() {
+		var i GetUsersByIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.PasswordHash,
+			&i.TokenVersion,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Profile,
+			&i.Roles,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const restoreUser = `-- name: RestoreUser :exec
 UPDATE users
 SET

@@ -15,7 +15,7 @@ func MediaRoutes(app *fiber.App, controller *controllers.MediaController, userRe
 	route.Post(
 		"/upload",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.UploadServerSide,
 	)
 
@@ -34,7 +34,7 @@ func MediaRoutes(app *fiber.App, controller *controllers.MediaController, userRe
 	route.Get(
 		"/:id",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.GetMediaByID,
 	)
 
@@ -47,7 +47,7 @@ func MediaRoutes(app *fiber.App, controller *controllers.MediaController, userRe
 	route.Get(
 		"/",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.ADMIN, constants.MOD),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.SearchMedia,
 	)
 	route.Delete(

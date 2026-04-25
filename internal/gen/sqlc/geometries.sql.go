@@ -67,7 +67,7 @@ RETURNING id, geo_type, draw_geometry, binding, time_start, time_end,
 `
 
 type CreateGeometryParams struct {
-	GeoType      string          `json:"geo_type"`
+	GeoType      int16           `json:"geo_type"`
 	DrawGeometry json.RawMessage `json:"draw_geometry"`
 	Binding      []byte          `json:"binding"`
 	TimeStart    pgtype.Int4     `json:"time_start"`
@@ -80,7 +80,7 @@ type CreateGeometryParams struct {
 
 type CreateGeometryRow struct {
 	ID           pgtype.UUID        `json:"id"`
-	GeoType      string             `json:"geo_type"`
+	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
 	Binding      []byte             `json:"binding"`
 	TimeStart    pgtype.Int4        `json:"time_start"`
@@ -137,6 +137,68 @@ func (q *Queries) DeleteGeometry(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const getGeometriesByIDs = `-- name: GetGeometriesByIDs :many
+SELECT 
+    id, geo_type, draw_geometry, binding, time_start, time_end, 
+    ST_XMin(bbox)::float8 as min_lng, 
+    ST_YMin(bbox)::float8 as min_lat, 
+    ST_XMax(bbox)::float8 as max_lng, 
+    ST_YMax(bbox)::float8 as max_lat,
+    is_deleted, created_at, updated_at
+FROM geometries 
+WHERE id = ANY($1::uuid[]) AND is_deleted = false
+`
+
+type GetGeometriesByIDsRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	GeoType      int16              `json:"geo_type"`
+	DrawGeometry json.RawMessage    `json:"draw_geometry"`
+	Binding      []byte             `json:"binding"`
+	TimeStart    pgtype.Int4        `json:"time_start"`
+	TimeEnd      pgtype.Int4        `json:"time_end"`
+	MinLng       float64            `json:"min_lng"`
+	MinLat       float64            `json:"min_lat"`
+	MaxLng       float64            `json:"max_lng"`
+	MaxLat       float64            `json:"max_lat"`
+	IsDeleted    bool               `json:"is_deleted"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetGeometriesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetGeometriesByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getGeometriesByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetGeometriesByIDsRow{}
+	for rows.Next() {
+		var i GetGeometriesByIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.GeoType,
+			&i.DrawGeometry,
+			&i.Binding,
+			&i.TimeStart,
+			&i.TimeEnd,
+			&i.MinLng,
+			&i.MinLat,
+			&i.MaxLng,
+			&i.MaxLat,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getGeometryById = `-- name: GetGeometryById :one
 SELECT id, geo_type, draw_geometry, binding, time_start, time_end, 
     ST_XMin(bbox)::float8 as min_lng, ST_YMin(bbox)::float8 as min_lat, ST_XMax(bbox)::float8 as max_lng, ST_YMax(bbox)::float8 as max_lat,
@@ -147,7 +209,7 @@ WHERE id = $1 AND is_deleted = false
 
 type GetGeometryByIdRow struct {
 	ID           pgtype.UUID        `json:"id"`
-	GeoType      string             `json:"geo_type"`
+	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
 	Binding      []byte             `json:"binding"`
 	TimeStart    pgtype.Int4        `json:"time_start"`
@@ -232,7 +294,7 @@ type SearchGeometriesParams struct {
 
 type SearchGeometriesRow struct {
 	ID           pgtype.UUID        `json:"id"`
-	GeoType      string             `json:"geo_type"`
+	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
 	Binding      []byte             `json:"binding"`
 	TimeStart    pgtype.Int4        `json:"time_start"`
@@ -308,7 +370,7 @@ RETURNING id, geo_type, draw_geometry, binding, time_start, time_end,
 `
 
 type UpdateGeometryParams struct {
-	GeoType      pgtype.Text   `json:"geo_type"`
+	GeoType      pgtype.Int2   `json:"geo_type"`
 	DrawGeometry []byte        `json:"draw_geometry"`
 	Binding      []byte        `json:"binding"`
 	TimeStart    pgtype.Int4   `json:"time_start"`
@@ -323,7 +385,7 @@ type UpdateGeometryParams struct {
 
 type UpdateGeometryRow struct {
 	ID           pgtype.UUID        `json:"id"`
-	GeoType      string             `json:"geo_type"`
+	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
 	Binding      []byte             `json:"binding"`
 	TimeStart    pgtype.Int4        `json:"time_start"`

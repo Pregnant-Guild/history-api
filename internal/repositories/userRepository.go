@@ -63,6 +63,38 @@ func (r *userRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 	var users []*models.UserEntity
 	missingUsersToCache := make(map[string]any)
 
+	var missingPgIds []pgtype.UUID
+	for i, b := range raws {
+		if len(b) == 0 {
+			pgId := pgtype.UUID{}
+			err := pgId.Scan(ids[i])
+			if err == nil {
+				missingPgIds = append(missingPgIds, pgId)
+			}
+		}
+	}
+
+	dbMap := make(map[string]*models.UserEntity)
+	if len(missingPgIds) > 0 {
+		dbRows, err := r.q.GetUsersByIDs(ctx, missingPgIds)
+		if err == nil {
+			for _, row := range dbRows {
+				item := models.UserEntity{
+					ID:           convert.UUIDToString(row.ID),
+					Email:        row.Email,
+					PasswordHash: convert.TextToString(row.PasswordHash),
+					TokenVersion: row.TokenVersion,
+					IsDeleted:    row.IsDeleted,
+					CreatedAt:    convert.TimeToPtr(row.CreatedAt),
+					UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+				}
+				_ = item.ParseRoles(row.Roles)
+				_ = item.ParseProfile(row.Profile)
+				dbMap[item.ID] = &item
+			}
+		}
+	}
+
 	for i, b := range raws {
 		if len(b) > 0 {
 			var u models.UserEntity
@@ -70,15 +102,9 @@ func (r *userRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 				users = append(users, &u)
 			}
 		} else {
-			pgId := pgtype.UUID{}
-			err := pgId.Scan(ids[i])
-			if err != nil {
-				continue
-			}
-			dbUser, err := r.GetByID(ctx, pgId)
-			if err == nil && dbUser != nil {
-				users = append(users, dbUser)
-				missingUsersToCache[keys[i]] = dbUser
+			if item, ok := dbMap[ids[i]]; ok {
+				users = append(users, item)
+				missingUsersToCache[keys[i]] = item
 			}
 		}
 	}

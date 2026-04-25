@@ -304,3 +304,38 @@ WHERE
             )
         )
     );
+
+-- name: GetUsersByIDs :many
+SELECT 
+    u.id, 
+    u.email, 
+    u.password_hash, 
+    u.token_version, 
+    u.is_deleted, 
+    u.created_at, 
+    u.updated_at,
+    (
+        SELECT json_build_object(
+            'display_name', p.display_name,
+            'full_name', p.full_name,
+            'avatar_url', p.avatar_url,
+            'bio', p.bio,
+            'location', p.location,
+            'website', p.website,
+            'country_code', p.country_code,
+            'phone', p.phone
+        )
+        FROM user_profiles p
+        WHERE p.user_id = u.id
+    ) AS profile,
+    (
+        SELECT COALESCE(
+            json_agg(json_build_object('id', r.id, 'name', r.name)),
+            '[]'
+        )::json
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
+        WHERE ur.user_id = u.id
+    ) AS roles
+FROM users u
+WHERE u.id = ANY($1::uuid[]) AND u.is_deleted = false;

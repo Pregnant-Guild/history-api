@@ -88,3 +88,14 @@ INSERT INTO entity_geometries (
     entity_id, geometry_id
 )
 SELECT $1, unnest(@geometry_ids::uuid[]);
+
+-- name: GetGeometriesByIDs :many
+SELECT 
+    id, geo_type, draw_geometry, binding, time_start, time_end, 
+    ST_XMin(bbox)::float8 as min_lng, 
+    ST_YMin(bbox)::float8 as min_lat, 
+    ST_XMax(bbox)::float8 as max_lng, 
+    ST_YMax(bbox)::float8 as max_lat,
+    is_deleted, created_at, updated_at
+FROM geometries 
+WHERE id = ANY($1::uuid[]) AND is_deleted = false;
