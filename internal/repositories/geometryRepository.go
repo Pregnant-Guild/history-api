@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"history-api/internal/dtos/response"
@@ -25,6 +26,7 @@ type GeometryRepository interface {
 	Delete(ctx context.Context, id pgtype.UUID) error
 	CreateEntityGeometries(ctx context.Context, params sqlc.CreateEntityGeometriesParams) error
 	BulkDeleteEntityGeometriesByEntityId(ctx context.Context, entityId pgtype.UUID) error
+	WithTx(tx pgx.Tx) GeometryRepository
 }
 
 type geometryRepository struct {
@@ -36,6 +38,13 @@ func NewGeometryRepository(db sqlc.DBTX, c cache.Cache) GeometryRepository {
 	return &geometryRepository{
 		q: sqlc.New(db),
 		c: c,
+	}
+}
+
+func (r *geometryRepository) WithTx(tx pgx.Tx) GeometryRepository {
+	return &geometryRepository{
+		q: r.q.WithTx(tx),
+		c: r.c,
 	}
 }
 
@@ -87,9 +96,9 @@ func (r *geometryRepository) getByIDsWithFallback(ctx context.Context, ids []str
 						MaxLng: row.MaxLng,
 						MaxLat: row.MaxLat,
 					},
-					IsDeleted:    row.IsDeleted,
-					CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-					UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+					IsDeleted: row.IsDeleted,
+					CreatedAt: convert.TimeToPtr(row.CreatedAt),
+					UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 				}
 				dbMap[item.ID] = &item
 			}
@@ -148,9 +157,9 @@ func (r *geometryRepository) GetByID(ctx context.Context, id pgtype.UUID) (*mode
 			MaxLng: row.MaxLng,
 			MaxLat: row.MaxLat,
 		},
-		IsDeleted:    row.IsDeleted,
-		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+		IsDeleted: row.IsDeleted,
+		CreatedAt: convert.TimeToPtr(row.CreatedAt),
+		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
 	_ = r.c.Set(ctx, cacheId, geometry, constants.NormalCacheDuration)
 
@@ -186,9 +195,9 @@ func (r *geometryRepository) Search(ctx context.Context, params sqlc.SearchGeome
 				MaxLng: row.MaxLng,
 				MaxLat: row.MaxLat,
 			},
-			IsDeleted:    row.IsDeleted,
-			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-			UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+			IsDeleted: row.IsDeleted,
+			CreatedAt: convert.TimeToPtr(row.CreatedAt),
+			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 		}
 		ids = append(ids, geometry.ID)
 		geometries = append(geometries, geometry)
@@ -224,16 +233,15 @@ func (r *geometryRepository) Create(ctx context.Context, params sqlc.CreateGeome
 			MaxLng: row.MaxLng,
 			MaxLat: row.MaxLat,
 		},
-		IsDeleted:    row.IsDeleted,
-		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+		IsDeleted: row.IsDeleted,
+		CreatedAt: convert.TimeToPtr(row.CreatedAt),
+		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Set(ctx, fmt.Sprintf("geometry:id:%s", geometry.ID), geometry, constants.NormalCacheDuration)
 
 	go func() {
-		bgCtx := context.Background()
-		_ = r.c.DelByPattern(bgCtx, "geometry:search*")
+		_ = r.c.DelByPattern(context.Background(), "geometry:search*")
 	}()
+
 	return &geometry, nil
 }
 
@@ -255,11 +263,11 @@ func (r *geometryRepository) Update(ctx context.Context, params sqlc.UpdateGeome
 			MaxLng: row.MaxLng,
 			MaxLat: row.MaxLat,
 		},
-		IsDeleted:    row.IsDeleted,
-		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+		IsDeleted: row.IsDeleted,
+		CreatedAt: convert.TimeToPtr(row.CreatedAt),
+		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Set(ctx, fmt.Sprintf("geometry:id:%s", geometry.ID), geometry, constants.NormalCacheDuration)
+	_ = r.c.Del(ctx, fmt.Sprintf("geometry:id:%s", geometry.ID))
 	return &geometry, nil
 }
 

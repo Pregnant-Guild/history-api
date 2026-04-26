@@ -46,7 +46,7 @@ func (h *UserController) GetUserCurrent(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	res, err := h.service.GetUserCurrent(ctx, c.Locals("uid").(string))
+	res, err := h.service.GetUserByID(ctx, c.Locals("uid").(string))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
 			Status:  false,

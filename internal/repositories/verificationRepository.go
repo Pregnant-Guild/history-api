@@ -11,6 +11,7 @@ import (
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -25,6 +26,7 @@ type VerificationRepository interface {
 	CreateVerificationMedia(ctx context.Context, params sqlc.CreateVerificationMediaParams) error
 	DeleteVerificationMedia(ctx context.Context, params sqlc.DeleteVerificationMediaParams) error
 	BulkVerificationMediaByMediaId(ctx context.Context, mediaId pgtype.UUID) error
+	WithTx(tx pgx.Tx) VerificationRepository
 }
 
 type verificationRepository struct {
@@ -36,6 +38,13 @@ func NewVerificationRepository(db sqlc.DBTX, c cache.Cache) VerificationReposito
 	return &verificationRepository{
 		q: sqlc.New(db),
 		c: c,
+	}
+}
+
+func (v *verificationRepository) WithTx(tx pgx.Tx) VerificationRepository {
+	return &verificationRepository{
+		q: v.q.WithTx(tx),
+		c: v.c,
 	}
 }
 
@@ -174,13 +183,6 @@ func (v *verificationRepository) Create(ctx context.Context, params sqlc.CreateU
 	if err != nil {
 		return nil, err
 	}
-
-	go func() {
-		bgCtx := context.Background()
-		_ = v.c.DelByPattern(bgCtx, "verification:search*")
-		_ = v.c.DelByPattern(bgCtx, "verification:count*")
-	}()
-
 	verification := models.UserVerificationEntity{
 		ID:         convert.UUIDToString(row.ID),
 		VerifyType: constants.ParseVerifyType(row.VerifyType),
@@ -204,9 +206,9 @@ func (v *verificationRepository) Create(ctx context.Context, params sqlc.CreateU
 		return nil, err
 	}
 
-	_ = v.c.Del(ctx, fmt.Sprintf("verification:userId:%s", convert.UUIDToString(params.UserID)))
 	go func() {
 		bgCtx := context.Background()
+		_ = v.c.DelByPattern(bgCtx, "verification:search*")
 		_ = v.c.DelByPattern(bgCtx, "verification:count*")
 	}()
 
@@ -218,10 +220,7 @@ func (v *verificationRepository) UpdateStatus(ctx context.Context, params sqlc.U
 	if err != nil {
 		return err
 	}
-
-	cacheId := fmt.Sprintf("verification:id:%s", convert.UUIDToString(params.ID))
-	_ = v.c.Del(ctx, cacheId)
-
+	_ = v.c.Del(ctx, fmt.Sprintf("verification:id:%s", convert.UUIDToString(params.ID)))
 	return nil
 }
 
@@ -231,9 +230,10 @@ func (v *verificationRepository) Delete(ctx context.Context, id pgtype.UUID) err
 		return err
 	}
 
-	cacheId := fmt.Sprintf("verification:id:%s", convert.UUIDToString(id))
-	_ = v.c.Del(ctx, cacheId)
-
+	_ = v.c.Del(ctx, fmt.Sprintf("verification:id:%s", convert.UUIDToString(id)))
+	go func() {
+		_ = v.c.DelByPattern(context.Background(), "verification:count*")
+	}()
 	return nil
 }
 
@@ -243,6 +243,10 @@ func (v *verificationRepository) BulkVerificationMediaByMediaId(ctx context.Cont
 		return err
 	}
 
+	if len(ids) == 0 {
+		return nil
+	}
+	
 	listCacheId := make([]string, 0)
 	for _, it := range ids {
 		id := convert.UUIDToString(it)

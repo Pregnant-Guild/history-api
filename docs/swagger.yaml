@@ -1,5 +1,25 @@
 basePath: /
 definitions:
+  history-api_internal_dtos_request.AddProjectMemberDto:
+    properties:
+      role:
+        enum:
+        - EDITOR
+        - VIEWER
+        type: string
+      user_id:
+        type: string
+    required:
+    - role
+    - user_id
+    type: object
+  history-api_internal_dtos_request.ChangeOwnerDto:
+    properties:
+      new_owner_id:
+        type: string
+    required:
+    - new_owner_id
+    type: object
   history-api_internal_dtos_request.ChangePasswordDto:
     properties:
       new_password:
@@ -23,6 +43,19 @@ definitions:
     required:
     - role_ids
     type: object
+  history-api_internal_dtos_request.CreateCommitDto:
+    properties:
+      edit_summary:
+        maxLength: 500
+        type: string
+      snapshot_json:
+        items:
+          type: integer
+        type: array
+    required:
+    - edit_summary
+    - snapshot_json
+    type: object
   history-api_internal_dtos_request.CreateProjectDto:
     properties:
       description:
@@ -38,6 +71,18 @@ definitions:
         type: string
     required:
     - title
+    type: object
+  history-api_internal_dtos_request.CreateSubmissionDto:
+    properties:
+      commit_id:
+        type: string
+      content:
+        type: string
+      project_id:
+        type: string
+    required:
+    - commit_id
+    - project_id
     type: object
   history-api_internal_dtos_request.CreateTokenDto:
     properties:
@@ -107,6 +152,13 @@ definitions:
         type: string
     required:
     - token_id
+    type: object
+  history-api_internal_dtos_request.RestoreCommitDto:
+    properties:
+      commit_id:
+        type: string
+    required:
+    - commit_id
     type: object
   history-api_internal_dtos_request.SignInDto:
     properties:
@@ -184,6 +236,27 @@ definitions:
       title:
         maxLength: 255
         type: string
+    type: object
+  history-api_internal_dtos_request.UpdateProjectMemberDto:
+    properties:
+      role:
+        enum:
+        - EDITOR
+        - VIEWER
+        type: string
+    required:
+    - role
+    type: object
+  history-api_internal_dtos_request.UpdateSubmissionStatusDto:
+    properties:
+      review_note:
+        minLength: 10
+        type: string
+      status:
+        type: string
+    required:
+    - review_note
+    - status
     type: object
   history-api_internal_dtos_request.UpdateVerificationStatusDto:
     properties:
@@ -1314,6 +1387,304 @@ paths:
       summary: Update a project
       tags:
       - Projects
+  /projects/{id}/change-owner:
+    put:
+      consumes:
+      - application/json
+      description: Transfer project ownership to an existing member. Only the current
+        owner can do this.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New Owner Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.ChangeOwnerDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Transfer project ownership
+      tags:
+      - Projects
+  /projects/{id}/commits:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all commits for a specific project
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get project commits
+      tags:
+      - Commits
+    post:
+      consumes:
+      - application/json
+      description: Create a new commit and update project's latest commit ID. Only
+        owner/editor allowed.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Commit Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.CreateCommitDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new commit
+      tags:
+      - Commits
+  /projects/{id}/commits/restore:
+    post:
+      consumes:
+      - application/json
+      description: Update project's latest commit ID to an older commit. Only owner/editor
+        allowed.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Restore Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.RestoreCommitDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Restore project to a commit
+      tags:
+      - Commits
+  /projects/{id}/members:
+    post:
+      consumes:
+      - application/json
+      description: Invite a user to the project with a specific role (EDITOR or VIEWER).
+        Only project owner can do this.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Member Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.AddProjectMemberDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Add a member to project
+      tags:
+      - Projects
+  /projects/{id}/members/{userId}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a user from the project. Only project owner can do this.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Member User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove a member from project
+      tags:
+      - Projects
+    put:
+      consumes:
+      - application/json
+      description: Change a member's role in the project. Only project owner can do
+        this.
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Member User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Role Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.UpdateProjectMemberDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Update member role
+      tags:
+      - Projects
   /raster-tiles/{z}/{x}/{y}:
     get:
       description: Fetch vector or raster map tile data by Z, X, Y coordinates
@@ -1418,6 +1789,205 @@ paths:
       summary: Get role by ID
       tags:
       - Roles
+  /submissions:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of submissions with filters
+      parameters:
+      - in: query
+        name: created_from
+        type: string
+      - in: query
+        name: created_to
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      - in: query
+        minimum: 1
+        name: page
+        type: integer
+      - in: query
+        name: project_id
+        type: string
+      - in: query
+        name: reviewed_by
+        type: string
+      - in: query
+        maxLength: 200
+        minLength: 2
+        name: search
+        type: string
+      - enum:
+        - id
+        - created_at
+        - reviewed_at
+        - status
+        in: query
+        name: sort
+        type: string
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        name: statuses
+        type: array
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        name: user_ids
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Search submissions
+      tags:
+      - Submission
+    post:
+      consumes:
+      - application/json
+      description: Submit a new submission for a project commit
+      parameters:
+      - description: Submission data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.CreateSubmissionDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Create submission
+      tags:
+      - Submission
+  /submissions/{id}:
+    delete:
+      description: Delete a submission by ID
+      parameters:
+      - description: Submission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete submission
+      tags:
+      - Submission
+    get:
+      description: Get detailed information of a submission
+      parameters:
+      - description: Submission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Get submission by ID
+      tags:
+      - Submission
+  /submissions/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Approve or reject a submission
+      parameters:
+      - description: Submission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Status update data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.UpdateSubmissionStatusDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Update submission status
+      tags:
+      - Submission
   /tiles/{z}/{x}/{y}:
     get:
       description: Fetch vector or raster map tile data by Z, X, Y coordinates

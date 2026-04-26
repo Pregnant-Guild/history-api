@@ -1622,6 +1622,459 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{id}/change-owner": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Transfer project ownership to an existing member. Only the current owner can do this.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Transfer project ownership",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New Owner Data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.ChangeOwnerDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/commits": {
+            "get": {
+                "description": "Retrieve all commits for a specific project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Commits"
+                ],
+                "summary": "Get project commits",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new commit and update project's latest commit ID. Only owner/editor allowed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Commits"
+                ],
+                "summary": "Create a new commit",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Commit Data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.CreateCommitDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/commits/restore": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update project's latest commit ID to an older commit. Only owner/editor allowed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Commits"
+                ],
+                "summary": "Restore project to a commit",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Restore Data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.RestoreCommitDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/members": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Invite a user to the project with a specific role (EDITOR or VIEWER). Only project owner can do this.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Add a member to project",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Member Data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.AddProjectMemberDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/members/{userId}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Change a member's role in the project. Only project owner can do this.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Update member role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member User ID",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Role Data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.UpdateProjectMemberDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Remove a user from the project. Only project owner can do this.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Remove a member from project",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member User ID",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/raster-tiles/metadata": {
             "get": {
                 "description": "Retrieve map metadata",
@@ -1770,6 +2223,317 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/submissions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a list of submissions with filters",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Submission"
+                ],
+                "summary": "Search submissions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "name": "created_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "name": "created_to",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "name": "project_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "name": "reviewed_by",
+                        "in": "query"
+                    },
+                    {
+                        "maxLength": 200,
+                        "minLength": 2,
+                        "type": "string",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "id",
+                            "created_at",
+                            "reviewed_at",
+                            "status"
+                        ],
+                        "type": "string",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "name": "statuses",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "name": "user_ids",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Submit a new submission for a project commit",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Submission"
+                ],
+                "summary": "Create submission",
+                "parameters": [
+                    {
+                        "description": "Submission data",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.CreateSubmissionDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/submissions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get detailed information of a submission",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Submission"
+                ],
+                "summary": "Get submission by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Submission ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a submission by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Submission"
+                ],
+                "summary": "Delete submission",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Submission ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/submissions/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Approve or reject a submission",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Submission"
+                ],
+                "summary": "Update submission status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Submission ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Status update data",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.UpdateSubmissionStatusDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
                         }
@@ -2653,6 +3417,36 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "history-api_internal_dtos_request.AddProjectMemberDto": {
+            "type": "object",
+            "required": [
+                "role",
+                "user_id"
+            ],
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "EDITOR",
+                        "VIEWER"
+                    ]
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "history-api_internal_dtos_request.ChangeOwnerDto": {
+            "type": "object",
+            "required": [
+                "new_owner_id"
+            ],
+            "properties": {
+                "new_owner_id": {
+                    "type": "string"
+                }
+            }
+        },
         "history-api_internal_dtos_request.ChangePasswordDto": {
             "type": "object",
             "required": [
@@ -2686,6 +3480,25 @@ const docTemplate = `{
                 }
             }
         },
+        "history-api_internal_dtos_request.CreateCommitDto": {
+            "type": "object",
+            "required": [
+                "edit_summary",
+                "snapshot_json"
+            ],
+            "properties": {
+                "edit_summary": {
+                    "type": "string",
+                    "maxLength": 500
+                },
+                "snapshot_json": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "history-api_internal_dtos_request.CreateProjectDto": {
             "type": "object",
             "required": [
@@ -2706,6 +3519,24 @@ const docTemplate = `{
                 "title": {
                     "type": "string",
                     "maxLength": 255
+                }
+            }
+        },
+        "history-api_internal_dtos_request.CreateSubmissionDto": {
+            "type": "object",
+            "required": [
+                "commit_id",
+                "project_id"
+            ],
+            "properties": {
+                "commit_id": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string"
                 }
             }
         },
@@ -2806,6 +3637,17 @@ const docTemplate = `{
             ],
             "properties": {
                 "token_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "history-api_internal_dtos_request.RestoreCommitDto": {
+            "type": "object",
+            "required": [
+                "commit_id"
+            ],
+            "properties": {
+                "commit_id": {
                     "type": "string"
                 }
             }
@@ -2912,6 +3754,37 @@ const docTemplate = `{
                 "title": {
                     "type": "string",
                     "maxLength": 255
+                }
+            }
+        },
+        "history-api_internal_dtos_request.UpdateProjectMemberDto": {
+            "type": "object",
+            "required": [
+                "role"
+            ],
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "EDITOR",
+                        "VIEWER"
+                    ]
+                }
+            }
+        },
+        "history-api_internal_dtos_request.UpdateSubmissionStatusDto": {
+            "type": "object",
+            "required": [
+                "review_note",
+                "status"
+            ],
+            "properties": {
+                "review_note": {
+                    "type": "string",
+                    "minLength": 10
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },

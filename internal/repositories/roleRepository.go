@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"history-api/internal/gen/sqlc"
@@ -18,7 +19,7 @@ import (
 type RoleRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.RoleEntity, error)
 	GetByIDs(ctx context.Context, ids []string) ([]*models.RoleEntity, error)
-	GetByname(ctx context.Context, name string) (*models.RoleEntity, error)
+	GetByName(ctx context.Context, name string) (*models.RoleEntity, error)
 	All(ctx context.Context) ([]*models.RoleEntity, error)
 	Create(ctx context.Context, name string) (*models.RoleEntity, error)
 	Update(ctx context.Context, params sqlc.UpdateRoleParams) (*models.RoleEntity, error)
@@ -28,6 +29,7 @@ type RoleRepository interface {
 	DeleteUserRole(ctx context.Context, params sqlc.DeleteUserRoleParams) error
 	BulkDeleteRolesFromUser(ctx context.Context, userId pgtype.UUID) error
 	BulkDeleteUsersFromRole(ctx context.Context, roleId pgtype.UUID) error
+	WithTx(tx pgx.Tx) RoleRepository
 }
 
 type roleRepository struct {
@@ -39,6 +41,13 @@ func NewRoleRepository(db sqlc.DBTX, c cache.Cache) RoleRepository {
 	return &roleRepository{
 		q: sqlc.New(db),
 		c: c,
+	}
+}
+
+func (r *roleRepository) WithTx(tx pgx.Tx) RoleRepository {
+	return &roleRepository{
+		q: r.q.WithTx(tx),
+		c: r.c,
 	}
 }
 
@@ -140,7 +149,7 @@ func (r *roleRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.R
 	return &role, nil
 }
 
-func (r *roleRepository) GetByname(ctx context.Context, name string) (*models.RoleEntity, error) {
+func (r *roleRepository) GetByName(ctx context.Context, name string) (*models.RoleEntity, error) {
 	cacheId := fmt.Sprintf("role:name:%s", name)
 	var role models.RoleEntity
 	err := r.c.Get(ctx, cacheId, &role)
@@ -183,11 +192,6 @@ func (r *roleRepository) Create(ctx context.Context, name string) (*models.RoleE
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-	mapCache := map[string]any{
-		fmt.Sprintf("role:name:%s", name):                       role,
-		fmt.Sprintf("role:id:%s", convert.UUIDToString(row.ID)): role,
-	}
-	_ = r.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 	return &role, nil
 }
 
@@ -204,11 +208,7 @@ func (r *roleRepository) Update(ctx context.Context, params sqlc.UpdateRoleParam
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
 
-	mapCache := map[string]any{
-		fmt.Sprintf("role:name:%s", row.Name):                   role,
-		fmt.Sprintf("role:id:%s", convert.UUIDToString(row.ID)): role,
-	}
-	_ = r.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
+	_ = r.c.Del(ctx, fmt.Sprintf("role:id:%s", convert.UUIDToString(row.ID)), fmt.Sprintf("role:name:%s", row.Name))
 	return &role, nil
 }
 

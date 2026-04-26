@@ -19,7 +19,6 @@ type roleService struct {
 	roleRepo repositories.RoleRepository
 }
 
-
 func NewRoleService(
 	roleRepo repositories.RoleRepository,
 ) RoleService {

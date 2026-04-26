@@ -15,13 +15,13 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/sync/errgroup"
 )
 
 type UserService interface {
 	//user
-	GetUserCurrent(ctx context.Context, userId string) (*response.UserResponse, error)
 	UpdateProfile(ctx context.Context, userId string, dto *request.UpdateProfileDto) (*response.UserResponse, error)
 	ChangePassword(ctx context.Context, userId string, dto *request.ChangePasswordDto) error
 
@@ -37,21 +37,33 @@ type userService struct {
 	userRepo repositories.UserRepository
 	roleRepo repositories.RoleRepository
 	c        cache.Cache
+	db       *pgxpool.Pool
 }
 
 func NewUserService(
 	userRepo repositories.UserRepository,
 	roleRepo repositories.RoleRepository,
 	c cache.Cache,
+	db *pgxpool.Pool,
+
 ) UserService {
 	return &userService{
 		userRepo: userRepo,
 		roleRepo: roleRepo,
 		c:        c,
+		db:       db,
 	}
 }
 
 func (u *userService) ChangePassword(ctx context.Context, userId string, dto *request.ChangePasswordDto) error {
+	tx, err := u.db.Begin(ctx)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
+	}
+	defer tx.Rollback(ctx)
+
+	uRepo := u.userRepo.WithTx(tx)
+
 	pgID, err := convert.StringToUUID(userId)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
@@ -68,7 +80,6 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 		if dto.OldPassword == "" {
 			return fiber.NewError(fiber.StatusBadRequest, "Old password required")
 		}
-
 		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(dto.OldPassword)); err != nil {
 			return fiber.NewError(fiber.StatusUnauthorized, "Invalid password!")
 		}
@@ -81,7 +92,7 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = u.userRepo.UpdatePassword(ctx, sqlc.UpdateUserPasswordParams{
+	err = uRepo.UpdatePassword(ctx, sqlc.UpdateUserPasswordParams{
 		ID:           pgID,
 		PasswordHash: pgtype.Text{String: string(hashPassword), Valid: true},
 	})
@@ -89,10 +100,30 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
+	err = uRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
+		ID:           pgID,
+		TokenVersion: user.TokenVersion + 1,
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
+	}
 	return nil
 }
 
 func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims *response.JWTClaims, dto *request.ChangeRoleDto) (*response.UserResponse, error) {
+	tx, err := u.db.Begin(ctx)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
+	}
+	defer tx.Rollback(ctx)
+
+	uRepo := u.userRepo.WithTx(tx)
+	rRepo := u.roleRepo.WithTx(tx)
+
 	userUUID, err := convert.StringToUUID(userId)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
@@ -180,12 +211,12 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 		user.Roles = append(user.Roles, role.ToRoleSimple())
 	}
 
-	err = u.roleRepo.BulkDeleteRolesFromUser(ctx, userUUID)
+	err = rRepo.BulkDeleteRolesFromUser(ctx, userUUID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = u.roleRepo.CreateUserRole(ctx, sqlc.CreateUserRoleParams{
+	err = rRepo.CreateUserRole(ctx, sqlc.CreateUserRoleParams{
 		UserID:  userUUID,
 		Column2: roleIdList,
 	})
@@ -193,7 +224,7 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = u.userRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
+	err = uRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
 		ID:           userUUID,
 		TokenVersion: user.TokenVersion + 1,
 	})
@@ -202,6 +233,11 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 	}
 	user.TokenVersion += 1
 
+	err = tx.Commit(ctx)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
 	mapCache := map[string]any{
 		fmt.Sprintf("user:email:%s", user.Email): user,
 		fmt.Sprintf("user:id:%s", user.ID):       user,
@@ -209,7 +245,6 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 	_ = u.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 
 	return user.ToResponse(), nil
-
 }
 
 func (u *userService) DeleteUser(ctx context.Context, userId string) error {
@@ -262,18 +297,6 @@ func (u *userService) UpdateProfile(ctx context.Context, userId string, dto *req
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 	return newUser.ToResponse(), nil
-}
-
-func (u *userService) GetUserCurrent(ctx context.Context, userId string) (*response.UserResponse, error) {
-	pgID, err := convert.StringToUUID(userId)
-	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
-	}
-	user, err := u.userRepo.GetByID(ctx, pgID)
-	if err != nil {
-		return nil, fiber.NewError(fiber.StatusNotFound, err.Error())
-	}
-	return user.ToResponse(), nil
 }
 
 func (u *userService) RestoreUser(ctx context.Context, userId string) (*response.UserResponse, error) {

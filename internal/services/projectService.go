@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -24,6 +23,10 @@ type ProjectService interface {
 	DeleteProject(ctx context.Context, id string) error
 	CreateProject(ctx context.Context, userID string, dto *request.CreateProjectDto) (*response.ProjectResponse, error)
 	UpdateProject(ctx context.Context, id string, dto *request.UpdateProjectDto) (*response.ProjectResponse, error)
+	AddMember(ctx context.Context, callerID string, projectID string, dto *request.AddProjectMemberDto) (*response.ProjectResponse, error)
+	UpdateMemberRole(ctx context.Context, callerID string, projectID string, memberUserID string, dto *request.UpdateProjectMemberDto) (*response.ProjectResponse, error)
+	RemoveMember(ctx context.Context, callerID string, projectID string, memberUserID string) error
+	ChangeOwner(ctx context.Context, callerID string, projectID string, newOwnerID string) (*response.ProjectResponse, error)
 }
 
 type projectService struct {
@@ -34,6 +37,25 @@ func NewProjectService(projectRepo repositories.ProjectRepository) ProjectServic
 	return &projectService{
 		projectRepo: projectRepo,
 	}
+}
+
+func (s *projectService) checkCallerIsOwner(ctx context.Context, callerID string, projectUUID pgtype.UUID) error {
+	project, err := s.projectRepo.GetByID(ctx, projectUUID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "Project not found")
+	}
+	if project.UserID == callerID {
+		return nil
+	}
+	callerUUID, _ := convert.StringToUUID(callerID)
+	role, err := s.projectRepo.CheckPermission(ctx, sqlc.CheckProjectPermissionParams{
+		ProjectID: projectUUID,
+		UserID:    callerUUID,
+	})
+	if err != nil || constants.ParseProjectMemberRole(role) != constants.ProjectMemberRoleOwner {
+		return fiber.NewError(fiber.StatusForbidden, "Only project owner can perform this action")
+	}
+	return nil
 }
 
 func (s *projectService) GetProjectByID(ctx context.Context, id string) (*response.ProjectResponse, error) {
@@ -96,7 +118,7 @@ func (s *projectService) fillSearchArgs(arg *sqlc.SearchProjectsParams, dto *req
 		for _, statusStr := range dto.Statuses {
 			statusType := constants.ParseProjectStatusTypeText(statusStr)
 			if statusType != constants.ProjectStatusTypeUnknow {
-				arg.Statuses = append(arg.Statuses, fmt.Sprintf("%d", statusType.Int16()))
+				arg.Statuses = append(arg.Statuses, statusType.Int16())
 			}
 		}
 	}
@@ -211,15 +233,11 @@ func (s *projectService) UpdateProject(ctx context.Context, id string, dto *requ
 	}
 
 	arg := sqlc.UpdateProjectParams{
-		ID: projectUUID,
+		ID:          projectUUID,
+		Title:       convert.PtrToText(dto.Title),
+		Description: convert.PtrToText(dto.Description),
 	}
 
-	if dto.Title != nil {
-		arg.Title = convert.PtrToText(dto.Title)
-	}
-	if dto.Description != nil {
-		arg.Description = convert.PtrToText(dto.Description)
-	}
 	if dto.Status != nil {
 		statusType := constants.ParseProjectStatusTypeText(*dto.Status)
 		if statusType == constants.ProjectStatusTypeUnknow {
@@ -253,4 +271,144 @@ func (s *projectService) DeleteProject(ctx context.Context, id string) error {
 	}
 
 	return nil
+}
+
+func (s *projectService) AddMember(ctx context.Context, callerID string, projectID string, dto *request.AddProjectMemberDto) (*response.ProjectResponse, error) {
+	projectUUID, err := convert.StringToUUID(projectID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
+	}
+
+	if err := s.checkCallerIsOwner(ctx, callerID, projectUUID); err != nil {
+		return nil, err
+	}
+
+	memberUUID, err := convert.StringToUUID(dto.UserID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid member user ID format")
+	}
+
+	callerUUID, _ := convert.StringToUUID(callerID)
+
+	if dto.UserID == callerID {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Cannot add yourself as a member")
+	}
+
+	role := constants.ParseProjectMemberRoleText(dto.Role)
+
+	err = s.projectRepo.AddMember(ctx, sqlc.AddProjectMemberParams{
+		ProjectID: projectUUID,
+		UserID:    memberUUID,
+		Role:      role.Int16(),
+		InvitedBy: callerUUID,
+	})
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusConflict, "Member already exists or user not found")
+	}
+
+	project, err := s.projectRepo.GetByID(ctx, projectUUID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch updated project")
+	}
+
+	return project.ToResponse(), nil
+}
+
+func (s *projectService) UpdateMemberRole(ctx context.Context, callerID string, projectID string, memberUserID string, dto *request.UpdateProjectMemberDto) (*response.ProjectResponse, error) {
+	projectUUID, err := convert.StringToUUID(projectID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
+	}
+
+	if err := s.checkCallerIsOwner(ctx, callerID, projectUUID); err != nil {
+		return nil, err
+	}
+
+	memberUUID, err := convert.StringToUUID(memberUserID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid member user ID format")
+	}
+
+	role := constants.ParseProjectMemberRoleText(dto.Role)
+
+	err = s.projectRepo.UpdateMemberRole(ctx, sqlc.UpdateProjectMemberRoleParams{
+		ProjectID: projectUUID,
+		UserID:    memberUUID,
+		Role:      role.Int16(),
+	})
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusNotFound, "Member not found")
+	}
+
+	project, err := s.projectRepo.GetByID(ctx, projectUUID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch updated project")
+	}
+
+	return project.ToResponse(), nil
+}
+
+func (s *projectService) RemoveMember(ctx context.Context, callerID string, projectID string, memberUserID string) error {
+	projectUUID, err := convert.StringToUUID(projectID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
+	}
+
+	if err := s.checkCallerIsOwner(ctx, callerID, projectUUID); err != nil {
+		return err
+	}
+
+	memberUUID, err := convert.StringToUUID(memberUserID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid member user ID format")
+	}
+
+	if callerID == memberUserID {
+		return fiber.NewError(fiber.StatusBadRequest, "Cannot remove yourself from the project")
+	}
+
+	err = s.projectRepo.RemoveMember(ctx, sqlc.RemoveProjectMemberParams{
+		ProjectID: projectUUID,
+		UserID:    memberUUID,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "Member not found")
+	}
+
+	return nil
+}
+
+func (s *projectService) ChangeOwner(ctx context.Context, callerID string, projectID string, newOwnerID string) (*response.ProjectResponse, error) {
+	projectUUID, err := convert.StringToUUID(projectID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
+	}
+
+	if err := s.checkCallerIsOwner(ctx, callerID, projectUUID); err != nil {
+		return nil, err
+	}
+
+	if callerID == newOwnerID {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "You are already the owner")
+	}
+
+	newOwnerUUID, err := convert.StringToUUID(newOwnerID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid new owner ID format")
+	}
+
+	err = s.projectRepo.ChangeOwner(ctx, sqlc.ChangeProjectOwnerParams{
+		ID:     projectUUID,
+		UserID: newOwnerUUID,
+	})
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to change owner")
+	}
+
+	project, err := s.projectRepo.GetByID(ctx, projectUUID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch updated project")
+	}
+
+	return project.ToResponse(), nil
 }

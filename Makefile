@@ -31,3 +31,6 @@ build:
 	@set GOOS=linux& set GOARCH=amd64& set CGO_ENABLED=0&go build -trimpath -ldflags="-s -w" -o build/history-api $(MAIN_APP)
 
 dev: swagger sqlc migrate-up run
+
+docker-up:
+	docker compose --env-file ./assets/resources/.env up -d --build --remove-orphans

@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"context"
-	"history-api/internal/dtos/response"
 	"history-api/internal/dtos/request"
+	"history-api/internal/dtos/response"
 	"history-api/internal/services"
 	"history-api/pkg/validator"
 	"time"
@@ -63,7 +63,7 @@ func (m *VerificationController) SearchVerification(c fiber.Ctx) error {
 	dto := &request.SearchUserVerificationDto{}
 	if err := validator.ValidateQueryDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
@@ -137,7 +137,7 @@ func (m *VerificationController) CreateVerification(c fiber.Ctx) error {
 	dto := &request.CreateUserVerificationDto{}
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
@@ -148,7 +148,10 @@ func (m *VerificationController) CreateVerification(c fiber.Ctx) error {
 			Message: err.Error(),
 		})
 	}
-	return c.Status(fiber.StatusOK).JSON(res)
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
 }
 
 // @Summary Update application status
@@ -170,7 +173,7 @@ func (m *VerificationController) UpdateVerificationStatus(c fiber.Ctx) error {
 	dto := &request.UpdateVerificationStatusDto{}
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
@@ -182,5 +185,8 @@ func (m *VerificationController) UpdateVerificationStatus(c fiber.Ctx) error {
 			Message: err.Error(),
 		})
 	}
-	return c.Status(fiber.StatusOK).JSON(res)
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
 }

@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"history-api/docs"
 	"history-api/internal/controllers"
-	"history-api/internal/gen/sqlc"
 	"history-api/internal/repositories"
 	"history-api/internal/routes"
 	"history-api/internal/services"
@@ -18,6 +17,7 @@ import (
 	middleware "github.com/gofiber/contrib/v3/zerolog"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 	"golang.org/x/oauth2"
 )
@@ -57,7 +57,7 @@ func NewHttpServer() *FiberServer {
 }
 
 func (s *FiberServer) SetupServer(
-	sqlPg sqlc.DBTX,
+	poolPg *pgxpool.Pool,
 	sqlTile *sql.DB,
 	sqlRasterTile *sql.DB,
 	redis cache.Cache,
@@ -77,30 +77,34 @@ func (s *FiberServer) SetupServer(
 	}))
 
 	// repo setup
-	userRepo := repositories.NewUserRepository(sqlPg, redis)
-	roleRepo := repositories.NewRoleRepository(sqlPg, redis)
+	userRepo := repositories.NewUserRepository(poolPg, redis)
+	roleRepo := repositories.NewRoleRepository(poolPg, redis)
 	tileRepo := repositories.NewTileRepository(sqlTile, redis)
 	rasterTileRepo := repositories.NewRasterTileRepository(sqlRasterTile, redis)
 	tokenRepo := repositories.NewTokenRepository(redis)
-	mediaRepo := repositories.NewMediaRepository(sqlPg, redis)
-	verificationRepo := repositories.NewVerificationRepository(sqlPg, redis)
-	entityRepo := repositories.NewEntityRepository(sqlPg, redis)
-	geometryRepo := repositories.NewGeometryRepository(sqlPg, redis)
-	wikiRepo := repositories.NewWikiRepository(sqlPg, redis)
-	projectRepo := repositories.NewProjectRepository(sqlPg, redis)
+	mediaRepo := repositories.NewMediaRepository(poolPg, redis)
+	verificationRepo := repositories.NewVerificationRepository(poolPg, redis)
+	entityRepo := repositories.NewEntityRepository(poolPg, redis)
+	geometryRepo := repositories.NewGeometryRepository(poolPg, redis)
+	wikiRepo := repositories.NewWikiRepository(poolPg, redis)
+	projectRepo := repositories.NewProjectRepository(poolPg, redis)
+	commitRepo := repositories.NewCommitRepository(poolPg, redis)
+	submissionRepo := repositories.NewSubmissionRepository(poolPg, redis)
 
 	// service setup
-	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis)
-	userService := services.NewUserService(userRepo, roleRepo, redis)
+	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis, poolPg)
+	userService := services.NewUserService(userRepo, roleRepo, redis, poolPg)
 	roleService := services.NewRoleService(roleRepo)
 	tileService := services.NewTileService(tileRepo)
 	rasterTileService := services.NewRasterTileService(rasterTileRepo)
 	mediaService := services.NewMediaService(mediaRepo, tokenRepo, sclient, redis)
-	verificationService := services.NewVerificationService(verificationRepo, mediaRepo, userRepo, roleRepo, redis)
+	verificationService := services.NewVerificationService(verificationRepo, mediaRepo, userRepo, roleRepo, redis, poolPg)
 	entityService := services.NewEntityService(entityRepo)
 	geometryService := services.NewGeometryService(geometryRepo)
 	wikiService := services.NewWikiService(wikiRepo)
 	projectService := services.NewProjectService(projectRepo)
+	commitService := services.NewCommitService(poolPg, commitRepo, projectRepo)
+	submissionService := services.NewSubmissionService(submissionRepo, projectRepo, commitRepo, userRepo, poolPg, redis)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)
@@ -114,6 +118,8 @@ func (s *FiberServer) SetupServer(
 	geometryController := controllers.NewGeometryController(geometryService)
 	wikiController := controllers.NewWikiController(wikiService)
 	projectController := controllers.NewProjectController(projectService)
+	commitController := controllers.NewCommitController(commitService)
+	submissionController := controllers.NewSubmissionController(submissionService)
 
 	// route setup
 	routes.AuthRoutes(s.App, authController, userRepo)
@@ -126,6 +132,7 @@ func (s *FiberServer) SetupServer(
 	routes.EntityRoutes(s.App, entityController)
 	routes.GeometryRoutes(s.App, geometryController)
 	routes.WikiRoutes(s.App, wikiController)
-	routes.ProjectRoutes(s.App, projectController, userRepo)
+	routes.ProjectRoutes(s.App, projectController, commitController, userRepo)
+	routes.SubmissionRoutes(s.App, submissionController, userRepo)
 	routes.NotFoundRoute(s.App)
 }

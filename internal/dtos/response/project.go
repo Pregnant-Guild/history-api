@@ -2,19 +2,31 @@ package response
 
 import "time"
 
+type CommitSimpleResponse struct {
+	ID          string `json:"id"`
+	EditSummary string `json:"edit_summary"`
+}
+
+type MemberSimpleResponse struct {
+	UserID      string `json:"user_id"`
+	Role        string `json:"role"`
+	DisplayName string `json:"display_name"`
+	AvatarUrl   string `json:"avatar_url"`
+}
+
 type ProjectResponse struct {
-	ID               string              `json:"id"`
-	Title            string              `json:"title"`
-	Description      string              `json:"description"`
-	LatestRevisionID *string             `json:"latest_revision_id,omitempty"`
-	VersionCount     int32               `json:"version_count"`
-	ProjectStatus    string              `json:"project_status"`
-	LockedBy         *string             `json:"locked_by,omitempty"`
-	IsDeleted        bool                `json:"is_deleted"`
-	UserID           string              `json:"user_id"`
-	CreatedAt        *time.Time          `json:"created_at"`
-	UpdatedAt        *time.Time          `json:"updated_at"`
-	User             *UserSimpleResponse `json:"user,omitempty"`
-	CommitIds        []string            `json:"commit_ids"`
-	SubmissionIds    []string            `json:"submission_ids"`
+	ID             string                 `json:"id"`
+	Title          string                 `json:"title"`
+	Description    string                 `json:"description"`
+	LatestCommitID *string                `json:"latest_commit_id,omitempty"`
+	ProjectStatus  string                 `json:"project_status"`
+	LockedBy       *string                `json:"locked_by,omitempty"`
+	IsDeleted      bool                   `json:"is_deleted"`
+	UserID         string                 `json:"user_id"`
+	CreatedAt      *time.Time             `json:"created_at"`
+	UpdatedAt      *time.Time             `json:"updated_at"`
+	User           *UserSimpleResponse    `json:"user,omitempty"`
+	Commits        []CommitSimpleResponse `json:"commits"`
+	SubmissionIds  []string               `json:"submission_ids"`
+	Members        []MemberSimpleResponse `json:"members"`
 }

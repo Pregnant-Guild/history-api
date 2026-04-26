@@ -27,6 +27,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -46,6 +47,7 @@ type authService struct {
 	roleRepo  repositories.RoleRepository
 	tokenRepo repositories.TokenRepository
 	c         cache.Cache
+	db        *pgxpool.Pool
 }
 
 func NewAuthService(
@@ -53,12 +55,14 @@ func NewAuthService(
 	roleRepo repositories.RoleRepository,
 	tokenRepo repositories.TokenRepository,
 	c cache.Cache,
+	db *pgxpool.Pool,
 ) AuthService {
 	return &authService{
 		userRepo:  userRepo,
 		roleRepo:  roleRepo,
 		tokenRepo: tokenRepo,
 		c:         c,
+		db:        db,
 	}
 }
 
@@ -113,14 +117,6 @@ func (a *authService) genToken(user *models.UserEntity) (*response.AuthResponse,
 	return &res, nil
 }
 
-func (a *authService) saveNewRefreshToken(ctx context.Context, params sqlc.UpdateUserRefreshTokenParams) error {
-	err := a.userRepo.UpdateRefreshToken(ctx, params)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (a *authService) Signin(ctx context.Context, dto *request.SignInDto) (*response.AuthResponse, error) {
 	if !constants.EMAIL_REGEX.MatchString(dto.Email) {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid email")
@@ -153,7 +149,7 @@ func (a *authService) Signin(ctx context.Context, dto *request.SignInDto) (*resp
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	err = a.saveNewRefreshToken(
+	err = a.userRepo.UpdateRefreshToken(
 		ctx,
 		sqlc.UpdateUserRefreshTokenParams{
 			ID: pgID,
@@ -172,30 +168,42 @@ func (a *authService) Signin(ctx context.Context, dto *request.SignInDto) (*resp
 }
 
 func (a *authService) Logout(ctx context.Context, userId string) error {
+	tx, err := a.db.Begin(ctx)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
+	}
+	defer tx.Rollback(ctx)
+
+	uRepoTx := a.userRepo.WithTx(tx)
+
 	pgID, err := convert.StringToUUID(userId)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	user , err := a.userRepo.GetByID(ctx, pgID)
+	user, err := a.userRepo.GetByID(ctx, pgID)
 	if err != nil || user == nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Invalid user data")
 	}
-	
-	err = a.userRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
-		ID: pgID,
+
+	err = uRepoTx.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
+		ID:           pgID,
 		TokenVersion: user.TokenVersion + 1,
 	})
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = a.userRepo.UpdateRefreshToken(ctx, sqlc.UpdateUserRefreshTokenParams{
+	err = uRepoTx.UpdateRefreshToken(ctx, sqlc.UpdateUserRefreshTokenParams{
 		ID: pgID,
 		RefreshToken: pgtype.Text{
 			String: "",
 			Valid:  false,
 		},
 	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	err = tx.Commit(ctx)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -228,7 +236,7 @@ func (a *authService) RefreshToken(ctx context.Context, id string, refreshToken 
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = a.saveNewRefreshToken(
+	err = a.userRepo.UpdateRefreshToken(
 		ctx,
 		sqlc.UpdateUserRefreshTokenParams{
 			ID: pgID,
@@ -246,10 +254,19 @@ func (a *authService) RefreshToken(ctx context.Context, id string, refreshToken 
 }
 
 func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*response.AuthResponse, error) {
+	tx, err := a.db.Begin(ctx)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
+	}
+	defer tx.Rollback(ctx)
+
+	uRepoTx := a.userRepo.WithTx(tx)
+	rRepoTx := a.roleRepo.WithTx(tx)
+
 	if !constants.EMAIL_REGEX.MatchString(dto.Email) {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid email")
 	}
-	err := constants.ValidatePassword(dto.Password)
+	err = constants.ValidatePassword(dto.Password)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
@@ -276,7 +293,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	user, err = a.userRepo.UpsertUser(
+	user, err = uRepoTx.UpsertUser(
 		ctx,
 		sqlc.UpsertUserParams{
 			Email: dto.Email,
@@ -295,7 +312,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	_, err = a.userRepo.CreateProfile(
+	_, err = uRepoTx.CreateProfile(
 		ctx,
 		sqlc.CreateUserProfileParams{
 			UserID: userId,
@@ -308,7 +325,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	role, err := a.roleRepo.GetByname(ctx, constants.RoleTypeUser.String())
+	role, err := a.roleRepo.GetByName(ctx, constants.RoleTypeUser.String())
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -318,7 +335,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = a.roleRepo.CreateUserRole(
+	err = rRepoTx.CreateUserRole(
 		ctx,
 		sqlc.CreateUserRoleParams{
 			UserID:  userId,
@@ -334,7 +351,7 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = a.saveNewRefreshToken(
+	err = uRepoTx.UpdateRefreshToken(
 		ctx,
 		sqlc.UpdateUserRefreshTokenParams{
 			ID: userId,
@@ -344,6 +361,11 @@ func (a *authService) Signup(ctx context.Context, dto *request.SignUpDto) (*resp
 			},
 		},
 	)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	err = tx.Commit(ctx)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -389,6 +411,15 @@ func (a *authService) ForgotPassword(ctx context.Context, dto *request.ForgotPas
 }
 
 func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninWithGoogleDto) (*response.AuthResponse, error) {
+	tx, err := a.db.Begin(ctx)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
+	}
+	defer tx.Rollback(ctx)
+
+	uRepoTx := a.userRepo.WithTx(tx)
+	rRepoTx := a.roleRepo.WithTx(tx)
+
 	user, err := a.userRepo.GetByEmail(ctx, dto.Email)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
@@ -403,7 +434,7 @@ func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninW
 		if err != nil {
 			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 		}
-		err = a.saveNewRefreshToken(
+		err = uRepoTx.UpdateRefreshToken(
 			ctx,
 			sqlc.UpdateUserRefreshTokenParams{
 				ID: userId,
@@ -419,7 +450,7 @@ func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninW
 		return data, nil
 	}
 
-	user, err = a.userRepo.UpsertUser(
+	user, err = uRepoTx.UpsertUser(
 		ctx,
 		sqlc.UpsertUserParams{
 			Email:        dto.Email,
@@ -437,7 +468,7 @@ func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninW
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	_, err = a.userRepo.CreateProfile(
+	_, err = uRepoTx.CreateProfile(
 		ctx,
 		sqlc.CreateUserProfileParams{
 			UserID: userId,
@@ -454,7 +485,7 @@ func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninW
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	role, err := a.roleRepo.GetByname(ctx, constants.RoleTypeUser.String())
+	role, err := a.roleRepo.GetByName(ctx, constants.RoleTypeUser.String())
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -464,7 +495,7 @@ func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninW
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = a.roleRepo.CreateUserRole(
+	err = rRepoTx.CreateUserRole(
 		ctx,
 		sqlc.CreateUserRoleParams{
 			UserID:  userId,
@@ -479,7 +510,7 @@ func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninW
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	err = a.saveNewRefreshToken(
+	err = uRepoTx.UpdateRefreshToken(
 		ctx,
 		sqlc.UpdateUserRefreshTokenParams{
 			ID: userId,
@@ -489,6 +520,10 @@ func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninW
 			},
 		},
 	)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	err = tx.Commit(ctx)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}

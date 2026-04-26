@@ -15,6 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -33,6 +34,7 @@ type verificationService struct {
 	userRepo         repositories.UserRepository
 	roleRepo         repositories.RoleRepository
 	c                cache.Cache
+	db               *pgxpool.Pool
 }
 
 func NewVerificationService(
@@ -41,6 +43,7 @@ func NewVerificationService(
 	userRepo repositories.UserRepository,
 	roleRepo repositories.RoleRepository,
 	c cache.Cache,
+	db *pgxpool.Pool,
 ) VerificationService {
 	return &verificationService{
 		verificationRepo: verificationRepo,
@@ -48,6 +51,7 @@ func NewVerificationService(
 		userRepo:         userRepo,
 		roleRepo:         roleRepo,
 		c:                c,
+		db:               db,
 	}
 }
 
@@ -275,6 +279,12 @@ func (v *verificationService) SearchVerification(ctx context.Context, dto *reque
 }
 
 func (v *verificationService) UpdateStatusVerification(ctx context.Context, userId string, verificationId string, dto *request.UpdateVerificationStatusDto) (*response.UserVerificationResponse, error) {
+	tx, err := v.db.Begin(ctx)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
+	}
+	defer tx.Rollback(ctx)
+
 	statusType := constants.ParseStatusTypeText(dto.Status)
 	if statusType == constants.StatusTypeUnknown {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Unknown status type!")
@@ -289,7 +299,7 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	historianRole, err := v.roleRepo.GetByname(ctx, constants.RoleTypeHistorian.String())
+	historianRole, err := v.roleRepo.GetByName(ctx, constants.RoleTypeHistorian.String())
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -318,7 +328,11 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	err = v.verificationRepo.UpdateStatus(
+	vRepoTx := v.verificationRepo.WithTx(tx)
+	rRepoTx := v.roleRepo.WithTx(tx)
+	uRepoTx := v.userRepo.WithTx(tx)
+
+	err = vRepoTx.UpdateStatus(
 		ctx,
 		sqlc.UpdateUserVerificationStatusParams{
 			ID:         verificationUUID,
@@ -354,12 +368,12 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 			roleIdList = append(roleIdList, roleID)
 		}
 
-		err = v.roleRepo.BulkDeleteRolesFromUser(ctx, userVerificationUUID)
+		err = rRepoTx.BulkDeleteRolesFromUser(ctx, userVerificationUUID)
 		if err != nil {
 			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 		}
 
-		err = v.roleRepo.CreateUserRole(ctx, sqlc.CreateUserRoleParams{
+		err = rRepoTx.CreateUserRole(ctx, sqlc.CreateUserRoleParams{
 			UserID:  userVerificationUUID,
 			Column2: roleIdList,
 		})
@@ -367,7 +381,7 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
 		}
 
-		err = v.userRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
+		err = uRepoTx.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
 			ID:           userVerificationUUID,
 			TokenVersion: userVerification.TokenVersion + 1,
 		})
@@ -376,11 +390,19 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 		}
 		userVerification.TokenVersion += 1
 
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
+		}
+
 		mapCache := map[string]any{
 			fmt.Sprintf("user:email:%s", userVerification.Email): userVerification,
 			fmt.Sprintf("user:id:%s", userVerification.ID):       userVerification,
 		}
 		_ = v.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
+	} else {
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
+		}
 	}
 
 	v.c.PublishTask(ctx, constants.StreamEmailName, constants.TaskTypeNotifyHistorianReview, data)

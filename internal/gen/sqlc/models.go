@@ -10,6 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Commit struct {
+	ID           pgtype.UUID        `json:"id"`
+	ProjectID    pgtype.UUID        `json:"project_id"`
+	SnapshotJson json.RawMessage    `json:"snapshot_json"`
+	SnapshotHash pgtype.Text        `json:"snapshot_hash"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	EditSummary  pgtype.Text        `json:"edit_summary"`
+	IsDeleted    bool               `json:"is_deleted"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type Entity struct {
 	ID           pgtype.UUID        `json:"id"`
 	Name         string             `json:"name"`
@@ -56,30 +67,24 @@ type Media struct {
 }
 
 type Project struct {
-	ID               pgtype.UUID        `json:"id"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	LatestRevisionID pgtype.UUID        `json:"latest_revision_id"`
-	VersionCount     int32              `json:"version_count"`
-	ProjectStatus    int16              `json:"project_status"`
-	LockedBy         pgtype.UUID        `json:"locked_by"`
-	IsDeleted        bool               `json:"is_deleted"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ID             pgtype.UUID        `json:"id"`
+	Title          string             `json:"title"`
+	Description    pgtype.Text        `json:"description"`
+	LatestCommitID pgtype.UUID        `json:"latest_commit_id"`
+	ProjectStatus  int16              `json:"project_status"`
+	LockedBy       pgtype.UUID        `json:"locked_by"`
+	IsDeleted      bool               `json:"is_deleted"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
-type Revision struct {
-	ID           pgtype.UUID        `json:"id"`
-	ProjectID    pgtype.UUID        `json:"project_id"`
-	VersionNo    int32              `json:"version_no"`
-	SnapshotJson json.RawMessage    `json:"snapshot_json"`
-	SnapshotHash pgtype.Text        `json:"snapshot_hash"`
-	ParentID     pgtype.UUID        `json:"parent_id"`
-	UserID       pgtype.UUID        `json:"user_id"`
-	EditSummary  pgtype.Text        `json:"edit_summary"`
-	IsDeleted    bool               `json:"is_deleted"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+type ProjectMember struct {
+	ProjectID pgtype.UUID        `json:"project_id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Role      int16              `json:"role"`
+	InvitedBy pgtype.UUID        `json:"invited_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type Role struct {
@@ -91,16 +96,17 @@ type Role struct {
 }
 
 type Submission struct {
-	ID          pgtype.UUID        `json:"id"`
-	ProjectID   pgtype.UUID        `json:"project_id"`
-	RevisionID  pgtype.UUID        `json:"revision_id"`
-	SubmittedBy pgtype.UUID        `json:"submitted_by"`
-	SubmittedAt pgtype.Timestamptz `json:"submitted_at"`
-	Status      int16              `json:"status"`
-	ReviewedBy  pgtype.UUID        `json:"reviewed_by"`
-	ReviewedAt  pgtype.Timestamptz `json:"reviewed_at"`
-	ReviewNote  pgtype.Text        `json:"review_note"`
-	IsDeleted   bool               `json:"is_deleted"`
+	ID         pgtype.UUID        `json:"id"`
+	ProjectID  pgtype.UUID        `json:"project_id"`
+	CommitID   pgtype.UUID        `json:"commit_id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	Status     int16              `json:"status"`
+	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote pgtype.Text        `json:"review_note"`
+	Content    pgtype.Text        `json:"content"`
+	IsDeleted  bool               `json:"is_deleted"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type User struct {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"history-api/internal/gen/sqlc"
@@ -24,6 +25,7 @@ type WikiRepository interface {
 	Delete(ctx context.Context, id pgtype.UUID) error
 	CreateEntityWikis(ctx context.Context, params sqlc.CreateEntityWikisParams) error
 	BulkDeleteEntityWikisByEntityId(ctx context.Context, entityId pgtype.UUID) error
+	WithTx(tx pgx.Tx) WikiRepository
 }
 
 type wikiRepository struct {
@@ -35,6 +37,13 @@ func NewWikiRepository(db sqlc.DBTX, c cache.Cache) WikiRepository {
 	return &wikiRepository{
 		q: sqlc.New(db),
 		c: c,
+	}
+}
+
+func (r *wikiRepository) WithTx(tx pgx.Tx) WikiRepository {
+	return &wikiRepository{
+		q: r.q.WithTx(tx),
+		c: r.c,
 	}
 }
 
@@ -191,11 +200,9 @@ func (r *wikiRepository) Create(ctx context.Context, params sqlc.CreateWikiParam
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Set(ctx, fmt.Sprintf("wiki:id:%s", wiki.ID), wiki, constants.NormalCacheDuration)
 
 	go func() {
-		bgCtx := context.Background()
-		_ = r.c.DelByPattern(bgCtx, "wiki:search*")
+		_ = r.c.DelByPattern(context.Background(), "wiki:search*")
 	}()
 
 	return &wiki, nil
@@ -214,7 +221,7 @@ func (r *wikiRepository) Update(ctx context.Context, params sqlc.UpdateWikiParam
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Set(ctx, fmt.Sprintf("wiki:id:%s", wiki.ID), wiki, constants.NormalCacheDuration)
+	_ = r.c.Del(ctx, fmt.Sprintf("wiki:id:%s", wiki.ID))
 	return &wiki, nil
 }
 
@@ -224,9 +231,6 @@ func (r *wikiRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 		return err
 	}
 	_ = r.c.Del(ctx, fmt.Sprintf("wiki:id:%s", convert.UUIDToString(id)))
-	go func() {
-		_ = r.c.DelByPattern(context.Background(), "wiki:search*")
-	}()
 	return nil
 }
 

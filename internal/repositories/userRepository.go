@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"history-api/internal/gen/sqlc"
@@ -30,6 +31,7 @@ type UserRepository interface {
 	UpdateTokenVersion(ctx context.Context, params sqlc.UpdateTokenVersionParams) error
 	Delete(ctx context.Context, id pgtype.UUID) error
 	Restore(ctx context.Context, id pgtype.UUID) error
+	WithTx(tx pgx.Tx) UserRepository
 }
 
 type userRepository struct {
@@ -41,6 +43,13 @@ func NewUserRepository(db sqlc.DBTX, c cache.Cache) UserRepository {
 	return &userRepository{
 		q: sqlc.New(db),
 		c: c,
+	}
+}
+
+func (r *userRepository) WithTx(tx pgx.Tx) UserRepository {
+	return &userRepository{
+		q: r.q.WithTx(tx),
+		c: r.c,
 	}
 }
 
@@ -270,11 +279,7 @@ func (r *userRepository) UpdateProfile(ctx context.Context, params sqlc.UpdateUs
 	}
 
 	user.Profile = &profile
-	mapCache := map[string]any{
-		fmt.Sprintf("user:email:%s", user.Email): user,
-		fmt.Sprintf("user:id:%s", user.ID):       user,
-	}
-	_ = r.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
+	_ = r.c.Del(ctx, fmt.Sprintf("user:email:%s", user.Email), fmt.Sprintf("user:id:%s", user.ID))
 	return user, nil
 }
 
@@ -391,11 +396,12 @@ func (r *userRepository) Restore(ctx context.Context, id pgtype.UUID) error {
 	if err != nil {
 		return err
 	}
-
-	_ = r.c.Del(ctx, fmt.Sprintf("user:id:%s", convert.UUIDToString(id)))
-	_ = r.c.Del(ctx, fmt.Sprintf("user:email:%s", convert.UUIDToString(id)))
-	_ = r.c.Del(ctx, fmt.Sprintf("user:deleted:id:%s", convert.UUIDToString(id)))
-
+	_ = r.c.Del(
+		ctx,
+		fmt.Sprintf("user:deleted:id:%s", convert.UUIDToString(id)),
+		fmt.Sprintf("user:email:%s", convert.UUIDToString(id)),
+		fmt.Sprintf("user:id:%s", convert.UUIDToString(id)),
+	)
 	return nil
 }
 
@@ -421,9 +427,7 @@ func (r *userRepository) UpdateTokenVersion(ctx context.Context, params sqlc.Upd
 	if err != nil {
 		return err
 	}
-
-	cacheId := fmt.Sprintf("user:token:%s", convert.UUIDToString(params.ID))
-	_ = r.c.Set(ctx, cacheId, params.TokenVersion, constants.NormalCacheDuration)
+	_ = r.c.Del(ctx, fmt.Sprintf("user:token:%s", convert.UUIDToString(params.ID)))
 	return nil
 }
 
@@ -436,23 +440,7 @@ func (r *userRepository) UpdatePassword(ctx context.Context, params sqlc.UpdateU
 	if err != nil {
 		return err
 	}
-	err = r.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
-		ID:           params.ID,
-		TokenVersion: user.TokenVersion + 1,
-	})
-	if err != nil {
-		return err
-	}
-
-	user.PasswordHash = convert.TextToString(params.PasswordHash)
-	user.TokenVersion += 1
-	mapCache := map[string]any{
-		fmt.Sprintf("user:email:%s", user.Email): user,
-		fmt.Sprintf("user:id:%s", user.ID):       user,
-		fmt.Sprintf("user:token:%s", user.ID):    user.TokenVersion,
-	}
-
-	_ = r.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
+	_ = r.c.Del(ctx, fmt.Sprintf("user:email:%s", user.Email), fmt.Sprintf("user:id:%s", user.ID))
 	return nil
 }
 
@@ -467,12 +455,7 @@ func (r *userRepository) UpdateRefreshToken(ctx context.Context, params sqlc.Upd
 	}
 
 	user.RefreshToken = convert.TextToString(params.RefreshToken)
-	mapCache := map[string]any{
-		fmt.Sprintf("user:email:%s", user.Email): user,
-		fmt.Sprintf("user:id:%s", user.ID):       user,
-		fmt.Sprintf("user:token:%s", user.ID):    user.TokenVersion,
-	}
 
-	_ = r.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
+	_ = r.c.Del(ctx, fmt.Sprintf("user:email:%s", user.Email), fmt.Sprintf("user:id:%s", user.ID))
 	return nil
 }

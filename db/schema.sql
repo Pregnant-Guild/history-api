@@ -119,8 +119,7 @@ CREATE TABLE IF NOT EXISTS projects (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     title TEXT NOT NULL,
     description TEXT,
-    latest_revision_id UUID, 
-    version_count INT NOT NULL DEFAULT 0,
+    latest_commit_id UUID, 
     project_status SMALLINT NOT NULL DEFAULT 1,
     locked_by UUID, 
     is_deleted BOOLEAN NOT NULL DEFAULT false,
@@ -129,13 +128,11 @@ CREATE TABLE IF NOT EXISTS projects (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS revisions (
+CREATE TABLE IF NOT EXISTS commits (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    version_no INT NOT NULL,
     snapshot_json JSONB NOT NULL,
     snapshot_hash TEXT,
-    parent_id UUID REFERENCES revisions(id), 
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     edit_summary TEXT,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
@@ -145,12 +142,22 @@ CREATE TABLE IF NOT EXISTS revisions (
 CREATE TABLE IF NOT EXISTS submissions (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    revision_id UUID NOT NULL REFERENCES revisions(id) ON DELETE CASCADE,
-    submitted_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    commit_id UUID NOT NULL REFERENCES commits(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     status SMALLINT NOT NULL DEFAULT 1,
     reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
     reviewed_at TIMESTAMPTZ,
     review_note TEXT,
-    is_deleted BOOLEAN NOT NULL DEFAULT false
+    content TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS project_members (
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role SMALLINT NOT NULL DEFAULT 3,
+    invited_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (project_id, user_id)
 );

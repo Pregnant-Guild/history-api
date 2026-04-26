@@ -1,10 +1,19 @@
 package convert
 
 import (
+	"crypto/md5"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+func GenerateQueryKey(prefix string, params any) string {
+	b, _ := json.Marshal(params)
+	hash := fmt.Sprintf("%x", md5.Sum(b))
+	return fmt.Sprintf("%s:query:%s", prefix, hash)
+}
 
 func UUIDToString(v pgtype.UUID) string {
 	if v.Valid {
@@ -71,6 +80,16 @@ func PtrToText(s *string) pgtype.Text {
 	}
 	return pgtype.Text{
 		String: *s,
+		Valid:  true,
+	}
+}
+
+func StringToText(s string) pgtype.Text {
+	if s == "" {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{
+		String: s,
 		Valid:  true,
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"history-api/internal/gen/sqlc"
@@ -22,6 +23,7 @@ type EntityRepository interface {
 	Create(ctx context.Context, params sqlc.CreateEntityParams) (*models.EntityEntity, error)
 	Update(ctx context.Context, params sqlc.UpdateEntityParams) (*models.EntityEntity, error)
 	Delete(ctx context.Context, id pgtype.UUID) error
+	WithTx(tx pgx.Tx) EntityRepository
 }
 
 type entityRepository struct {
@@ -33,6 +35,13 @@ func NewEntityRepository(db sqlc.DBTX, c cache.Cache) EntityRepository {
 	return &entityRepository{
 		q: sqlc.New(db),
 		c: c,
+	}
+}
+
+func (r *entityRepository) WithTx(tx pgx.Tx) EntityRepository {
+	return &entityRepository{
+		q: r.q.WithTx(tx),
+		c: r.c,
 	}
 }
 
@@ -193,8 +202,6 @@ func (r *entityRepository) Create(ctx context.Context, params sqlc.CreateEntityP
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Set(ctx, fmt.Sprintf("entity:id:%s", entity.ID), entity, constants.NormalCacheDuration)
-
 	go func() {
 		_ = r.c.DelByPattern(context.Background(), "entity:search*")
 	}()
@@ -215,7 +222,7 @@ func (r *entityRepository) Update(ctx context.Context, params sqlc.UpdateEntityP
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Set(ctx, fmt.Sprintf("entity:id:%s", entity.ID), entity, constants.NormalCacheDuration)
+	_ = r.c.Del(ctx, fmt.Sprintf("entity:id:%s", entity.ID))
 	return &entity, nil
 }
 

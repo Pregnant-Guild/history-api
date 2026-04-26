@@ -8,8 +8,54 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func ProjectRoutes(app *fiber.App, controller *controllers.ProjectController, userRepo repositories.UserRepository) {
+func ProjectRoutes(
+	app *fiber.App,
+	controller *controllers.ProjectController,
+	commitController *controllers.CommitController,
+	userRepo repositories.UserRepository,
+) {
 	route := app.Group("/projects")
+
+	route.Post(
+		"/:id/commits",
+		middlewares.JwtAccess(userRepo),
+		commitController.CreateCommit,
+	)
+
+	route.Post(
+		"/:id/commits/restore",
+		middlewares.JwtAccess(userRepo),
+		commitController.RestoreCommit,
+	)
+
+	route.Get(
+		"/:id/commits",
+		commitController.GetProjectCommits,
+	)
+
+	route.Post(
+		"/:id/members",
+		middlewares.JwtAccess(userRepo),
+		controller.AddMember,
+	)
+
+	route.Put(
+		"/:id/members/:userId",
+		middlewares.JwtAccess(userRepo),
+		controller.UpdateMemberRole,
+	)
+
+	route.Delete(
+		"/:id/members/:userId",
+		middlewares.JwtAccess(userRepo),
+		controller.RemoveMember,
+	)
+
+	route.Put(
+		"/:id/change-owner",
+		middlewares.JwtAccess(userRepo),
+		controller.ChangeOwner,
+	)
 
 	route.Get(
 		"/:id",

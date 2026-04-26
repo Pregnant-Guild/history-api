@@ -7,21 +7,33 @@ import (
 	"time"
 )
 
+type CommitSimple struct {
+	ID          string `json:"id"`
+	EditSummary string `json:"edit_summary"`
+}
+
+type MemberSimple struct {
+	UserID      string                      `json:"user_id"`
+	Role        constants.ProjectMemberRole `json:"role"`
+	DisplayName string                      `json:"display_name"`
+	AvatarUrl   string                      `json:"avatar_url"`
+}
+
 type ProjectEntity struct {
-	ID               string                      `json:"id"`
-	Title            string                      `json:"title"`
-	Description      string                      `json:"description"`
-	LatestRevisionID *string                     `json:"latest_revision_id"`
-	VersionCount     int32                       `json:"version_count"`
-	ProjectStatus    constants.ProjectStatusType `json:"project_status"`
-	LockedBy         *string                     `json:"locked_by"`
-	IsDeleted        bool                        `json:"is_deleted"`
-	UserID           string                      `json:"user_id"`
-	CreatedAt        *time.Time                  `json:"created_at"`
-	UpdatedAt        *time.Time                  `json:"updated_at"`
-	User             *UserSimpleEntity           `json:"user"`
-	CommitIds        []string                    `json:"commit_ids"`
-	SubmissionIds    []string                    `json:"submission_ids"`
+	ID             string                      `json:"id"`
+	Title          string                      `json:"title"`
+	Description    string                      `json:"description"`
+	LatestCommitID *string                     `json:"latest_commit_id"`
+	ProjectStatus  constants.ProjectStatusType `json:"project_status"`
+	LockedBy       *string                     `json:"locked_by"`
+	IsDeleted      bool                        `json:"is_deleted"`
+	UserID         string                      `json:"user_id"`
+	CreatedAt      *time.Time                  `json:"created_at"`
+	UpdatedAt      *time.Time                  `json:"updated_at"`
+	User           *UserSimpleEntity           `json:"user"`
+	Commits        []CommitSimple              `json:"commits"`
+	SubmissionIds  []string                    `json:"submission_ids"`
+	Members        []MemberSimple              `json:"members"`
 }
 
 func (p *ProjectEntity) ParseUser(data []byte) error {
@@ -30,6 +42,22 @@ func (p *ProjectEntity) ParseUser(data []byte) error {
 		return nil
 	}
 	return json.Unmarshal(data, &p.User)
+}
+
+func (p *ProjectEntity) ParseCommits(data []byte) error {
+	if len(data) == 0 || string(data) == "null" || string(data) == "[]" {
+		p.Commits = []CommitSimple{}
+		return nil
+	}
+	return json.Unmarshal(data, &p.Commits)
+}
+
+func (p *ProjectEntity) ParseMembers(data []byte) error {
+	if len(data) == 0 || string(data) == "null" || string(data) == "[]" {
+		p.Members = []MemberSimple{}
+		return nil
+	}
+	return json.Unmarshal(data, &p.Members)
 }
 
 func (p *ProjectEntity) ToResponse() *response.ProjectResponse {
@@ -41,21 +69,39 @@ func (p *ProjectEntity) ToResponse() *response.ProjectResponse {
 		userResponse = p.User.ToResponse()
 	}
 
+	commits := make([]response.CommitSimpleResponse, 0, len(p.Commits))
+	for _, c := range p.Commits {
+		commits = append(commits, response.CommitSimpleResponse{
+			ID:          c.ID,
+			EditSummary: c.EditSummary,
+		})
+	}
+
+	members := make([]response.MemberSimpleResponse, 0, len(p.Members))
+	for _, m := range p.Members {
+		members = append(members, response.MemberSimpleResponse{
+			UserID:      m.UserID,
+			Role:        m.Role.String(),
+			DisplayName: m.DisplayName,
+			AvatarUrl:   m.AvatarUrl,
+		})
+	}
+
 	return &response.ProjectResponse{
-		ID:               p.ID,
-		Title:            p.Title,
-		Description:      p.Description,
-		LatestRevisionID: p.LatestRevisionID,
-		VersionCount:     p.VersionCount,
-		ProjectStatus:    p.ProjectStatus.String(),
-		LockedBy:         p.LockedBy,
-		IsDeleted:        p.IsDeleted,
-		UserID:           p.UserID,
-		CreatedAt:        p.CreatedAt,
-		UpdatedAt:        p.UpdatedAt,
-		User:             userResponse,
-		CommitIds:        p.CommitIds,
-		SubmissionIds:    p.SubmissionIds,
+		ID:             p.ID,
+		Title:          p.Title,
+		Description:    p.Description,
+		LatestCommitID: p.LatestCommitID,
+		ProjectStatus:  p.ProjectStatus.String(),
+		LockedBy:       p.LockedBy,
+		IsDeleted:      p.IsDeleted,
+		UserID:         p.UserID,
+		CreatedAt:      p.CreatedAt,
+		UpdatedAt:      p.UpdatedAt,
+		User:           userResponse,
+		Commits:        commits,
+		SubmissionIds:  p.SubmissionIds,
+		Members:        members,
 	}
 }
 

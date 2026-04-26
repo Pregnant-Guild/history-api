@@ -11,13 +11,80 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addProjectMember = `-- name: AddProjectMember :one
+INSERT INTO project_members (
+    project_id, user_id, role, invited_by
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING project_id, user_id, role, invited_by, created_at
+`
+
+type AddProjectMemberParams struct {
+	ProjectID pgtype.UUID `json:"project_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+	Role      int16       `json:"role"`
+	InvitedBy pgtype.UUID `json:"invited_by"`
+}
+
+func (q *Queries) AddProjectMember(ctx context.Context, arg AddProjectMemberParams) (ProjectMember, error) {
+	row := q.db.QueryRow(ctx, addProjectMember,
+		arg.ProjectID,
+		arg.UserID,
+		arg.Role,
+		arg.InvitedBy,
+	)
+	var i ProjectMember
+	err := row.Scan(
+		&i.ProjectID,
+		&i.UserID,
+		&i.Role,
+		&i.InvitedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const changeProjectOwner = `-- name: ChangeProjectOwner :exec
+UPDATE projects
+SET user_id = $2, updated_at = NOW()
+WHERE id = $1 AND is_deleted = false
+`
+
+type ChangeProjectOwnerParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) ChangeProjectOwner(ctx context.Context, arg ChangeProjectOwnerParams) error {
+	_, err := q.db.Exec(ctx, changeProjectOwner, arg.ID, arg.UserID)
+	return err
+}
+
+const checkProjectPermission = `-- name: CheckProjectPermission :one
+SELECT role FROM project_members
+WHERE project_id = $1 AND user_id = $2
+`
+
+type CheckProjectPermissionParams struct {
+	ProjectID pgtype.UUID `json:"project_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) CheckProjectPermission(ctx context.Context, arg CheckProjectPermissionParams) (int16, error) {
+	row := q.db.QueryRow(ctx, checkProjectPermission, arg.ProjectID, arg.UserID)
+	var role int16
+	err := row.Scan(&role)
+	return role, err
+}
+
 const countProjects = `-- name: CountProjects :one
 SELECT count(*)
 FROM projects p
 WHERE p.is_deleted = false
   AND (
-      $1::text[] IS NULL 
-      OR p.project_status = ANY($1::text[])
+      $1::smallint[] IS NULL 
+      OR p.project_status = ANY($1::smallint[])
   )
   AND ($2::uuid[] IS NULL OR p.user_id = ANY($2::uuid[]))
   AND (
@@ -30,7 +97,7 @@ WHERE p.is_deleted = false
 `
 
 type CountProjectsParams struct {
-	Statuses    []string           `json:"statuses"`
+	Statuses    []int16            `json:"statuses"`
 	UserIds     []pgtype.UUID      `json:"user_ids"`
 	SearchText  pgtype.Text        `json:"search_text"`
 	CreatedFrom pgtype.Timestamptz `json:"created_from"`
@@ -57,7 +124,7 @@ INSERT INTO projects (
     $1, $2, $3, $4
 )
 RETURNING 
-    id, title, description, latest_revision_id, version_count, project_status, locked_by, is_deleted, user_id, created_at, updated_at,
+    id, title, description, latest_commit_id, project_status, locked_by, is_deleted, user_id, created_at, updated_at,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -65,8 +132,9 @@ RETURNING
         'full_name', up.full_name,
         'avatar_url', up.avatar_url
     )::json AS user,
-    '{}'::uuid[] AS commit_ids,
-    '{}'::uuid[] AS submission_ids
+    '[]'::json AS commits,
+    '{}'::uuid[] AS submission_ids,
+    '[]'::json AS members
 `
 
 type CreateProjectParams struct {
@@ -77,20 +145,20 @@ type CreateProjectParams struct {
 }
 
 type CreateProjectRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	LatestRevisionID pgtype.UUID        `json:"latest_revision_id"`
-	VersionCount     int32              `json:"version_count"`
-	ProjectStatus    int16              `json:"project_status"`
-	LockedBy         pgtype.UUID        `json:"locked_by"`
-	IsDeleted        bool               `json:"is_deleted"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	User             []byte             `json:"user"`
-	CommitIds        []pgtype.UUID      `json:"commit_ids"`
-	SubmissionIds    []pgtype.UUID      `json:"submission_ids"`
+	ID             pgtype.UUID        `json:"id"`
+	Title          string             `json:"title"`
+	Description    pgtype.Text        `json:"description"`
+	LatestCommitID pgtype.UUID        `json:"latest_commit_id"`
+	ProjectStatus  int16              `json:"project_status"`
+	LockedBy       pgtype.UUID        `json:"locked_by"`
+	IsDeleted      bool               `json:"is_deleted"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	User           []byte             `json:"user"`
+	Commits        []byte             `json:"commits"`
+	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	Members        []byte             `json:"members"`
 }
 
 func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error) {
@@ -105,8 +173,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (C
 		&i.ID,
 		&i.Title,
 		&i.Description,
-		&i.LatestRevisionID,
-		&i.VersionCount,
+		&i.LatestCommitID,
 		&i.ProjectStatus,
 		&i.LockedBy,
 		&i.IsDeleted,
@@ -114,8 +181,9 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (C
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.User,
-		&i.CommitIds,
+		&i.Commits,
 		&i.SubmissionIds,
+		&i.Members,
 	)
 	return i, err
 }
@@ -134,11 +202,12 @@ func (q *Queries) DeleteProject(ctx context.Context, id pgtype.UUID) error {
 
 const getProjectById = `-- name: GetProjectById :one
 SELECT 
-    p.id, p.title, p.description, p.latest_revision_id, p.version_count, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
+    p.id, p.title, p.description, p.latest_commit_id, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
     COALESCE(
-        (SELECT array_agg(id) FROM revisions WHERE project_id = p.id), 
-        '{}'
-    )::uuid[] AS commit_ids,
+        (SELECT json_agg(json_build_object('id', c.id, 'edit_summary', c.edit_summary) ORDER BY c.created_at DESC) 
+         FROM commits c WHERE c.project_id = p.id AND c.is_deleted = false), 
+        '[]'
+    )::json AS commits,
     COALESCE(
         (SELECT array_agg(id) FROM submissions WHERE project_id = p.id), 
         '{}'
@@ -149,7 +218,18 @@ SELECT
         'display_name', up.display_name,
         'full_name', up.full_name,
         'avatar_url', up.avatar_url
-    )::json AS user
+    )::json AS user,
+    COALESCE(
+        (SELECT json_agg(json_build_object(
+            'user_id', pm.user_id, 'role', pm.role,
+            'display_name', mup.display_name, 'avatar_url', mup.avatar_url
+         ) ORDER BY pm.role ASC, pm.created_at ASC)
+         FROM project_members pm
+         JOIN users mu ON pm.user_id = mu.id
+         LEFT JOIN user_profiles mup ON mu.id = mup.user_id
+         WHERE pm.project_id = p.id),
+        '[]'
+    )::json AS members
 FROM projects p
 JOIN users u ON p.user_id = u.id
 LEFT JOIN user_profiles up ON u.id = up.user_id
@@ -157,20 +237,20 @@ WHERE p.id = $1 AND p.is_deleted = false
 `
 
 type GetProjectByIdRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	LatestRevisionID pgtype.UUID        `json:"latest_revision_id"`
-	VersionCount     int32              `json:"version_count"`
-	ProjectStatus    int16              `json:"project_status"`
-	LockedBy         pgtype.UUID        `json:"locked_by"`
-	IsDeleted        bool               `json:"is_deleted"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	CommitIds        []pgtype.UUID      `json:"commit_ids"`
-	SubmissionIds    []pgtype.UUID      `json:"submission_ids"`
-	User             []byte             `json:"user"`
+	ID             pgtype.UUID        `json:"id"`
+	Title          string             `json:"title"`
+	Description    pgtype.Text        `json:"description"`
+	LatestCommitID pgtype.UUID        `json:"latest_commit_id"`
+	ProjectStatus  int16              `json:"project_status"`
+	LockedBy       pgtype.UUID        `json:"locked_by"`
+	IsDeleted      bool               `json:"is_deleted"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Commits        []byte             `json:"commits"`
+	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	User           []byte             `json:"user"`
+	Members        []byte             `json:"members"`
 }
 
 func (q *Queries) GetProjectById(ctx context.Context, id pgtype.UUID) (GetProjectByIdRow, error) {
@@ -180,25 +260,29 @@ func (q *Queries) GetProjectById(ctx context.Context, id pgtype.UUID) (GetProjec
 		&i.ID,
 		&i.Title,
 		&i.Description,
-		&i.LatestRevisionID,
-		&i.VersionCount,
+		&i.LatestCommitID,
 		&i.ProjectStatus,
 		&i.LockedBy,
 		&i.IsDeleted,
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.CommitIds,
+		&i.Commits,
 		&i.SubmissionIds,
 		&i.User,
+		&i.Members,
 	)
 	return i, err
 }
 
 const getProjectsByIDs = `-- name: GetProjectsByIDs :many
 SELECT 
-    p.id, p.title, p.description, p.latest_revision_id, p.version_count, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
-    COALESCE((SELECT array_agg(id) FROM revisions WHERE project_id = p.id), '{}')::uuid[] AS commit_ids,
+    p.id, p.title, p.description, p.latest_commit_id, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
+    COALESCE(
+        (SELECT json_agg(json_build_object('id', c.id, 'edit_summary', c.edit_summary) ORDER BY c.created_at DESC)
+         FROM commits c WHERE c.project_id = p.id AND c.is_deleted = false),
+        '[]'
+    )::json AS commits,
     COALESCE((SELECT array_agg(id) FROM submissions WHERE project_id = p.id), '{}')::uuid[] AS submission_ids,
     json_build_object(
         'id', u.id,
@@ -206,7 +290,18 @@ SELECT
         'display_name', up.display_name,
         'full_name', up.full_name,
         'avatar_url', up.avatar_url
-    )::json AS user
+    )::json AS user,
+    COALESCE(
+        (SELECT json_agg(json_build_object(
+            'user_id', pm.user_id, 'role', pm.role,
+            'display_name', mup.display_name, 'avatar_url', mup.avatar_url
+         ) ORDER BY pm.role ASC, pm.created_at ASC)
+         FROM project_members pm
+         JOIN users mu ON pm.user_id = mu.id
+         LEFT JOIN user_profiles mup ON mu.id = mup.user_id
+         WHERE pm.project_id = p.id),
+        '[]'
+    )::json AS members
 FROM projects p
 JOIN users u ON p.user_id = u.id
 LEFT JOIN user_profiles up ON u.id = up.user_id
@@ -214,20 +309,20 @@ WHERE p.id = ANY($1::uuid[]) AND p.is_deleted = false
 `
 
 type GetProjectsByIDsRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	LatestRevisionID pgtype.UUID        `json:"latest_revision_id"`
-	VersionCount     int32              `json:"version_count"`
-	ProjectStatus    int16              `json:"project_status"`
-	LockedBy         pgtype.UUID        `json:"locked_by"`
-	IsDeleted        bool               `json:"is_deleted"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	CommitIds        []pgtype.UUID      `json:"commit_ids"`
-	SubmissionIds    []pgtype.UUID      `json:"submission_ids"`
-	User             []byte             `json:"user"`
+	ID             pgtype.UUID        `json:"id"`
+	Title          string             `json:"title"`
+	Description    pgtype.Text        `json:"description"`
+	LatestCommitID pgtype.UUID        `json:"latest_commit_id"`
+	ProjectStatus  int16              `json:"project_status"`
+	LockedBy       pgtype.UUID        `json:"locked_by"`
+	IsDeleted      bool               `json:"is_deleted"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Commits        []byte             `json:"commits"`
+	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	User           []byte             `json:"user"`
+	Members        []byte             `json:"members"`
 }
 
 func (q *Queries) GetProjectsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetProjectsByIDsRow, error) {
@@ -243,17 +338,17 @@ func (q *Queries) GetProjectsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) 
 			&i.ID,
 			&i.Title,
 			&i.Description,
-			&i.LatestRevisionID,
-			&i.VersionCount,
+			&i.LatestCommitID,
 			&i.ProjectStatus,
 			&i.LockedBy,
 			&i.IsDeleted,
 			&i.UserID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.CommitIds,
+			&i.Commits,
 			&i.SubmissionIds,
 			&i.User,
+			&i.Members,
 		); err != nil {
 			return nil, err
 		}
@@ -267,11 +362,12 @@ func (q *Queries) GetProjectsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) 
 
 const getProjectsByUserId = `-- name: GetProjectsByUserId :many
 SELECT 
-    p.id, p.title, p.description, p.latest_revision_id, p.version_count, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
+    p.id, p.title, p.description, p.latest_commit_id, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
     COALESCE(
-        (SELECT array_agg(id) FROM revisions WHERE project_id = p.id), 
-        '{}'
-    )::uuid[] AS commit_ids,
+        (SELECT json_agg(json_build_object('id', c.id, 'edit_summary', c.edit_summary) ORDER BY c.created_at DESC)
+         FROM commits c WHERE c.project_id = p.id AND c.is_deleted = false),
+        '[]'
+    )::json AS commits,
     COALESCE(
         (SELECT array_agg(id) FROM submissions WHERE project_id = p.id), 
         '{}'
@@ -282,11 +378,22 @@ SELECT
         'display_name', up.display_name,
         'full_name', up.full_name,
         'avatar_url', up.avatar_url
-    )::json AS user
+    )::json AS user,
+    COALESCE(
+        (SELECT json_agg(json_build_object(
+            'user_id', pm.user_id, 'role', pm.role,
+            'display_name', mup.display_name, 'avatar_url', mup.avatar_url
+         ) ORDER BY pm.role ASC, pm.created_at ASC)
+         FROM project_members pm
+         JOIN users mu ON pm.user_id = mu.id
+         LEFT JOIN user_profiles mup ON mu.id = mup.user_id
+         WHERE pm.project_id = p.id),
+        '[]'
+    )::json AS members
 FROM projects p
 JOIN users u ON p.user_id = u.id
 LEFT JOIN user_profiles up ON u.id = up.user_id
-WHERE p.user_id = $1 
+WHERE (p.user_id = $1 OR EXISTS (SELECT 1 FROM project_members pm2 WHERE pm2.project_id = p.id AND pm2.user_id = $1))
   AND p.is_deleted = false 
   AND ($2::uuid IS NULL OR p.id < $2::uuid)
 ORDER BY p.updated_at DESC
@@ -300,20 +407,20 @@ type GetProjectsByUserIdParams struct {
 }
 
 type GetProjectsByUserIdRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	LatestRevisionID pgtype.UUID        `json:"latest_revision_id"`
-	VersionCount     int32              `json:"version_count"`
-	ProjectStatus    int16              `json:"project_status"`
-	LockedBy         pgtype.UUID        `json:"locked_by"`
-	IsDeleted        bool               `json:"is_deleted"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	CommitIds        []pgtype.UUID      `json:"commit_ids"`
-	SubmissionIds    []pgtype.UUID      `json:"submission_ids"`
-	User             []byte             `json:"user"`
+	ID             pgtype.UUID        `json:"id"`
+	Title          string             `json:"title"`
+	Description    pgtype.Text        `json:"description"`
+	LatestCommitID pgtype.UUID        `json:"latest_commit_id"`
+	ProjectStatus  int16              `json:"project_status"`
+	LockedBy       pgtype.UUID        `json:"locked_by"`
+	IsDeleted      bool               `json:"is_deleted"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Commits        []byte             `json:"commits"`
+	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	User           []byte             `json:"user"`
+	Members        []byte             `json:"members"`
 }
 
 func (q *Queries) GetProjectsByUserId(ctx context.Context, arg GetProjectsByUserIdParams) ([]GetProjectsByUserIdRow, error) {
@@ -329,17 +436,17 @@ func (q *Queries) GetProjectsByUserId(ctx context.Context, arg GetProjectsByUser
 			&i.ID,
 			&i.Title,
 			&i.Description,
-			&i.LatestRevisionID,
-			&i.VersionCount,
+			&i.LatestCommitID,
 			&i.ProjectStatus,
 			&i.LockedBy,
 			&i.IsDeleted,
 			&i.UserID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.CommitIds,
+			&i.Commits,
 			&i.SubmissionIds,
 			&i.User,
+			&i.Members,
 		); err != nil {
 			return nil, err
 		}
@@ -351,13 +458,29 @@ func (q *Queries) GetProjectsByUserId(ctx context.Context, arg GetProjectsByUser
 	return items, nil
 }
 
+const removeProjectMember = `-- name: RemoveProjectMember :exec
+DELETE FROM project_members
+WHERE project_id = $1 AND user_id = $2
+`
+
+type RemoveProjectMemberParams struct {
+	ProjectID pgtype.UUID `json:"project_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) RemoveProjectMember(ctx context.Context, arg RemoveProjectMemberParams) error {
+	_, err := q.db.Exec(ctx, removeProjectMember, arg.ProjectID, arg.UserID)
+	return err
+}
+
 const searchProjects = `-- name: SearchProjects :many
 SELECT 
-    p.id, p.title, p.description, p.latest_revision_id, p.version_count, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
+    p.id, p.title, p.description, p.latest_commit_id, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
     COALESCE(
-        (SELECT array_agg(id) FROM revisions WHERE project_id = p.id), 
-        '{}'
-    )::uuid[] AS commit_ids,
+        (SELECT json_agg(json_build_object('id', c.id, 'edit_summary', c.edit_summary) ORDER BY c.created_at DESC)
+         FROM commits c WHERE c.project_id = p.id AND c.is_deleted = false),
+        '[]'
+    )::json AS commits,
     COALESCE(
         (SELECT array_agg(id) FROM submissions WHERE project_id = p.id), 
         '{}'
@@ -368,14 +491,25 @@ SELECT
         'display_name', up.display_name,
         'full_name', up.full_name,
         'avatar_url', up.avatar_url
-    )::json AS user
+    )::json AS user,
+    COALESCE(
+        (SELECT json_agg(json_build_object(
+            'user_id', pm.user_id, 'role', pm.role,
+            'display_name', mup.display_name, 'avatar_url', mup.avatar_url
+         ) ORDER BY pm.role ASC, pm.created_at ASC)
+         FROM project_members pm
+         JOIN users mu ON pm.user_id = mu.id
+         LEFT JOIN user_profiles mup ON mu.id = mup.user_id
+         WHERE pm.project_id = p.id),
+        '[]'
+    )::json AS members
 FROM projects p
 JOIN users u ON p.user_id = u.id
 LEFT JOIN user_profiles up ON u.id = up.user_id
 WHERE p.is_deleted = false
   AND (
-      $1::text[] IS NULL 
-      OR p.project_status = ANY($1::text[])
+      $1::smallint[] IS NULL 
+      OR p.project_status = ANY($1::smallint[])
   )
   AND ($2::uuid[] IS NULL OR p.user_id = ANY($2::uuid[]))
   AND (
@@ -398,7 +532,7 @@ OFFSET $8
 `
 
 type SearchProjectsParams struct {
-	Statuses    []string           `json:"statuses"`
+	Statuses    []int16            `json:"statuses"`
 	UserIds     []pgtype.UUID      `json:"user_ids"`
 	SearchText  pgtype.Text        `json:"search_text"`
 	CreatedFrom pgtype.Timestamptz `json:"created_from"`
@@ -410,20 +544,20 @@ type SearchProjectsParams struct {
 }
 
 type SearchProjectsRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	LatestRevisionID pgtype.UUID        `json:"latest_revision_id"`
-	VersionCount     int32              `json:"version_count"`
-	ProjectStatus    int16              `json:"project_status"`
-	LockedBy         pgtype.UUID        `json:"locked_by"`
-	IsDeleted        bool               `json:"is_deleted"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	CommitIds        []pgtype.UUID      `json:"commit_ids"`
-	SubmissionIds    []pgtype.UUID      `json:"submission_ids"`
-	User             []byte             `json:"user"`
+	ID             pgtype.UUID        `json:"id"`
+	Title          string             `json:"title"`
+	Description    pgtype.Text        `json:"description"`
+	LatestCommitID pgtype.UUID        `json:"latest_commit_id"`
+	ProjectStatus  int16              `json:"project_status"`
+	LockedBy       pgtype.UUID        `json:"locked_by"`
+	IsDeleted      bool               `json:"is_deleted"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Commits        []byte             `json:"commits"`
+	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	User           []byte             `json:"user"`
+	Members        []byte             `json:"members"`
 }
 
 func (q *Queries) SearchProjects(ctx context.Context, arg SearchProjectsParams) ([]SearchProjectsRow, error) {
@@ -449,17 +583,17 @@ func (q *Queries) SearchProjects(ctx context.Context, arg SearchProjectsParams) 
 			&i.ID,
 			&i.Title,
 			&i.Description,
-			&i.LatestRevisionID,
-			&i.VersionCount,
+			&i.LatestCommitID,
 			&i.ProjectStatus,
 			&i.LockedBy,
 			&i.IsDeleted,
 			&i.UserID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.CommitIds,
+			&i.Commits,
 			&i.SubmissionIds,
 			&i.User,
+			&i.Members,
 		); err != nil {
 			return nil, err
 		}
@@ -471,22 +605,37 @@ func (q *Queries) SearchProjects(ctx context.Context, arg SearchProjectsParams) 
 	return items, nil
 }
 
+const updateLatestCommit = `-- name: UpdateLatestCommit :exec
+UPDATE projects
+SET latest_commit_id = $2, updated_at = NOW()
+WHERE id = $1 AND is_deleted = false
+`
+
+type UpdateLatestCommitParams struct {
+	ID             pgtype.UUID `json:"id"`
+	LatestCommitID pgtype.UUID `json:"latest_commit_id"`
+}
+
+func (q *Queries) UpdateLatestCommit(ctx context.Context, arg UpdateLatestCommitParams) error {
+	_, err := q.db.Exec(ctx, updateLatestCommit, arg.ID, arg.LatestCommitID)
+	return err
+}
+
 const updateProject = `-- name: UpdateProject :one
 UPDATE projects
 SET 
     title = COALESCE($1, title),
     description = COALESCE($2, description),
-    latest_revision_id = COALESCE($3, latest_revision_id),
-    version_count = COALESCE($4, version_count),
-    project_status = COALESCE($5, status),
-    locked_by = COALESCE($6, locked_by),
+    latest_commit_id = COALESCE($3, latest_commit_id),
+    project_status = COALESCE($4, status),
+    locked_by = COALESCE($5, locked_by),
     updated_at = NOW()
 FROM projects p
 JOIN users u ON p.user_id = u.id
 LEFT JOIN user_profiles up ON u.id = up.user_id
-WHERE p.id = $7 AND p.is_deleted = false
+WHERE p.id = $6 AND p.is_deleted = false
 RETURNING 
-    p.id, p.title, p.description, p.latest_revision_id, p.version_count, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
+    p.id, p.title, p.description, p.latest_commit_id, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -494,43 +643,56 @@ RETURNING
         'full_name', up.full_name,
         'avatar_url', up.avatar_url
     )::json AS user,
-    COALESCE((SELECT array_agg(id) FROM revisions WHERE project_id = projects.id), '{}')::uuid[] AS commit_ids,
-    COALESCE((SELECT array_agg(id) FROM submissions WHERE project_id = projects.id), '{}')::uuid[] AS submission_ids
+    COALESCE(
+        (SELECT json_agg(json_build_object('id', c.id, 'edit_summary', c.edit_summary) ORDER BY c.created_at DESC)
+         FROM commits c WHERE c.project_id = projects.id AND c.is_deleted = false),
+        '[]'
+    )::json AS commits,
+    COALESCE((SELECT array_agg(id) FROM submissions WHERE project_id = projects.id), '{}')::uuid[] AS submission_ids,
+    COALESCE(
+        (SELECT json_agg(json_build_object(
+            'user_id', pm.user_id, 'role', pm.role,
+            'display_name', mup.display_name, 'avatar_url', mup.avatar_url
+         ) ORDER BY pm.role ASC, pm.created_at ASC)
+         FROM project_members pm
+         JOIN users mu ON pm.user_id = mu.id
+         LEFT JOIN user_profiles mup ON mu.id = mup.user_id
+         WHERE pm.project_id = projects.id),
+        '[]'
+    )::json AS members
 `
 
 type UpdateProjectParams struct {
-	Title            pgtype.Text `json:"title"`
-	Description      pgtype.Text `json:"description"`
-	LatestRevisionID pgtype.UUID `json:"latest_revision_id"`
-	VersionCount     pgtype.Int4 `json:"version_count"`
-	Status           pgtype.Int2 `json:"status"`
-	LockedBy         pgtype.UUID `json:"locked_by"`
-	ID               pgtype.UUID `json:"id"`
+	Title          pgtype.Text `json:"title"`
+	Description    pgtype.Text `json:"description"`
+	LatestCommitID pgtype.UUID `json:"latest_commit_id"`
+	Status         pgtype.Int2 `json:"status"`
+	LockedBy       pgtype.UUID `json:"locked_by"`
+	ID             pgtype.UUID `json:"id"`
 }
 
 type UpdateProjectRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Title            string             `json:"title"`
-	Description      pgtype.Text        `json:"description"`
-	LatestRevisionID pgtype.UUID        `json:"latest_revision_id"`
-	VersionCount     int32              `json:"version_count"`
-	ProjectStatus    int16              `json:"project_status"`
-	LockedBy         pgtype.UUID        `json:"locked_by"`
-	IsDeleted        bool               `json:"is_deleted"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	User             []byte             `json:"user"`
-	CommitIds        []pgtype.UUID      `json:"commit_ids"`
-	SubmissionIds    []pgtype.UUID      `json:"submission_ids"`
+	ID             pgtype.UUID        `json:"id"`
+	Title          string             `json:"title"`
+	Description    pgtype.Text        `json:"description"`
+	LatestCommitID pgtype.UUID        `json:"latest_commit_id"`
+	ProjectStatus  int16              `json:"project_status"`
+	LockedBy       pgtype.UUID        `json:"locked_by"`
+	IsDeleted      bool               `json:"is_deleted"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	User           []byte             `json:"user"`
+	Commits        []byte             `json:"commits"`
+	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	Members        []byte             `json:"members"`
 }
 
 func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (UpdateProjectRow, error) {
 	row := q.db.QueryRow(ctx, updateProject,
 		arg.Title,
 		arg.Description,
-		arg.LatestRevisionID,
-		arg.VersionCount,
+		arg.LatestCommitID,
 		arg.Status,
 		arg.LockedBy,
 		arg.ID,
@@ -540,8 +702,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (U
 		&i.ID,
 		&i.Title,
 		&i.Description,
-		&i.LatestRevisionID,
-		&i.VersionCount,
+		&i.LatestCommitID,
 		&i.ProjectStatus,
 		&i.LockedBy,
 		&i.IsDeleted,
@@ -549,8 +710,35 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (U
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.User,
-		&i.CommitIds,
+		&i.Commits,
 		&i.SubmissionIds,
+		&i.Members,
+	)
+	return i, err
+}
+
+const updateProjectMemberRole = `-- name: UpdateProjectMemberRole :one
+UPDATE project_members
+SET role = $3
+WHERE project_id = $1 AND user_id = $2
+RETURNING project_id, user_id, role, invited_by, created_at
+`
+
+type UpdateProjectMemberRoleParams struct {
+	ProjectID pgtype.UUID `json:"project_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+	Role      int16       `json:"role"`
+}
+
+func (q *Queries) UpdateProjectMemberRole(ctx context.Context, arg UpdateProjectMemberRoleParams) (ProjectMember, error) {
+	row := q.db.QueryRow(ctx, updateProjectMemberRole, arg.ProjectID, arg.UserID, arg.Role)
+	var i ProjectMember
+	err := row.Scan(
+		&i.ProjectID,
+		&i.UserID,
+		&i.Role,
+		&i.InvitedBy,
+		&i.CreatedAt,
 	)
 	return i, err
 }

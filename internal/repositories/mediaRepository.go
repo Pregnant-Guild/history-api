@@ -11,6 +11,7 @@ import (
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -23,6 +24,7 @@ type MediaRepository interface {
 	Delete(ctx context.Context, id pgtype.UUID) error
 	BulkDelete(ctx context.Context, ids []pgtype.UUID) error
 	Create(ctx context.Context, params sqlc.CreateMediaParams) (*models.MediaEntity, error)
+	WithTx(tx pgx.Tx) MediaRepository
 }
 
 type mediaRepository struct {
@@ -34,6 +36,13 @@ func NewMediaRepository(db sqlc.DBTX, c cache.Cache) MediaRepository {
 	return &mediaRepository{
 		q: sqlc.New(db),
 		c: c,
+	}
+}
+
+func (r *mediaRepository) WithTx(tx pgx.Tx) MediaRepository {
+	return &mediaRepository{
+		q: r.q.WithTx(tx),
+		c: r.c,
 	}
 }
 
@@ -167,8 +176,7 @@ func (r *mediaRepository) Create(ctx context.Context, params sqlc.CreateMediaPar
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Set(ctx, fmt.Sprintf("media:id:%s", media.ID), media, constants.NormalCacheDuration)
-	_ = r.c.Del(ctx, fmt.Sprintf("media:userId:%s", convert.UUIDToString(params.UserID)))
+
 	return &media, nil
 }
 
@@ -181,8 +189,7 @@ func (r *mediaRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 	cacheId := fmt.Sprintf("media:id:%s", convert.UUIDToString(id))
 	_ = r.c.Del(ctx, cacheId)
 	go func() {
-		bgCtx := context.Background()
-		_ = r.c.DelByPattern(bgCtx, "media:count*")
+		_ = r.c.DelByPattern(context.Background(), "media:count*")
 	}()
 	return nil
 }
