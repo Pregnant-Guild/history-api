@@ -1246,6 +1246,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
       summary: Search projects
       tags:
       - Projects
@@ -1344,6 +1346,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
       summary: Get project by ID
       tags:
       - Projects
@@ -1455,6 +1459,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
       summary: Get project commits
       tags:
       - Commits

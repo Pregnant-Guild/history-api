@@ -28,6 +28,7 @@ func NewProjectController(service services.ProjectService) *ProjectController {
 // @Tags Projects
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path string true "Project ID"
 // @Success 200 {object} response.CommonResponse
 // @Failure 400 {object} response.CommonResponse
@@ -59,6 +60,7 @@ func (h *ProjectController) GetProjectByID(c fiber.Ctx) error {
 // @Tags Projects
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param query query request.SearchProjectDto false "Search Query"
 // @Success 200 {object} response.PaginatedResponse
 // @Failure 400 {object} response.CommonResponse

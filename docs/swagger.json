@@ -1300,6 +1300,11 @@
         },
         "/projects": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Search and filter projects with pagination",
                 "consumes": [
                     "application/json"
@@ -1452,6 +1457,11 @@
         },
         "/projects/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Retrieve project details by specific ID",
                 "consumes": [
                     "application/json"
@@ -1681,6 +1691,11 @@
         },
         "/projects/{id}/commits": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Retrieve all commits for a specific project",
                 "consumes": [
                     "application/json"

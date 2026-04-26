@@ -112,6 +112,7 @@ func (h *CommitController) RestoreCommit(c fiber.Ctx) error {
 // @Tags Commits
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path string true "Project ID"
 // @Success 200 {object} response.CommonResponse
 // @Failure 400 {object} response.CommonResponse

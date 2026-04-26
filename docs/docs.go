@@ -1307,6 +1307,11 @@ const docTemplate = `{
         },
         "/projects": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Search and filter projects with pagination",
                 "consumes": [
                     "application/json"
@@ -1459,6 +1464,11 @@ const docTemplate = `{
         },
         "/projects/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Retrieve project details by specific ID",
                 "consumes": [
                     "application/json"
@@ -1688,6 +1698,11 @@ const docTemplate = `{
         },
         "/projects/{id}/commits": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Retrieve all commits for a specific project",
                 "consumes": [
                     "application/json"

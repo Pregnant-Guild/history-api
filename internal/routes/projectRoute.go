@@ -4,6 +4,7 @@ import (
 	"history-api/internal/controllers"
 	"history-api/internal/middlewares"
 	"history-api/internal/repositories"
+	"history-api/pkg/constants"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -30,6 +31,7 @@ func ProjectRoutes(
 
 	route.Get(
 		"/:id/commits",
+		middlewares.JwtAccess(userRepo),
 		commitController.GetProjectCommits,
 	)
 
@@ -59,6 +61,7 @@ func ProjectRoutes(
 
 	route.Get(
 		"/:id",
+		middlewares.JwtAccess(userRepo),
 		controller.GetProjectByID,
 	)
 
@@ -76,6 +79,7 @@ func ProjectRoutes(
 
 	route.Get(
 		"/",
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.SearchProject,
 	)
 
