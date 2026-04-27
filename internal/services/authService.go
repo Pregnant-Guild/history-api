@@ -447,6 +447,10 @@ func (a *authService) SigninWithGoogle(ctx context.Context, dto *request.SigninW
 		if err != nil {
 			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update refresh token")
 		}
+		err = tx.Commit(ctx)
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit Google signin")
+		}
 		return data, nil
 	}
 

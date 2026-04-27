@@ -32,6 +32,7 @@ func SeedSuperAdmin(pool *pgxpool.Pool) error {
 	}
 
 	q := sqlc.New(pool)
+	
 
 	_, err = q.GetUserByEmail(ctx, email)
 	if err == nil {
@@ -42,12 +43,20 @@ func SeedSuperAdmin(pool *pgxpool.Pool) error {
 		return err
 	}
 
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	repo := q.WithTx(tx)
+
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 
-	user, err := q.UpsertUser(ctx, sqlc.UpsertUserParams{
+	user, err := repo.UpsertUser(ctx, sqlc.UpsertUserParams{
 		Email: email,
 		PasswordHash: pgtype.Text{
 			String: string(hashed),
@@ -59,7 +68,7 @@ func SeedSuperAdmin(pool *pgxpool.Pool) error {
 		return err
 	}
 
-	_, err = q.CreateUserProfile(ctx, sqlc.CreateUserProfileParams{
+	_, err = repo.CreateUserProfile(ctx, sqlc.CreateUserProfileParams{
 		UserID: user.ID,
 		DisplayName: pgtype.Text{
 			String: displayName,
@@ -80,7 +89,7 @@ func SeedSuperAdmin(pool *pgxpool.Pool) error {
 		return err
 	}
 
-	err = q.CreateUserRole(
+	err = repo.CreateUserRole(
 		ctx,
 		sqlc.CreateUserRoleParams{
 			UserID:  user.ID,
@@ -91,6 +100,9 @@ func SeedSuperAdmin(pool *pgxpool.Pool) error {
 		return err
 	}
 
-	return nil
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
 
+	return nil
 }
