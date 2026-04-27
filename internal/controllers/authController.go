@@ -54,9 +54,9 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 
 	res, err := h.service.Signin(ctx, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	c.Cookie(&fiber.Cookie{
@@ -108,9 +108,9 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 
 	res, err := h.service.Signup(ctx, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -172,9 +172,9 @@ func (h *AuthController) RefreshToken(c fiber.Ctx) error {
 
 	res, err := h.service.RefreshToken(ctx, c.Locals("uid").(string), tokenJwt)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -227,9 +227,9 @@ func (h *AuthController) VerifyToken(c fiber.Ctx) error {
 
 	res, err := h.service.VerifyToken(ctx, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -264,9 +264,9 @@ func (h *AuthController) CreateToken(c fiber.Ctx) error {
 
 	err := h.service.CreateToken(ctx, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -301,9 +301,9 @@ func (h *AuthController) ForgotPassword(c fiber.Ctx) error {
 
 	err := h.service.ForgotPassword(ctx, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -411,11 +411,11 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 		Picture: payload.Claims["picture"].(string),
 	}
 
-	res, err := h.service.SigninWithGoogle(ctx, &googleUser)
-	if err != nil {
-		return c.Status(500).JSON(response.CommonResponse{
+	res, err2 := h.service.SigninWithGoogle(ctx, &googleUser)
+	if err2 != nil {
+		return c.Status(err2.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err2.Message,
 		})
 	}
 
@@ -468,9 +468,9 @@ func (h *AuthController) Logout(c fiber.Ctx) error {
 
 	err := h.service.Logout(ctx, userId)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 

@@ -17,16 +17,16 @@ import (
 )
 
 type ProjectService interface {
-	GetProjectByID(ctx context.Context, id string) (*response.ProjectResponse, error)
-	GetProjectByUserID(ctx context.Context, userID string, dto *request.GetProjectsByUserDto) ([]*response.ProjectResponse, error)
-	SearchProject(ctx context.Context, dto *request.SearchProjectDto) (*response.PaginatedResponse, error)
-	DeleteProject(ctx context.Context, id string) error
-	CreateProject(ctx context.Context, userID string, dto *request.CreateProjectDto) (*response.ProjectResponse, error)
-	UpdateProject(ctx context.Context, id string, dto *request.UpdateProjectDto) (*response.ProjectResponse, error)
-	AddMember(ctx context.Context, callerID string, projectID string, dto *request.AddProjectMemberDto) (*response.ProjectResponse, error)
-	UpdateMemberRole(ctx context.Context, callerID string, projectID string, memberUserID string, dto *request.UpdateProjectMemberDto) (*response.ProjectResponse, error)
-	RemoveMember(ctx context.Context, callerID string, projectID string, memberUserID string) error
-	ChangeOwner(ctx context.Context, callerID string, projectID string, newOwnerID string) (*response.ProjectResponse, error)
+	GetProjectByID(ctx context.Context, id string) (*response.ProjectResponse, *fiber.Error)
+	GetProjectByUserID(ctx context.Context, userID string, dto *request.GetProjectsByUserDto) ([]*response.ProjectResponse, *fiber.Error)
+	SearchProject(ctx context.Context, dto *request.SearchProjectDto) (*response.PaginatedResponse, *fiber.Error)
+	DeleteProject(ctx context.Context, id string) *fiber.Error
+	CreateProject(ctx context.Context, userID string, dto *request.CreateProjectDto) (*response.ProjectResponse, *fiber.Error)
+	UpdateProject(ctx context.Context, id string, dto *request.UpdateProjectDto) (*response.ProjectResponse, *fiber.Error)
+	AddMember(ctx context.Context, callerID string, projectID string, dto *request.AddProjectMemberDto) (*response.ProjectResponse, *fiber.Error)
+	UpdateMemberRole(ctx context.Context, callerID string, projectID string, memberUserID string, dto *request.UpdateProjectMemberDto) (*response.ProjectResponse, *fiber.Error)
+	RemoveMember(ctx context.Context, callerID string, projectID string, memberUserID string) *fiber.Error
+	ChangeOwner(ctx context.Context, callerID string, projectID string, newOwnerID string) (*response.ProjectResponse, *fiber.Error)
 }
 
 type projectService struct {
@@ -39,7 +39,7 @@ func NewProjectService(projectRepo repositories.ProjectRepository) ProjectServic
 	}
 }
 
-func (s *projectService) checkCallerIsOwner(ctx context.Context, callerID string, projectUUID pgtype.UUID) error {
+func (s *projectService) checkCallerIsOwner(ctx context.Context, callerID string, projectUUID pgtype.UUID) *fiber.Error {
 	project, err := s.projectRepo.GetByID(ctx, projectUUID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Project not found")
@@ -58,7 +58,7 @@ func (s *projectService) checkCallerIsOwner(ctx context.Context, callerID string
 	return nil
 }
 
-func (s *projectService) GetProjectByID(ctx context.Context, id string) (*response.ProjectResponse, error) {
+func (s *projectService) GetProjectByID(ctx context.Context, id string) (*response.ProjectResponse, *fiber.Error) {
 	projectUUID, err := convert.StringToUUID(id)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
@@ -72,7 +72,7 @@ func (s *projectService) GetProjectByID(ctx context.Context, id string) (*respon
 	return project.ToResponse(), nil
 }
 
-func (s *projectService) GetProjectByUserID(ctx context.Context, userID string, dto *request.GetProjectsByUserDto) ([]*response.ProjectResponse, error) {
+func (s *projectService) GetProjectByUserID(ctx context.Context, userID string, dto *request.GetProjectsByUserDto) ([]*response.ProjectResponse, *fiber.Error) {
 	userUUID, err := convert.StringToUUID(userID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid user ID format")
@@ -96,7 +96,7 @@ func (s *projectService) GetProjectByUserID(ctx context.Context, userID string, 
 
 	projects, err := s.projectRepo.GetByUserID(ctx, arg)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch user projects")
 	}
 
 	return models.ProjectsEntityToResponse(projects), nil
@@ -143,7 +143,7 @@ func (s *projectService) fillSearchArgs(arg *sqlc.SearchProjectsParams, dto *req
 	}
 }
 
-func (s *projectService) SearchProject(ctx context.Context, dto *request.SearchProjectDto) (*response.PaginatedResponse, error) {
+func (s *projectService) SearchProject(ctx context.Context, dto *request.SearchProjectDto) (*response.PaginatedResponse, *fiber.Error) {
 	if dto.Page < 1 {
 		dto.Page = 1
 	}
@@ -184,7 +184,7 @@ func (s *projectService) SearchProject(ctx context.Context, dto *request.SearchP
 	})
 
 	if err := g.Wait(); err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search projects")
 	}
 
 	projects := models.ProjectsEntityToResponse(rows)
@@ -192,7 +192,7 @@ func (s *projectService) SearchProject(ctx context.Context, dto *request.SearchP
 	return response.BuildPaginatedResponse(projects, totalRecords, dto.Page, dto.Limit), nil
 }
 
-func (s *projectService) CreateProject(ctx context.Context, userID string, dto *request.CreateProjectDto) (*response.ProjectResponse, error) {
+func (s *projectService) CreateProject(ctx context.Context, userID string, dto *request.CreateProjectDto) (*response.ProjectResponse, *fiber.Error) {
 	userUUID, err := convert.StringToUUID(userID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid user ID format")
@@ -221,7 +221,7 @@ func (s *projectService) CreateProject(ctx context.Context, userID string, dto *
 	return project.ToResponse(), nil
 }
 
-func (s *projectService) UpdateProject(ctx context.Context, id string, dto *request.UpdateProjectDto) (*response.ProjectResponse, error) {
+func (s *projectService) UpdateProject(ctx context.Context, id string, dto *request.UpdateProjectDto) (*response.ProjectResponse, *fiber.Error) {
 	projectUUID, err := convert.StringToUUID(id)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
@@ -254,7 +254,7 @@ func (s *projectService) UpdateProject(ctx context.Context, id string, dto *requ
 	return project.ToResponse(), nil
 }
 
-func (s *projectService) DeleteProject(ctx context.Context, id string) error {
+func (s *projectService) DeleteProject(ctx context.Context, id string) *fiber.Error {
 	projectUUID, err := convert.StringToUUID(id)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
@@ -273,14 +273,14 @@ func (s *projectService) DeleteProject(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *projectService) AddMember(ctx context.Context, callerID string, projectID string, dto *request.AddProjectMemberDto) (*response.ProjectResponse, error) {
+func (s *projectService) AddMember(ctx context.Context, callerID string, projectID string, dto *request.AddProjectMemberDto) (*response.ProjectResponse, *fiber.Error) {
 	projectUUID, err := convert.StringToUUID(projectID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
 	}
 
-	if err := s.checkCallerIsOwner(ctx, callerID, projectUUID); err != nil {
-		return nil, err
+	if fErr := s.checkCallerIsOwner(ctx, callerID, projectUUID); fErr != nil {
+		return nil, fErr
 	}
 
 	memberUUID, err := convert.StringToUUID(dto.UserID)
@@ -314,14 +314,14 @@ func (s *projectService) AddMember(ctx context.Context, callerID string, project
 	return project.ToResponse(), nil
 }
 
-func (s *projectService) UpdateMemberRole(ctx context.Context, callerID string, projectID string, memberUserID string, dto *request.UpdateProjectMemberDto) (*response.ProjectResponse, error) {
+func (s *projectService) UpdateMemberRole(ctx context.Context, callerID string, projectID string, memberUserID string, dto *request.UpdateProjectMemberDto) (*response.ProjectResponse, *fiber.Error) {
 	projectUUID, err := convert.StringToUUID(projectID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
 	}
 
-	if err := s.checkCallerIsOwner(ctx, callerID, projectUUID); err != nil {
-		return nil, err
+	if fErr := s.checkCallerIsOwner(ctx, callerID, projectUUID); fErr != nil {
+		return nil, fErr
 	}
 
 	memberUUID, err := convert.StringToUUID(memberUserID)
@@ -348,14 +348,14 @@ func (s *projectService) UpdateMemberRole(ctx context.Context, callerID string, 
 	return project.ToResponse(), nil
 }
 
-func (s *projectService) RemoveMember(ctx context.Context, callerID string, projectID string, memberUserID string) error {
+func (s *projectService) RemoveMember(ctx context.Context, callerID string, projectID string, memberUserID string) *fiber.Error {
 	projectUUID, err := convert.StringToUUID(projectID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
 	}
 
-	if err := s.checkCallerIsOwner(ctx, callerID, projectUUID); err != nil {
-		return err
+	if fErr := s.checkCallerIsOwner(ctx, callerID, projectUUID); fErr != nil {
+		return fErr
 	}
 
 	memberUUID, err := convert.StringToUUID(memberUserID)
@@ -378,14 +378,14 @@ func (s *projectService) RemoveMember(ctx context.Context, callerID string, proj
 	return nil
 }
 
-func (s *projectService) ChangeOwner(ctx context.Context, callerID string, projectID string, newOwnerID string) (*response.ProjectResponse, error) {
+func (s *projectService) ChangeOwner(ctx context.Context, callerID string, projectID string, newOwnerID string) (*response.ProjectResponse, *fiber.Error) {
 	projectUUID, err := convert.StringToUUID(projectID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
 	}
 
-	if err := s.checkCallerIsOwner(ctx, callerID, projectUUID); err != nil {
-		return nil, err
+	if fErr := s.checkCallerIsOwner(ctx, callerID, projectUUID); fErr != nil {
+		return nil, fErr
 	}
 
 	if callerID == newOwnerID {

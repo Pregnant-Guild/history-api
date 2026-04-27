@@ -8,8 +8,8 @@ import (
 )
 
 type TileService interface {
-	GetMetadata(ctx context.Context) (map[string]string, error)
-	GetTile(ctx context.Context, z, x, y int) ([]byte, map[string]string, error)
+	GetMetadata(ctx context.Context) (map[string]string, *fiber.Error)
+	GetTile(ctx context.Context, z, x, y int) ([]byte, map[string]string, *fiber.Error)
 }
 
 type tileService struct {
@@ -24,21 +24,21 @@ func NewTileService(
 	}
 }
 
-func (t *tileService) GetMetadata(ctx context.Context) (map[string]string, error) {
+func (t *tileService) GetMetadata(ctx context.Context) (map[string]string, *fiber.Error) {
 	metaData, err := t.tileRepo.GetMetadata(ctx)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch map metadata")
 	}
 	return metaData, nil
 }
 
 
-func (t *tileService) GetTile(ctx context.Context, z, x, y int) ([]byte, map[string]string, error) {
+func (t *tileService) GetTile(ctx context.Context, z, x, y int) ([]byte, map[string]string, *fiber.Error) {
 	contentType := make(map[string]string)
 
 	data, format, isPBF, err := t.tileRepo.GetTile(ctx, z, x, y)
 	if err != nil {
-		return nil, contentType, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, contentType, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch tile data")
 	}
 	switch format {
 	case "pbf":

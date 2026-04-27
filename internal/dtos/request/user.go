@@ -19,7 +19,7 @@ type ChangePasswordDto struct {
 }
 
 type ChangeRoleDto struct {
-	Roles  []string `json:"role_ids" validate:"required,min=1,dive,required,uuid"`
+	Roles []string `json:"role_ids" validate:"required,min=1,dive,required,uuid"`
 }
 
 type PaginationDto struct {
@@ -37,4 +37,11 @@ type SearchUserDto struct {
 	AuthProvider string     `json:"auth_provider" query:"auth_provider" validate:"omitempty,oneof=local google facebook github"`
 	CreatedFrom  *time.Time `json:"created_from" query:"created_from" validate:"omitempty"`
 	CreatedTo    *time.Time `json:"created_to" query:"created_to" validate:"omitempty"`
+}
+
+type CreateUserDto struct {
+	Email       string   `json:"email" validate:"required,email"`
+	Password    string   `json:"password" validate:"required,min=8,max=64"`
+	DisplayName string   `json:"display_name" validate:"required,min=2,max=50"`
+	Roles       []string `json:"role_ids" validate:"required,min=1,dive,required,uuid"`
 }

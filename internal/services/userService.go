@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
@@ -22,15 +24,16 @@ import (
 
 type UserService interface {
 	//user
-	UpdateProfile(ctx context.Context, userId string, dto *request.UpdateProfileDto) (*response.UserResponse, error)
-	ChangePassword(ctx context.Context, userId string, dto *request.ChangePasswordDto) error
+	UpdateProfile(ctx context.Context, userId string, dto *request.UpdateProfileDto) (*response.UserResponse, *fiber.Error)
+	ChangePassword(ctx context.Context, userId string, dto *request.ChangePasswordDto) *fiber.Error
 
 	//admin
-	DeleteUser(ctx context.Context, userId string) error
-	ChangeRoleUser(ctx context.Context, userId string, claims *response.JWTClaims, dto *request.ChangeRoleDto) (*response.UserResponse, error)
-	RestoreUser(ctx context.Context, userId string) (*response.UserResponse, error)
-	GetUserByID(ctx context.Context, userId string) (*response.UserResponse, error)
-	SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, error)
+	CreateUser(ctx context.Context, dto *request.CreateUserDto) (*response.UserResponse, *fiber.Error)
+	DeleteUser(ctx context.Context, userId string) *fiber.Error
+	ChangeRoleUser(ctx context.Context, userId string, claims *response.JWTClaims, dto *request.ChangeRoleDto) (*response.UserResponse, *fiber.Error)
+	RestoreUser(ctx context.Context, userId string) (*response.UserResponse, *fiber.Error)
+	GetUserByID(ctx context.Context, userId string) (*response.UserResponse, *fiber.Error)
+	SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, *fiber.Error)
 }
 
 type userService struct {
@@ -45,7 +48,6 @@ func NewUserService(
 	roleRepo repositories.RoleRepository,
 	c cache.Cache,
 	db *pgxpool.Pool,
-
 ) UserService {
 	return &userService{
 		userRepo: userRepo,
@@ -55,7 +57,80 @@ func NewUserService(
 	}
 }
 
-func (u *userService) ChangePassword(ctx context.Context, userId string, dto *request.ChangePasswordDto) error {
+func (u *userService) CreateUser(ctx context.Context, dto *request.CreateUserDto) (*response.UserResponse, *fiber.Error) {
+	tx, err := u.db.Begin(ctx)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
+	}
+	defer tx.Rollback(ctx)
+
+	uRepo := u.userRepo.WithTx(tx)
+	rRepo := u.roleRepo.WithTx(tx)
+
+	existingUser, err := u.userRepo.GetByEmail(ctx, dto.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to check existing user")
+	}
+	if existingUser != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "User already exists")
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(dto.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to hash password")
+	}
+
+	user, err := uRepo.UpsertUser(ctx, sqlc.UpsertUserParams{
+		Email:        dto.Email,
+		PasswordHash: pgtype.Text{String: string(hashed), Valid: true},
+		AuthProvider: constants.ProviderTypeLocal.String(),
+	})
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create user")
+	}
+
+	userUUID, err := convert.StringToUUID(user.ID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
+	}
+
+	_, err = uRepo.CreateProfile(ctx, sqlc.CreateUserProfileParams{
+		UserID:      userUUID,
+		DisplayName: pgtype.Text{String: dto.DisplayName, Valid: true},
+	})
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create user profile")
+	}
+
+	var roleIdList []pgtype.UUID
+	for _, rId := range dto.Roles {
+		rid, err := convert.StringToUUID(rId)
+		if err == nil {
+			roleIdList = append(roleIdList, rid)
+		}
+	}
+
+	err = rRepo.CreateUserRole(ctx, sqlc.CreateUserRoleParams{
+		UserID:  userUUID,
+		Column2: roleIdList,
+	})
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to assign roles")
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
+	}
+	
+	finalUser, err := u.userRepo.GetByID(ctx, userUUID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch created user")
+	}
+
+	return finalUser.ToResponse(), nil
+}
+
+func (u *userService) ChangePassword(ctx context.Context, userId string, dto *request.ChangePasswordDto) *fiber.Error {
 	tx, err := u.db.Begin(ctx)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
@@ -66,11 +141,11 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 
 	pgID, err := convert.StringToUUID(userId)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
 	}
 	user, err := u.userRepo.GetByID(ctx, pgID)
 	if err != nil {
-		return fiber.NewError(fiber.StatusNotFound, err.Error())
+		return fiber.NewError(fiber.StatusNotFound, "Failed to fetch user")
 	}
 	if user == nil {
 		return fiber.NewError(fiber.StatusNotFound, "User not found")
@@ -81,15 +156,15 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 			return fiber.NewError(fiber.StatusBadRequest, "Old password required")
 		}
 		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(dto.OldPassword)); err != nil {
-			return fiber.NewError(fiber.StatusUnauthorized, "Invalid password!")
+			return fiber.NewError(fiber.StatusUnauthorized, "Invalid old password")
 		}
 	} else if user.PasswordHash == "" && dto.OldPassword != "" {
-		return fiber.NewError(fiber.StatusBadRequest, "Invalid request")
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid request: user has no password")
 	}
 
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(dto.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to hash new password")
 	}
 
 	err = uRepo.UpdatePassword(ctx, sqlc.UpdateUserPasswordParams{
@@ -97,7 +172,7 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 		PasswordHash: pgtype.Text{String: string(hashPassword), Valid: true},
 	})
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to update password")
 	}
 
 	err = uRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
@@ -105,7 +180,7 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 		TokenVersion: user.TokenVersion + 1,
 	})
 	if err != nil {
-		return err
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to update token version")
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -114,7 +189,7 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 	return nil
 }
 
-func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims *response.JWTClaims, dto *request.ChangeRoleDto) (*response.UserResponse, error) {
+func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims *response.JWTClaims, dto *request.ChangeRoleDto) (*response.UserResponse, *fiber.Error) {
 	tx, err := u.db.Begin(ctx)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
@@ -126,12 +201,12 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 
 	userUUID, err := convert.StringToUUID(userId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
 	}
 
 	user, err := u.userRepo.GetByID(ctx, userUUID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusNotFound, err.Error())
+		return nil, fiber.NewError(fiber.StatusNotFound, "Failed to fetch user")
 	}
 	if user == nil {
 		return nil, fiber.NewError(fiber.StatusNotFound, "User not found")
@@ -139,7 +214,7 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 
 	newListRole, err := u.roleRepo.GetByIDs(ctx, dto.Roles)
 	if err != nil {
-		return nil, err
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch roles")
 	}
 
 	hasUserRole := false
@@ -163,20 +238,20 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 	}
 
 	if !hasUserRole {
-		return nil, fiber.NewError(fiber.StatusNotFound, "User must have the USER role")
+		return nil, fiber.NewError(fiber.StatusForbidden, "User must have the USER role")
 	}
 
 	if slices.Contains(claims.Roles, constants.RoleTypeMod) && !slices.Contains(claims.Roles, constants.RoleTypeAdmin) {
 		if hasAdminRole {
-			return nil, fiber.NewError(fiber.StatusForbidden, "MOD cannot assign ADMIN role to any user")
+			return nil, fiber.NewError(fiber.StatusForbidden, "MOD cannot assign ADMIN role")
 		}
 
 		if userId == claims.UId && !hasModRole {
-			return nil, fiber.NewError(fiber.StatusForbidden, "You can't remove MOD role of yourself")
+			return nil, fiber.NewError(fiber.StatusForbidden, "You cannot remove your own MOD role")
 		}
 
 		if userId == claims.UId && hasBannedRole {
-			return nil, fiber.NewError(fiber.StatusForbidden, "You can't assign BANNED role to yourself")
+			return nil, fiber.NewError(fiber.StatusForbidden, "You cannot ban yourself")
 		}
 		isTargetAdminOrMod := false
 		for _, r := range user.Roles {
@@ -186,17 +261,17 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 			}
 		}
 		if isTargetAdminOrMod && hasBannedRole {
-			return nil, fiber.NewError(fiber.StatusForbidden, "MOD cannot assign BANNED role to an ADMIN or MOD user")
+			return nil, fiber.NewError(fiber.StatusForbidden, "MOD cannot ban an ADMIN or MOD")
 		}
 	}
 
 	if slices.Contains(claims.Roles, constants.RoleTypeAdmin) {
 		if userId == claims.UId && hasBannedRole {
-			return nil, fiber.NewError(fiber.StatusForbidden, "You can't assign BANNED role to yourself")
+			return nil, fiber.NewError(fiber.StatusForbidden, "You cannot ban yourself")
 		}
 
 		if userId == claims.UId && !hasAdminRole {
-			return nil, fiber.NewError(fiber.StatusForbidden, "You can't remove ADMIN role of yourself")
+			return nil, fiber.NewError(fiber.StatusForbidden, "You cannot remove your own ADMIN role")
 		}
 	}
 
@@ -213,7 +288,7 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 
 	err = rRepo.BulkDeleteRolesFromUser(ctx, userUUID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to clear old roles")
 	}
 
 	err = rRepo.CreateUserRole(ctx, sqlc.CreateUserRoleParams{
@@ -221,7 +296,7 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 		Column2: roleIdList,
 	})
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create new roles")
 	}
 
 	err = uRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
@@ -229,13 +304,13 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 		TokenVersion: user.TokenVersion + 1,
 	})
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update token version")
 	}
 	user.TokenVersion += 1
 
 	err = tx.Commit(ctx)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
 	}
 
 	mapCache := map[string]any{
@@ -247,33 +322,33 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 	return user.ToResponse(), nil
 }
 
-func (u *userService) DeleteUser(ctx context.Context, userId string) error {
+func (u *userService) DeleteUser(ctx context.Context, userId string) *fiber.Error {
 	pgID, err := convert.StringToUUID(userId)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
 	}
 	user, err := u.userRepo.GetByID(ctx, pgID)
 	if err != nil {
-		return fiber.NewError(fiber.StatusNotFound, err.Error())
+		return fiber.NewError(fiber.StatusNotFound, "Failed to fetch user")
 	}
 	if user == nil {
 		return fiber.NewError(fiber.StatusNotFound, "User not found")
 	}
 	err = u.userRepo.Delete(ctx, pgID)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to delete user")
 	}
 	return nil
 }
 
-func (u *userService) UpdateProfile(ctx context.Context, userId string, dto *request.UpdateProfileDto) (*response.UserResponse, error) {
+func (u *userService) UpdateProfile(ctx context.Context, userId string, dto *request.UpdateProfileDto) (*response.UserResponse, *fiber.Error) {
 	pgID, err := convert.StringToUUID(userId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
 	}
 	user, err := u.userRepo.GetByID(ctx, pgID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusNotFound, err.Error())
+		return nil, fiber.NewError(fiber.StatusNotFound, "Failed to fetch user")
 	}
 	if user == nil {
 		return nil, fiber.NewError(fiber.StatusNotFound, "User not found")
@@ -294,20 +369,20 @@ func (u *userService) UpdateProfile(ctx context.Context, userId string, dto *req
 		},
 	)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update profile")
 	}
 	return newUser.ToResponse(), nil
 }
 
-func (u *userService) RestoreUser(ctx context.Context, userId string) (*response.UserResponse, error) {
+func (u *userService) RestoreUser(ctx context.Context, userId string) (*response.UserResponse, *fiber.Error) {
 	pgID, err := convert.StringToUUID(userId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
 	}
 
 	user, err := u.userRepo.GetByIDWithoutDeleted(ctx, pgID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusNotFound, err.Error())
+		return nil, fiber.NewError(fiber.StatusNotFound, "Failed to fetch user")
 	}
 	if user == nil {
 		return nil, fiber.NewError(fiber.StatusNotFound, "User not found")
@@ -315,7 +390,7 @@ func (u *userService) RestoreUser(ctx context.Context, userId string) (*response
 
 	err = u.userRepo.Restore(ctx, pgID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to restore user")
 	}
 	user.IsDeleted = false
 	return user.ToResponse(), nil
@@ -362,7 +437,7 @@ func (m *userService) fillSearchArgs(arg *sqlc.SearchUsersParams, dto *request.S
 	}
 }
 
-func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, error) {
+func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, *fiber.Error) {
 	if dto.Page < 1 {
 		dto.Page = 1
 	}
@@ -404,7 +479,7 @@ func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto
 	})
 
 	if err := g.Wait(); err != nil {
-		return nil, err
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search users")
 	}
 
 	users := models.UsersEntityToResponse(rows)
@@ -412,14 +487,17 @@ func (u *userService) SearchUser(ctx context.Context, dto *request.SearchUserDto
 	return response.BuildPaginatedResponse(users, totalRecords, dto.Page, dto.Limit), nil
 }
 
-func (u *userService) GetUserByID(ctx context.Context, userId string) (*response.UserResponse, error) {
+func (u *userService) GetUserByID(ctx context.Context, userId string) (*response.UserResponse, *fiber.Error) {
 	pgID, err := convert.StringToUUID(userId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
 	}
 	user, err := u.userRepo.GetByID(ctx, pgID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusNotFound, err.Error())
+		return nil, fiber.NewError(fiber.StatusNotFound, "Failed to fetch user")
+	}
+	if user == nil {
+		return nil, fiber.NewError(fiber.StatusNotFound, "User not found")
 	}
 	return user.ToResponse(), nil
 }

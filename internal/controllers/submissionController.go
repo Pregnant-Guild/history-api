@@ -53,9 +53,9 @@ func (s *submissionController) CreateSubmission(c fiber.Ctx) error {
 
 	res, err := s.submissionService.CreateSubmission(ctx, c.Locals("uid").(string), dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -92,9 +92,9 @@ func (s *submissionController) UpdateSubmissionStatus(c fiber.Ctx) error {
 
 	res, err := s.submissionService.UpdateSubmissionStatus(ctx, uid, id, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -119,9 +119,9 @@ func (s *submissionController) GetSubmissionByID(c fiber.Ctx) error {
 	id := c.Params("id")
 	res, err := s.submissionService.GetSubmissionByID(ctx, id)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -155,9 +155,9 @@ func (s *submissionController) SearchSubmissions(c fiber.Ctx) error {
 
 	res, err := s.submissionService.SearchSubmissions(ctx, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -200,14 +200,14 @@ func (s *submissionController) DeleteSubmission(c fiber.Ctx) error {
 
 	err := s.submissionService.DeleteSubmission(ctx, c.Locals("uid").(string), id, claims)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
-		Status: true,
+		Status:  true,
 		Message: "Submission deleted successfully",
 	})
 }

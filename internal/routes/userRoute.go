@@ -104,4 +104,11 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 		controller.SearchUser,
 	)
 
+	route.Post(
+		"/",
+		middlewares.JwtAccess(userRepo),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
+		controller.CreateUser,
+	)
+
 }

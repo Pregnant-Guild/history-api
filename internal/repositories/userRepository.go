@@ -143,6 +143,8 @@ func (r *userRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.U
 		Email:        row.Email,
 		PasswordHash: convert.TextToString(row.PasswordHash),
 		TokenVersion: row.TokenVersion,
+		AuthProvider: row.AuthProvider,
+		GoogleID:     convert.TextToString(row.GoogleID),
 		IsDeleted:    row.IsDeleted,
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
@@ -180,6 +182,8 @@ func (r *userRepository) GetByIDWithoutDeleted(ctx context.Context, id pgtype.UU
 		PasswordHash: convert.TextToString(row.PasswordHash),
 		TokenVersion: row.TokenVersion,
 		IsDeleted:    row.IsDeleted,
+		AuthProvider: row.AuthProvider,
+		GoogleID:     convert.TextToString(row.GoogleID),
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
 	}
@@ -217,6 +221,8 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*models.
 		PasswordHash: convert.TextToString(row.PasswordHash),
 		TokenVersion: row.TokenVersion,
 		IsDeleted:    row.IsDeleted,
+		AuthProvider: row.AuthProvider,
+		GoogleID:     convert.TextToString(row.GoogleID),
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
 	}
@@ -251,6 +257,8 @@ func (r *userRepository) UpsertUser(ctx context.Context, params sqlc.UpsertUserP
 		PasswordHash: convert.TextToString(row.PasswordHash),
 		TokenVersion: row.TokenVersion,
 		IsDeleted:    row.IsDeleted,
+		AuthProvider: row.AuthProvider,
+		GoogleID:     convert.TextToString(row.GoogleID),
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
 		Roles:        make([]*models.RoleSimple, 0),
@@ -325,6 +333,8 @@ func (r *userRepository) Search(ctx context.Context, params sqlc.SearchUsersPara
 			PasswordHash: convert.TextToString(row.PasswordHash),
 			TokenVersion: row.TokenVersion,
 			IsDeleted:    row.IsDeleted,
+			AuthProvider: row.AuthProvider,
+			GoogleID:     convert.TextToString(row.GoogleID),
 			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
 		}
@@ -386,6 +396,7 @@ func (r *userRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 	)
 	go func() {
 		bgCtx := context.Background()
+		_ = r.c.DelByPattern(bgCtx, "user:search*")
 		_ = r.c.DelByPattern(bgCtx, "user:count*")
 	}()
 	return nil
@@ -402,6 +413,11 @@ func (r *userRepository) Restore(ctx context.Context, id pgtype.UUID) error {
 		fmt.Sprintf("user:email:%s", convert.UUIDToString(id)),
 		fmt.Sprintf("user:id:%s", convert.UUIDToString(id)),
 	)
+	go func() {
+		bgCtx := context.Background()
+		_ = r.c.DelByPattern(bgCtx, "user:search*")
+		_ = r.c.DelByPattern(bgCtx, "user:count*")
+	}()
 	return nil
 }
 

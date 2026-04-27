@@ -8,6 +8,8 @@ type UserResponse struct {
 	Profile      *UserProfileSimpleResponse `json:"profile,omitempty"`
 	TokenVersion int32                      `json:"token_version,omitempty"`
 	IsDeleted    bool                       `json:"is_deleted,omitempty"`
+	AuthProvider string                     `json:"auth_provider,omitempty"`
+	GoogleID     string                     `json:"google_id,omitempty"`
 	CreatedAt    *time.Time                 `json:"created_at,omitempty"`
 	UpdatedAt    *time.Time                 `json:"updated_at,omitempty"`
 	Roles        []*RoleSimpleResponse      `json:"roles,omitempty"`

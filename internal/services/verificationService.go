@@ -20,12 +20,12 @@ import (
 )
 
 type VerificationService interface {
-	GetVerificationByID(ctx context.Context, verificationId string) (*response.UserVerificationResponse, error)
-	GetVerificationByUserID(ctx context.Context, userId string) ([]*response.UserVerificationResponse, error)
-	SearchVerification(ctx context.Context, dto *request.SearchUserVerificationDto) (*response.PaginatedResponse, error)
-	DeleteVerification(ctx context.Context, claims *response.JWTClaims, verificationId string) error
-	CreateVerification(ctx context.Context, userId string, dto *request.CreateUserVerificationDto) (*response.UserVerificationResponse, error)
-	UpdateStatusVerification(ctx context.Context, userId string, verificationId string, dto *request.UpdateVerificationStatusDto) (*response.UserVerificationResponse, error)
+	GetVerificationByID(ctx context.Context, verificationId string) (*response.UserVerificationResponse, *fiber.Error)
+	GetVerificationByUserID(ctx context.Context, userId string) ([]*response.UserVerificationResponse, *fiber.Error)
+	SearchVerification(ctx context.Context, dto *request.SearchUserVerificationDto) (*response.PaginatedResponse, *fiber.Error)
+	DeleteVerification(ctx context.Context, claims *response.JWTClaims, verificationId string) *fiber.Error
+	CreateVerification(ctx context.Context, userId string, dto *request.CreateUserVerificationDto) (*response.UserVerificationResponse, *fiber.Error)
+	UpdateStatusVerification(ctx context.Context, userId string, verificationId string, dto *request.UpdateVerificationStatusDto) (*response.UserVerificationResponse, *fiber.Error)
 }
 
 type verificationService struct {
@@ -55,24 +55,24 @@ func NewVerificationService(
 	}
 }
 
-func (v *verificationService) CreateVerification(ctx context.Context, userId string, dto *request.CreateUserVerificationDto) (*response.UserVerificationResponse, error) {
+func (v *verificationService) CreateVerification(ctx context.Context, userId string, dto *request.CreateUserVerificationDto) (*response.UserVerificationResponse, *fiber.Error) {
 	verifyType := constants.ParseVerifyTypeText(dto.VerifyType)
 	if verifyType == constants.VerifyTypeUnknown {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Unknown verify type!")
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Unknown verify type!")
 	}
 
 	pgID, err := convert.StringToUUID(userId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid user ID format")
 	}
 
 	mediaList, err := v.mediaRepo.GetByIDs(ctx, dto.MediaIDs)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch media")
 	}
 
 	if len(mediaList) != len(dto.MediaIDs) {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Some media IDs are invalid!")
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Some media IDs are invalid!")
 	}
 
 	item, err := v.verificationRepo.Create(
@@ -84,19 +84,19 @@ func (v *verificationService) CreateVerification(ctx context.Context, userId str
 		},
 	)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create verification")
 	}
 
 	itemId, err := convert.StringToUUID(item.ID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid verification ID")
 	}
 
 	mediaIdList := make([]pgtype.UUID, 0)
 	for _, it := range mediaList {
 		mediaId, err := convert.StringToUUID(it.ID)
 		if err != nil {
-			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+			continue
 		}
 		mediaIdList = append(mediaIdList, mediaId)
 		item.Media = append(item.Media, it.ToSimpleEntity())
@@ -110,21 +110,21 @@ func (v *verificationService) CreateVerification(ctx context.Context, userId str
 		},
 	)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to link media to verification")
 	}
 
 	return item.ToResponse(), nil
 }
 
-func (v *verificationService) DeleteVerification(ctx context.Context, claims *response.JWTClaims, verificationId string) error {
+func (v *verificationService) DeleteVerification(ctx context.Context, claims *response.JWTClaims, verificationId string) *fiber.Error {
 	verificationIdUUID, err := convert.StringToUUID(verificationId)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid verification ID format")
 	}
 
 	verification, err := v.verificationRepo.GetByID(ctx, verificationIdUUID)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusNotFound, "Verification not found")
 	}
 
 	shoudDelete := false
@@ -142,32 +142,32 @@ func (v *verificationService) DeleteVerification(ctx context.Context, claims *re
 
 	err = v.verificationRepo.Delete(ctx, verificationIdUUID)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to delete verification")
 	}
 
 	return nil
 }
 
-func (v *verificationService) GetVerificationByID(ctx context.Context, verificationId string) (*response.UserVerificationResponse, error) {
+func (v *verificationService) GetVerificationByID(ctx context.Context, verificationId string) (*response.UserVerificationResponse, *fiber.Error) {
 	verificationUUID, err := convert.StringToUUID(verificationId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid verification ID format")
 	}
 	verification, err := v.verificationRepo.GetByID(ctx, verificationUUID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusNotFound, "Verification not found")
 	}
 	return verification.ToResponse(), nil
 }
 
-func (v *verificationService) GetVerificationByUserID(ctx context.Context, userId string) ([]*response.UserVerificationResponse, error) {
+func (v *verificationService) GetVerificationByUserID(ctx context.Context, userId string) ([]*response.UserVerificationResponse, *fiber.Error) {
 	userUUID, err := convert.StringToUUID(userId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid user ID format")
 	}
 	verifications, err := v.verificationRepo.GetByUserID(ctx, userUUID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch user verifications")
 	}
 	return models.UserVerificationsEntitiesToResponse(verifications), nil
 }
@@ -227,7 +227,7 @@ func (m *verificationService) fillSearchArgs(arg *sqlc.SearchUserVerificationsPa
 	}
 }
 
-func (v *verificationService) SearchVerification(ctx context.Context, dto *request.SearchUserVerificationDto) (*response.PaginatedResponse, error) {
+func (v *verificationService) SearchVerification(ctx context.Context, dto *request.SearchUserVerificationDto) (*response.PaginatedResponse, *fiber.Error) {
 	if dto.Page < 1 {
 		dto.Page = 1
 	}
@@ -270,7 +270,7 @@ func (v *verificationService) SearchVerification(ctx context.Context, dto *reque
 	})
 
 	if err := g.Wait(); err != nil {
-		return nil, err
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search verifications")
 	}
 
 	verifications := models.UserVerificationsEntitiesToResponse(rows)
@@ -278,7 +278,7 @@ func (v *verificationService) SearchVerification(ctx context.Context, dto *reque
 	return response.BuildPaginatedResponse(verifications, totalRecords, dto.Page, dto.Limit), nil
 }
 
-func (v *verificationService) UpdateStatusVerification(ctx context.Context, userId string, verificationId string, dto *request.UpdateVerificationStatusDto) (*response.UserVerificationResponse, error) {
+func (v *verificationService) UpdateStatusVerification(ctx context.Context, userId string, verificationId string, dto *request.UpdateVerificationStatusDto) (*response.UserVerificationResponse, *fiber.Error) {
 	tx, err := v.db.Begin(ctx)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
@@ -287,45 +287,45 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 
 	statusType := constants.ParseStatusTypeText(dto.Status)
 	if statusType == constants.StatusTypeUnknown {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Unknown status type!")
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Unknown status type!")
 	}
 	verificationUUID, err := convert.StringToUUID(verificationId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid verification ID format")
 	}
 
 	userAdminUUID, err := convert.StringToUUID(userId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid reviewer ID format")
 	}
 
 	historianRole, err := v.roleRepo.GetByName(ctx, constants.RoleTypeHistorian.String())
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch historian role")
 	}
 
 	historianRoleID, err := convert.StringToUUID(historianRole.ID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid historian role ID")
 	}
 
 	verification, err := v.verificationRepo.GetByID(ctx, verificationUUID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusNotFound, "Verification not found")
 	}
 
 	if verification.Status != constants.StatusTypePending {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid status!")
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Verification already processed!")
 	}
 
 	userVerificationUUID, err := convert.StringToUUID(verification.User.ID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID in verification")
 	}
 
 	userVerification, err := v.userRepo.GetByID(ctx, userVerificationUUID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch user data")
 	}
 
 	vRepoTx := v.verificationRepo.WithTx(tx)
@@ -342,7 +342,7 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 		},
 	)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update status")
 	}
 
 	verification.Status = statusType
@@ -370,7 +370,7 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 
 		err = rRepoTx.BulkDeleteRolesFromUser(ctx, userVerificationUUID)
 		if err != nil {
-			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to clear old roles")
 		}
 
 		err = rRepoTx.CreateUserRole(ctx, sqlc.CreateUserRoleParams{
@@ -378,7 +378,7 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 			Column2: roleIdList,
 		})
 		if err != nil {
-			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create new roles")
 		}
 
 		err = uRepoTx.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
@@ -386,7 +386,7 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 			TokenVersion: userVerification.TokenVersion + 1,
 		})
 		if err != nil {
-			return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update token version")
 		}
 		userVerification.TokenVersion += 1
 

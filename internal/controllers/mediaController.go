@@ -36,9 +36,9 @@ func (m *MediaController) GetMediaByID(c fiber.Ctx) error {
 	mediaId := c.Params("id")
 	res, err := m.service.GetMediaByID(ctx, mediaId)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -66,15 +66,15 @@ func (m *MediaController) SearchMedia(c fiber.Ctx) error {
 	dto := &request.SearchMediaDto{}
 	if err := validator.ValidateQueryDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
 	res, err := m.service.SearchMedia(ctx, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(res)
@@ -113,9 +113,9 @@ func (m *MediaController) DeleteMedia(c fiber.Ctx) error {
 	mediaId := c.Params("id")
 	err := m.service.DeleteMedia(ctx, claims, mediaId)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -157,16 +157,16 @@ func (m *MediaController) BulkDeleteMedia(c fiber.Ctx) error {
 	dto := &request.MediaBulkDeleteDto{}
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
 
 	err := m.service.BulkDeleteMedia(ctx, claims, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -198,11 +198,11 @@ func (m *MediaController) UploadServerSide(c fiber.Ctx) error {
 		})
 	}
 
-	url, err := m.service.UploadServerSide(ctx, c.Locals("uid").(string), fileHeader)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+	url, err2 := m.service.UploadServerSide(ctx, c.Locals("uid").(string), fileHeader)
+	if err2 != nil {
+		return c.Status(err2.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err2.Message,
 		})
 	}
 
@@ -232,15 +232,15 @@ func (m *MediaController) GeneratePresignedURL(c fiber.Ctx) error {
 	dto := &request.PreSignedDto{}
 	if err := validator.ValidateQueryDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
 	res, err := m.service.GeneratePresignedURL(ctx, c.Locals("uid").(string), dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(res)
@@ -265,15 +265,15 @@ func (m *MediaController) PreSignedCompleted(c fiber.Ctx) error {
 	dto := &request.PreSignedCompleteDto{}
 	if err := validator.ValidateBodyDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
-			Status:  false,
+			Status: false,
 			Errors: err,
 		})
 	}
 	res, err := m.service.PreSignedCompleted(ctx, c.Locals("uid").(string), dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(res)

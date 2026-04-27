@@ -28,14 +28,14 @@ import (
 )
 
 type MediaService interface {
-	GetMediaByID(ctx context.Context, mediaId string) (*response.MediaResponse, error)
-	GetMediaByUserID(ctx context.Context, userId string) ([]*response.MediaResponse, error)
-	SearchMedia(ctx context.Context, dto *request.SearchMediaDto) (*response.PaginatedResponse, error)
-	DeleteMedia(ctx context.Context, claims *response.JWTClaims, mediaId string) error
-	BulkDeleteMedia(ctx context.Context, claims *response.JWTClaims, dto *request.MediaBulkDeleteDto) error
-	UploadServerSide(ctx context.Context, userId string, fileHeader *multipart.FileHeader) (*response.MediaResponse, error)
-	GeneratePresignedURL(ctx context.Context, userId string, dto *request.PreSignedDto) (*response.PreSignedResponse, error)
-	PreSignedCompleted(ctx context.Context, userId string, dto *request.PreSignedCompleteDto) (*response.MediaResponse, error)
+	GetMediaByID(ctx context.Context, mediaId string) (*response.MediaResponse, *fiber.Error)
+	GetMediaByUserID(ctx context.Context, userId string) ([]*response.MediaResponse, *fiber.Error)
+	SearchMedia(ctx context.Context, dto *request.SearchMediaDto) (*response.PaginatedResponse, *fiber.Error)
+	DeleteMedia(ctx context.Context, claims *response.JWTClaims, mediaId string) *fiber.Error
+	BulkDeleteMedia(ctx context.Context, claims *response.JWTClaims, dto *request.MediaBulkDeleteDto) *fiber.Error
+	UploadServerSide(ctx context.Context, userId string, fileHeader *multipart.FileHeader) (*response.MediaResponse, *fiber.Error)
+	GeneratePresignedURL(ctx context.Context, userId string, dto *request.PreSignedDto) (*response.PreSignedResponse, *fiber.Error)
+	PreSignedCompleted(ctx context.Context, userId string, dto *request.PreSignedCompleteDto) (*response.MediaResponse, *fiber.Error)
 }
 
 type mediaService struct {
@@ -59,15 +59,15 @@ func NewMediaService(
 	}
 }
 
-func (m *mediaService) DeleteMedia(ctx context.Context, claims *response.JWTClaims, mediaId string) error {
+func (m *mediaService) DeleteMedia(ctx context.Context, claims *response.JWTClaims, mediaId string) *fiber.Error {
 	mediaIdUUID, err := convert.StringToUUID(mediaId)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid media ID format")
 	}
 
 	media, err := m.mediaRepo.GetByID(ctx, mediaIdUUID)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusNotFound, "Media not found")
 	}
 
 	shoudDelete := false
@@ -81,7 +81,7 @@ func (m *mediaService) DeleteMedia(ctx context.Context, claims *response.JWTClai
 
 	err = m.mediaRepo.Delete(ctx, mediaIdUUID)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to delete media from database")
 	}
 
 	m.c.PublishTask(ctx, constants.StreamStorageName, constants.TaskTypeDeleteMedia, media.ToStorageEntity())
@@ -89,24 +89,24 @@ func (m *mediaService) DeleteMedia(ctx context.Context, claims *response.JWTClai
 	return nil
 }
 
-func (m *mediaService) BulkDeleteMedia(ctx context.Context, claims *response.JWTClaims, dto *request.MediaBulkDeleteDto) error {
+func (m *mediaService) BulkDeleteMedia(ctx context.Context, claims *response.JWTClaims, dto *request.MediaBulkDeleteDto) *fiber.Error {
 	listMedia, err := m.mediaRepo.GetByIDs(ctx, dto.MediaIDs)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch media list")
 	}
 	shoudDelete := false
 	if slices.Contains(claims.Roles, constants.RoleTypeAdmin) || slices.Contains(claims.Roles, constants.RoleTypeMod) {
 		shoudDelete = true
 	}
-	listMediaIds := make([]pgtype.UUID, len(listMedia))
-	listMediaStorageEntities := make([]*models.MediaStorageEntity, len(listMedia))
+	listMediaIds := make([]pgtype.UUID, 0)
+	listMediaStorageEntities := make([]*models.MediaStorageEntity, 0)
 	for _, media := range listMedia {
 		if media.UserID != claims.UId && !shoudDelete {
-			return fiber.NewError(fiber.StatusForbidden, "You don't have permission to delete this media")
+			return fiber.NewError(fiber.StatusForbidden, "You don't have permission to delete media "+media.ID)
 		}
 		id, err := convert.StringToUUID(media.ID)
 		if err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+			continue
 		}
 		listMediaIds = append(listMediaIds, id)
 		listMediaStorageEntities = append(listMediaStorageEntities, media.ToStorageEntity())
@@ -114,7 +114,7 @@ func (m *mediaService) BulkDeleteMedia(ctx context.Context, claims *response.JWT
 
 	err = m.mediaRepo.BulkDelete(ctx, listMediaIds)
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to bulk delete media from database")
 	}
 
 	m.c.PublishTask(ctx, constants.StreamStorageName, constants.TaskTypeBulkDeleteMedia, listMediaStorageEntities)
@@ -122,26 +122,26 @@ func (m *mediaService) BulkDeleteMedia(ctx context.Context, claims *response.JWT
 	return nil
 }
 
-func (m *mediaService) GetMediaByID(ctx context.Context, id string) (*response.MediaResponse, error) {
+func (m *mediaService) GetMediaByID(ctx context.Context, id string) (*response.MediaResponse, *fiber.Error) {
 	mediaId, err := convert.StringToUUID(id)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid media ID format")
 	}
 	media, err := m.mediaRepo.GetByID(ctx, mediaId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusNotFound, "Media not found")
 	}
 	return media.ToResponse(), nil
 }
 
-func (m *mediaService) GetMediaByUserID(ctx context.Context, id string) ([]*response.MediaResponse, error) {
+func (m *mediaService) GetMediaByUserID(ctx context.Context, id string) ([]*response.MediaResponse, *fiber.Error) {
 	userId, err := convert.StringToUUID(id)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid user ID format")
 	}
 	medias, err := m.mediaRepo.GetByUserID(ctx, userId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch user media")
 	}
 	return models.MediaEntitiesToResponse(medias), nil
 }
@@ -183,7 +183,7 @@ func (m *mediaService) fillSearchArgs(arg *sqlc.SearchMediasParams, dto *request
 	}
 }
 
-func (m *mediaService) SearchMedia(ctx context.Context, dto *request.SearchMediaDto) (*response.PaginatedResponse, error) {
+func (m *mediaService) SearchMedia(ctx context.Context, dto *request.SearchMediaDto) (*response.PaginatedResponse, *fiber.Error) {
 	if dto.Page < 1 {
 		dto.Page = 1
 	}
@@ -224,17 +224,17 @@ func (m *mediaService) SearchMedia(ctx context.Context, dto *request.SearchMedia
 	})
 
 	if err := g.Wait(); err != nil {
-		return nil, err
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search media")
 	}
 	media := models.MediaEntitiesToResponse(rows)
 
 	return response.BuildPaginatedResponse(media, totalRecords, dto.Page, dto.Limit), nil
 }
 
-func (m *mediaService) UploadServerSide(ctx context.Context, userId string, fileHeader *multipart.FileHeader) (*response.MediaResponse, error) {
+func (m *mediaService) UploadServerSide(ctx context.Context, userId string, fileHeader *multipart.FileHeader) (*response.MediaResponse, *fiber.Error) {
 	userIdUUID, err := convert.StringToUUID(userId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid user ID format")
 	}
 	file, err := fileHeader.Open()
 	if err != nil {
@@ -279,7 +279,7 @@ func (m *mediaService) UploadServerSide(ctx context.Context, userId string, file
 	})
 	if err != nil {
 		log.Err(err).Msg("Failed to upload file to storage")
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to upload file")
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to upload file to storage")
 	}
 
 	media, err := m.mediaRepo.Create(ctx, sqlc.CreateMediaParams{
@@ -291,12 +291,12 @@ func (m *mediaService) UploadServerSide(ctx context.Context, userId string, file
 		FileMetadata: mdByte,
 	})
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create media record")
 	}
 	return media.ToResponse(), nil
 }
 
-func (m *mediaService) GeneratePresignedURL(ctx context.Context, userId string, dto *request.PreSignedDto) (*response.PreSignedResponse, error) {
+func (m *mediaService) GeneratePresignedURL(ctx context.Context, userId string, dto *request.PreSignedDto) (*response.PreSignedResponse, *fiber.Error) {
 	fileExt := filepath.Ext(dto.FileName)
 	mid, err := uuid.NewV7()
 	if err != nil {
@@ -346,7 +346,7 @@ func (m *mediaService) GeneratePresignedURL(ctx context.Context, userId string, 
 	)
 
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Internal Server Error")
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create upload token")
 	}
 
 	return &response.PreSignedResponse{
@@ -360,7 +360,7 @@ func (m *mediaService) GeneratePresignedURL(ctx context.Context, userId string, 
 	}, nil
 }
 
-func (m *mediaService) PreSignedCompleted(ctx context.Context, userId string, dto *request.PreSignedCompleteDto) (*response.MediaResponse, error) {
+func (m *mediaService) PreSignedCompleted(ctx context.Context, userId string, dto *request.PreSignedCompleteDto) (*response.MediaResponse, *fiber.Error) {
 	token, err := m.tokenRepo.GetUploadToken(ctx, userId, dto.TokenID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get upload token")
@@ -370,7 +370,7 @@ func (m *mediaService) PreSignedCompleted(ctx context.Context, userId string, dt
 	}
 	userIdUUID, err := convert.StringToUUID(userId)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid user ID format")
 	}
 
 	err = m.s.Move(
@@ -386,7 +386,7 @@ func (m *mediaService) PreSignedCompleted(ctx context.Context, userId string, dt
 	)
 
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to move file to main storage")
 	}
 
 	media, err := m.mediaRepo.Create(ctx, sqlc.CreateMediaParams{

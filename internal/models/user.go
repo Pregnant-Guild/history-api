@@ -68,6 +68,8 @@ func (u *UserEntity) ToResponse() *response.UserResponse {
 		IsDeleted:    u.IsDeleted,
 		CreatedAt:    u.CreatedAt,
 		UpdatedAt:    u.UpdatedAt,
+		AuthProvider: u.AuthProvider,
+		GoogleID:     u.GoogleID,
 		Roles:        RolesToResponse(u.Roles),
 		Profile:      u.Profile.ToResponse(),
 	}

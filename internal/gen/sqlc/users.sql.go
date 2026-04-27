@@ -133,6 +133,8 @@ SELECT
     u.email,
     u.password_hash,
     u.token_version,
+    u.auth_provider,
+    u.google_id,
     u.is_deleted,
     u.created_at,
     u.updated_at,
@@ -171,6 +173,8 @@ type GetUserByEmailRow struct {
 	Email        string             `json:"email"`
 	PasswordHash pgtype.Text        `json:"password_hash"`
 	TokenVersion int32              `json:"token_version"`
+	AuthProvider string             `json:"auth_provider"`
+	GoogleID     pgtype.Text        `json:"google_id"`
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
@@ -186,6 +190,8 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.Email,
 		&i.PasswordHash,
 		&i.TokenVersion,
+		&i.AuthProvider,
+		&i.GoogleID,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -202,6 +208,8 @@ SELECT
     u.password_hash,
     u.token_version,
     u.refresh_token,
+    u.auth_provider,
+    u.google_id,
     u.is_deleted,
     u.created_at,
     u.updated_at,
@@ -243,6 +251,8 @@ type GetUserByIDRow struct {
 	PasswordHash pgtype.Text        `json:"password_hash"`
 	TokenVersion int32              `json:"token_version"`
 	RefreshToken pgtype.Text        `json:"refresh_token"`
+	AuthProvider string             `json:"auth_provider"`
+	GoogleID     pgtype.Text        `json:"google_id"`
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
@@ -259,6 +269,8 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDR
 		&i.PasswordHash,
 		&i.TokenVersion,
 		&i.RefreshToken,
+		&i.AuthProvider,
+		&i.GoogleID,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -275,6 +287,8 @@ SELECT
     u.password_hash,
     u.token_version,
     u.refresh_token,
+    u.auth_provider,
+    u.google_id,
     u.is_deleted,
     u.created_at,
     u.updated_at,
@@ -316,6 +330,8 @@ type GetUserByIDWithoutDeletedRow struct {
 	PasswordHash pgtype.Text        `json:"password_hash"`
 	TokenVersion int32              `json:"token_version"`
 	RefreshToken pgtype.Text        `json:"refresh_token"`
+	AuthProvider string             `json:"auth_provider"`
+	GoogleID     pgtype.Text        `json:"google_id"`
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
@@ -332,6 +348,8 @@ func (q *Queries) GetUserByIDWithoutDeleted(ctx context.Context, id pgtype.UUID)
 		&i.PasswordHash,
 		&i.TokenVersion,
 		&i.RefreshToken,
+		&i.AuthProvider,
+		&i.GoogleID,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -347,6 +365,8 @@ SELECT
     u.email, 
     u.password_hash, 
     u.token_version, 
+    u.auth_provider,
+    u.google_id,
     u.is_deleted, 
     u.created_at, 
     u.updated_at,
@@ -382,6 +402,8 @@ type GetUsersByIDsRow struct {
 	Email        string             `json:"email"`
 	PasswordHash pgtype.Text        `json:"password_hash"`
 	TokenVersion int32              `json:"token_version"`
+	AuthProvider string             `json:"auth_provider"`
+	GoogleID     pgtype.Text        `json:"google_id"`
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
@@ -403,6 +425,8 @@ func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]
 			&i.Email,
 			&i.PasswordHash,
 			&i.TokenVersion,
+			&i.AuthProvider,
+			&i.GoogleID,
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,

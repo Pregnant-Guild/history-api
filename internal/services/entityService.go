@@ -13,8 +13,8 @@ import (
 )
 
 type EntityService interface {
-	GetEntityByID(ctx context.Context, id string) (*response.EntityResponse, error)
-	SearchEntities(ctx context.Context, req *request.SearchEntityDto) ([]*response.EntityResponse, error)
+	GetEntityByID(ctx context.Context, id string) (*response.EntityResponse, *fiber.Error)
+	SearchEntities(ctx context.Context, req *request.SearchEntityDto) ([]*response.EntityResponse, *fiber.Error)
 }
 
 type entityService struct {
@@ -27,10 +27,10 @@ func NewEntityService(entityRepo repositories.EntityRepository) EntityService {
 	}
 }
 
-func (s *entityService) GetEntityByID(ctx context.Context, id string) (*response.EntityResponse, error) {
+func (s *entityService) GetEntityByID(ctx context.Context, id string) (*response.EntityResponse, *fiber.Error) {
 	entityId, err := convert.StringToUUID(id)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid entity ID format")
 	}
 	entity, err := s.entityRepo.GetByID(ctx, entityId)
 	if err != nil {
@@ -40,7 +40,7 @@ func (s *entityService) GetEntityByID(ctx context.Context, id string) (*response
 	return entity.ToResponse(), nil
 }
 
-func (s *entityService) SearchEntities(ctx context.Context, req *request.SearchEntityDto) ([]*response.EntityResponse, error) {
+func (s *entityService) SearchEntities(ctx context.Context, req *request.SearchEntityDto) ([]*response.EntityResponse, *fiber.Error) {
 	limit := int32(25)
 	if req.Limit > 0 {
 		limit = int32(req.Limit)
@@ -61,7 +61,7 @@ func (s *entityService) SearchEntities(ctx context.Context, req *request.SearchE
 
 	entities, err := s.entityRepo.Search(ctx, params)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search entities")
 	}
 
 	return models.EntitiesEntityToResponse(entities), nil

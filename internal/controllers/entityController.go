@@ -35,9 +35,9 @@ func (h *EntityController) GetEntityById(c fiber.Ctx) error {
 	id := c.Params("id")
 	res, err := h.service.GetEntityByID(ctx, id)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -70,9 +70,9 @@ func (h *EntityController) SearchEntities(c fiber.Ctx) error {
 
 	res, err := h.service.SearchEntities(ctx, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 

@@ -34,9 +34,9 @@ func (m *VerificationController) GetVerificationByID(c fiber.Ctx) error {
 	verificationId := c.Params("id")
 	res, err := m.service.GetVerificationByID(ctx, verificationId)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -69,9 +69,9 @@ func (m *VerificationController) SearchVerification(c fiber.Ctx) error {
 	}
 	res, err := m.service.SearchVerification(ctx, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(res)
@@ -108,9 +108,9 @@ func (m *VerificationController) DeleteVerification(c fiber.Ctx) error {
 	verificationId := c.Params("id")
 	err := m.service.DeleteVerification(ctx, claims, verificationId)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -143,9 +143,9 @@ func (m *VerificationController) CreateVerification(c fiber.Ctx) error {
 	}
 	res, err := m.service.CreateVerification(ctx, c.Locals("uid").(string), dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -180,9 +180,9 @@ func (m *VerificationController) UpdateVerificationStatus(c fiber.Ctx) error {
 	verificationId := c.Params("id")
 	res, err := m.service.UpdateStatusVerification(ctx, c.Locals("uid").(string), verificationId, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{

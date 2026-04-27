@@ -42,9 +42,9 @@ func (h *ProjectController) GetProjectByID(c fiber.Ctx) error {
 	projectID := c.Params("id")
 	res, err := h.service.GetProjectByID(ctx, projectID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -80,9 +80,9 @@ func (h *ProjectController) SearchProject(c fiber.Ctx) error {
 
 	res, err := h.service.SearchProject(ctx, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -116,9 +116,9 @@ func (h *ProjectController) CreateProject(c fiber.Ctx) error {
 	uid := c.Locals("uid").(string)
 	res, err := h.service.CreateProject(ctx, uid, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -157,9 +157,9 @@ func (h *ProjectController) UpdateProject(c fiber.Ctx) error {
 
 	res, err := h.service.UpdateProject(ctx, projectID, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -189,9 +189,9 @@ func (h *ProjectController) DeleteProject(c fiber.Ctx) error {
 	projectID := c.Params("id")
 	err := h.service.DeleteProject(ctx, projectID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -232,9 +232,9 @@ func (h *ProjectController) AddMember(c fiber.Ctx) error {
 	uid := c.Locals("uid").(string)
 	res, err := h.service.AddMember(ctx, uid, projectID, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -277,9 +277,9 @@ func (h *ProjectController) UpdateMemberRole(c fiber.Ctx) error {
 	uid := c.Locals("uid").(string)
 	res, err := h.service.UpdateMemberRole(ctx, uid, projectID, memberUserID, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -314,9 +314,9 @@ func (h *ProjectController) RemoveMember(c fiber.Ctx) error {
 
 	err := h.service.RemoveMember(ctx, uid, projectID, memberUserID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -356,9 +356,9 @@ func (h *ProjectController) ChangeOwner(c fiber.Ctx) error {
 	uid := c.Locals("uid").(string)
 	res, err := h.service.ChangeOwner(ctx, uid, projectID, dto.NewOwnerID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 

@@ -13,8 +13,8 @@ import (
 )
 
 type WikiService interface {
-	GetWikiByID(ctx context.Context, id string) (*response.WikiResponse, error)
-	SearchWikis(ctx context.Context, req *request.SearchWikiDto) ([]*response.WikiResponse, error)
+	GetWikiByID(ctx context.Context, id string) (*response.WikiResponse, *fiber.Error)
+	SearchWikis(ctx context.Context, req *request.SearchWikiDto) ([]*response.WikiResponse, *fiber.Error)
 }
 
 type wikiService struct {
@@ -27,10 +27,10 @@ func NewWikiService(wikiRepo repositories.WikiRepository) WikiService {
 	}
 }
 
-func (s *wikiService) GetWikiByID(ctx context.Context, id string) (*response.WikiResponse, error) {
+func (s *wikiService) GetWikiByID(ctx context.Context, id string) (*response.WikiResponse, *fiber.Error) {
 	wikiId, err := convert.StringToUUID(id)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid wiki ID format")
 	}
 	wiki, err := s.wikiRepo.GetByID(ctx, wikiId)
 	if err != nil {
@@ -40,7 +40,7 @@ func (s *wikiService) GetWikiByID(ctx context.Context, id string) (*response.Wik
 	return wiki.ToResponse(), nil
 }
 
-func (s *wikiService) SearchWikis(ctx context.Context, req *request.SearchWikiDto) ([]*response.WikiResponse, error) {
+func (s *wikiService) SearchWikis(ctx context.Context, req *request.SearchWikiDto) ([]*response.WikiResponse, *fiber.Error) {
 	limit := int32(25)
 	if req.Limit > 0 {
 		limit = int32(req.Limit)
@@ -67,7 +67,7 @@ func (s *wikiService) SearchWikis(ctx context.Context, req *request.SearchWikiDt
 
 	wikis, err := s.wikiRepo.Search(ctx, params)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search wikis")
 	}
 
 	return models.WikisEntityToResponse(wikis), nil

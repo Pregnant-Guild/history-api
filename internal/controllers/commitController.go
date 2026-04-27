@@ -51,9 +51,9 @@ func (h *CommitController) CreateCommit(c fiber.Ctx) error {
 	uid := c.Locals("uid").(string)
 	res, err := h.service.CreateCommit(ctx, uid, projectID, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -94,9 +94,9 @@ func (h *CommitController) RestoreCommit(c fiber.Ctx) error {
 	uid := c.Locals("uid").(string)
 	err := h.service.RestoreCommit(ctx, uid, projectID, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -125,9 +125,9 @@ func (h *CommitController) GetProjectCommits(c fiber.Ctx) error {
 	projectID := c.Params("id")
 	res, err := h.service.GetProjectCommits(ctx, projectID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 

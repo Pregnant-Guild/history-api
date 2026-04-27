@@ -34,9 +34,9 @@ func (h *TileController) GetMetadata(c fiber.Ctx) error {
 
 	res, err := h.service.GetMetadata(ctx)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -62,19 +62,19 @@ func (h *TileController) GetTile(c fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	z, x, y, err := h.parseTileParams(c)
-	if err != nil {
+	z, x, y, pErr := h.parseTileParams(c)
+	if pErr != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: pErr.Error(),
 		})
 	}
 
 	data, headers, err := h.service.GetTile(ctx, z, x, y)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -88,17 +88,17 @@ func (h *TileController) GetTile(c fiber.Ctx) error {
 func (h *TileController) parseTileParams(c fiber.Ctx) (int, int, int, error) {
 	z, err := strconv.Atoi(c.Params("z"))
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("invalid z")
+		return 0, 0, 0, fmt.Errorf("invalid z coordinate")
 	}
 
 	x, err := strconv.Atoi(c.Params("x"))
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("invalid x")
+		return 0, 0, 0, fmt.Errorf("invalid x coordinate")
 	}
 
 	y, err := strconv.Atoi(c.Params("y"))
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("invalid y")
+		return 0, 0, 0, fmt.Errorf("invalid y coordinate")
 	}
 
 	if z < 0 || x < 0 || y < 0 {

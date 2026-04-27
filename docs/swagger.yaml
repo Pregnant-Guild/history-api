@@ -100,6 +100,29 @@ definitions:
     - email
     - token_type
     type: object
+  history-api_internal_dtos_request.CreateUserDto:
+    properties:
+      display_name:
+        maxLength: 50
+        minLength: 2
+        type: string
+      email:
+        type: string
+      password:
+        maxLength: 64
+        minLength: 8
+        type: string
+      role_ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - display_name
+    - email
+    - password
+    - role_ids
+    type: object
   history-api_internal_dtos_request.CreateUserVerificationDto:
     properties:
       content:
@@ -2127,6 +2150,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Search users
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account with specified roles
+      parameters:
+      - description: Create User request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.CreateUserDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new user (Admin only)
       tags:
       - Users
   /users/{id}:

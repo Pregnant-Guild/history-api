@@ -32,6 +32,44 @@ func NewUserController(
 	}
 }
 
+// CreateUser godoc
+// @Summary Create a new user (Admin only)
+// @Description Create a new user account with specified roles
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body request.CreateUserDto true "Create User request"
+// @Success 200 {object} response.CommonResponse
+// @Failure 400 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /users [post]
+func (h *UserController) CreateUser(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dto := &request.CreateUserDto{}
+	if err := validator.ValidateBodyDto(c, dto); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
+			Status: false,
+			Errors: err,
+		})
+	}
+
+	res, err := h.service.CreateUser(ctx, dto)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}
+
 // GetUserCurrent godoc
 // @Summary Get current user profile
 // @Description Retrieve the profile information of the currently authenticated user
@@ -48,9 +86,9 @@ func (h *UserController) GetUserCurrent(c fiber.Ctx) error {
 
 	res, err := h.service.GetUserByID(ctx, c.Locals("uid").(string))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -76,9 +114,9 @@ func (h *UserController) GetUserMedia(c fiber.Ctx) error {
 
 	res, err := h.mediaService.GetMediaByUserID(ctx, c.Locals("uid").(string))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -104,9 +142,9 @@ func (h *UserController) GetUserApplication(c fiber.Ctx) error {
 
 	res, err := h.verificationService.GetVerificationByUserID(ctx, c.Locals("uid").(string))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -132,9 +170,9 @@ func (h *UserController) GetMediaByUserID(c fiber.Ctx) error {
 	userId := c.Params("id")
 	res, err := h.mediaService.GetMediaByUserID(ctx, userId)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -159,9 +197,9 @@ func (h *UserController) GetVerificationByUserID(c fiber.Ctx) error {
 	userId := c.Params("id")
 	res, err := h.verificationService.GetVerificationByUserID(ctx, userId)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -196,9 +234,9 @@ func (h *UserController) UpdateProfile(c fiber.Ctx) error {
 
 	res, err := h.service.UpdateProfile(ctx, c.Locals("uid").(string), dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -231,9 +269,9 @@ func (h *UserController) ChangePassword(c fiber.Ctx) error {
 	}
 	err := h.service.ChangePassword(ctx, c.Locals("uid").(string), dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -259,9 +297,9 @@ func (h *UserController) RestoreUser(c fiber.Ctx) error {
 	userId := c.Params("id")
 	res, err := h.service.RestoreUser(ctx, userId)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -287,9 +325,9 @@ func (h *UserController) DeleteUser(c fiber.Ctx) error {
 	userId := c.Params("id")
 	err := h.service.DeleteUser(ctx, userId)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -340,9 +378,9 @@ func (h *UserController) ChangeRoleUser(c fiber.Ctx) error {
 	userId := c.Params("id")
 	user, err := h.service.ChangeRoleUser(ctx, userId, claims, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -368,9 +406,9 @@ func (h *UserController) GetUserById(c fiber.Ctx) error {
 	userId := c.Params("id")
 	res, err := h.service.GetUserByID(ctx, userId)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -404,9 +442,9 @@ func (h *UserController) SearchUser(c fiber.Ctx) error {
 	}
 	res, err := h.service.SearchUser(ctx, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(res)
@@ -438,9 +476,9 @@ func (h *UserController) GetUserProject(c fiber.Ctx) error {
 
 	res, err := h.projectService.GetProjectByUserID(ctx, c.Locals("uid").(string), dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 
@@ -477,9 +515,9 @@ func (h *UserController) GetProjectByUserID(c fiber.Ctx) error {
 
 	res, err := h.projectService.GetProjectByUserID(ctx, userID, dto)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 

@@ -20,11 +20,11 @@ import (
 )
 
 type SubmissionService interface {
-	CreateSubmission(ctx context.Context, userID string, dto *request.CreateSubmissionDto) (*response.SubmissionResponse, error)
-	UpdateSubmissionStatus(ctx context.Context, reviewerID string, submissionID string, dto *request.UpdateSubmissionStatusDto) (*response.SubmissionResponse, error)
-	GetSubmissionByID(ctx context.Context, id string) (*response.SubmissionResponse, error)
-	SearchSubmissions(ctx context.Context, dto *request.SearchSubmissionDto) (*response.PaginatedResponse, error)
-	DeleteSubmission(ctx context.Context, userID string, id string, claims *response.JWTClaims) error
+	CreateSubmission(ctx context.Context, userID string, dto *request.CreateSubmissionDto) (*response.SubmissionResponse, *fiber.Error)
+	UpdateSubmissionStatus(ctx context.Context, reviewerID string, submissionID string, dto *request.UpdateSubmissionStatusDto) (*response.SubmissionResponse, *fiber.Error)
+	GetSubmissionByID(ctx context.Context, id string) (*response.SubmissionResponse, *fiber.Error)
+	SearchSubmissions(ctx context.Context, dto *request.SearchSubmissionDto) (*response.PaginatedResponse, *fiber.Error)
+	DeleteSubmission(ctx context.Context, userID string, id string, claims *response.JWTClaims) *fiber.Error
 }
 
 type submissionService struct {
@@ -54,7 +54,7 @@ func NewSubmissionService(
 	}
 }
 
-func (s *submissionService) CreateSubmission(ctx context.Context, userID string, dto *request.CreateSubmissionDto) (*response.SubmissionResponse, error) {
+func (s *submissionService) CreateSubmission(ctx context.Context, userID string, dto *request.CreateSubmissionDto) (*response.SubmissionResponse, *fiber.Error) {
 	projectUUID, err := convert.StringToUUID(dto.ProjectID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID")
@@ -94,7 +94,7 @@ func (s *submissionService) CreateSubmission(ctx context.Context, userID string,
 	return submission.ToResponse(), nil
 }
 
-func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewerID string, submissionID string, dto *request.UpdateSubmissionStatusDto) (*response.SubmissionResponse, error) {
+func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewerID string, submissionID string, dto *request.UpdateSubmissionStatusDto) (*response.SubmissionResponse, *fiber.Error) {
 	submissionUUID, err := convert.StringToUUID(submissionID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid submission ID")
@@ -109,7 +109,6 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 	if status == constants.StatusTypeUnknown {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid status")
 	}
-
 
 	submission, err := s.submissionRepo.GetByID(ctx, submissionUUID)
 	if err != nil {
@@ -132,8 +131,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update submission status")
 	}
 
-	_ = s.c.Del(ctx, fmt.Sprintf("proejct:id:%s", submission.ProjectID))	
-
+	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", submission.ProjectID))
 
 	return updatedSubmission.ToResponse(), nil
 }
@@ -185,7 +183,7 @@ func (m *submissionService) fillSearchArgs(arg *sqlc.SearchSubmissionsParams, dt
 	}
 }
 
-func (s *submissionService) GetSubmissionByID(ctx context.Context, id string) (*response.SubmissionResponse, error) {
+func (s *submissionService) GetSubmissionByID(ctx context.Context, id string) (*response.SubmissionResponse, *fiber.Error) {
 	submissionUUID, err := convert.StringToUUID(id)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid submission ID")
@@ -199,7 +197,7 @@ func (s *submissionService) GetSubmissionByID(ctx context.Context, id string) (*
 	return submission.ToResponse(), nil
 }
 
-func (s *submissionService) SearchSubmissions(ctx context.Context, dto *request.SearchSubmissionDto) (*response.PaginatedResponse, error) {
+func (s *submissionService) SearchSubmissions(ctx context.Context, dto *request.SearchSubmissionDto) (*response.PaginatedResponse, *fiber.Error) {
 	if dto.Page < 1 {
 		dto.Page = 1
 	}
@@ -241,7 +239,7 @@ func (s *submissionService) SearchSubmissions(ctx context.Context, dto *request.
 	})
 
 	if err := g.Wait(); err != nil {
-		return nil, err
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search submissions")
 	}
 
 	submissions := models.SubmissionsEntityToResponse(rows)
@@ -249,7 +247,7 @@ func (s *submissionService) SearchSubmissions(ctx context.Context, dto *request.
 	return response.BuildPaginatedResponse(submissions, totalRecords, dto.Page, dto.Limit), nil
 }
 
-func (s *submissionService) DeleteSubmission(ctx context.Context, userID string, id string, claims *response.JWTClaims) error {
+func (s *submissionService) DeleteSubmission(ctx context.Context, userID string, id string, claims *response.JWTClaims) *fiber.Error {
 	submissionUUID, err := convert.StringToUUID(id)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid submission ID")

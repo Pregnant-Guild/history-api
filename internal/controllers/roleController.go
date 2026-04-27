@@ -34,9 +34,9 @@ func (h *RoleController) GetRoleById(c fiber.Ctx) error {
 	RoleId := c.Params("id")
 	res, err := h.service.GetRoleByID(ctx, RoleId)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -61,9 +61,9 @@ func (h *RoleController) GetAllRole(c fiber.Ctx) error {
 	defer cancel()
 	res, err := h.service.GetAllRole(ctx)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(response.CommonResponse{
+		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
-			Message: err.Error(),
+			Message: err.Message,
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{

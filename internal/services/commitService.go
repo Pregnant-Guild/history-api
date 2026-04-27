@@ -16,9 +16,9 @@ import (
 )
 
 type CommitService interface {
-	CreateCommit(ctx context.Context, userID string, projectID string, dto *request.CreateCommitDto) (*response.CommitResponse, error)
-	RestoreCommit(ctx context.Context, userID string, projectID string, dto *request.RestoreCommitDto) error
-	GetProjectCommits(ctx context.Context, projectID string) ([]*response.CommitResponse, error)
+	CreateCommit(ctx context.Context, userID string, projectID string, dto *request.CreateCommitDto) (*response.CommitResponse, *fiber.Error)
+	RestoreCommit(ctx context.Context, userID string, projectID string, dto *request.RestoreCommitDto) *fiber.Error
+	GetProjectCommits(ctx context.Context, projectID string) ([]*response.CommitResponse, *fiber.Error)
 }
 
 type commitService struct {
@@ -38,7 +38,8 @@ func NewCommitService(
 		projectRepo: projectRepo,
 	}
 }
-func (s *commitService) checkWritePermission(ctx context.Context, userID string, projectUUID pgtype.UUID) error {
+
+func (s *commitService) checkWritePermission(ctx context.Context, userID string, projectUUID pgtype.UUID) *fiber.Error {
 	project, err := s.projectRepo.GetByID(ctx, projectUUID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Project not found")
@@ -65,7 +66,7 @@ func (s *commitService) checkWritePermission(ctx context.Context, userID string,
 	return nil
 }
 
-func (s *commitService) CreateCommit(ctx context.Context, userID string, projectID string, dto *request.CreateCommitDto) (*response.CommitResponse, error) {
+func (s *commitService) CreateCommit(ctx context.Context, userID string, projectID string, dto *request.CreateCommitDto) (*response.CommitResponse, *fiber.Error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
@@ -80,8 +81,8 @@ func (s *commitService) CreateCommit(ctx context.Context, userID string, project
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID")
 	}
 
-	if err := s.checkWritePermission(ctx, userID, projectUUID); err != nil {
-		return nil, err
+	if fErr := s.checkWritePermission(ctx, userID, projectUUID); fErr != nil {
+		return nil, fErr
 	}
 
 	userUUID, err := convert.StringToUUID(userID)
@@ -101,7 +102,7 @@ func (s *commitService) CreateCommit(ctx context.Context, userID string, project
 
 	commitUUID, err := convert.StringToUUID(commit.ID)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid commit ID")
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to process commit ID")
 	}
 
 	err = pRepoTx.UpdateLatestCommit(ctx, sqlc.UpdateLatestCommitParams{
@@ -119,14 +120,14 @@ func (s *commitService) CreateCommit(ctx context.Context, userID string, project
 	return commit.ToResponse(), nil
 }
 
-func (s *commitService) RestoreCommit(ctx context.Context, userID string, projectID string, dto *request.RestoreCommitDto) error {
+func (s *commitService) RestoreCommit(ctx context.Context, userID string, projectID string, dto *request.RestoreCommitDto) *fiber.Error {
 	projectUUID, err := convert.StringToUUID(projectID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid project ID")
 	}
 
-	if err := s.checkWritePermission(ctx, userID, projectUUID); err != nil {
-		return err
+	if fErr := s.checkWritePermission(ctx, userID, projectUUID); fErr != nil {
+		return fErr
 	}
 
 	commitUUID, err := convert.StringToUUID(dto.CommitID)
@@ -153,7 +154,7 @@ func (s *commitService) RestoreCommit(ctx context.Context, userID string, projec
 	return nil
 }
 
-func (s *commitService) GetProjectCommits(ctx context.Context, projectID string) ([]*response.CommitResponse, error) {
+func (s *commitService) GetProjectCommits(ctx context.Context, projectID string) ([]*response.CommitResponse, *fiber.Error) {
 	projectUUID, err := convert.StringToUUID(projectID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID")

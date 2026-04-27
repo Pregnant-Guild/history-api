@@ -11,8 +11,8 @@ import (
 )
 
 type RoleService interface {
-	GetRoleByID(ctx context.Context, id string) (*response.RoleResponse, error)
-	GetAllRole(ctx context.Context) ([]*response.RoleResponse, error)
+	GetRoleByID(ctx context.Context, id string) (*response.RoleResponse, *fiber.Error)
+	GetAllRole(ctx context.Context) ([]*response.RoleResponse, *fiber.Error)
 }
 
 type roleService struct {
@@ -27,19 +27,19 @@ func NewRoleService(
 	}
 }
 
-func (r *roleService) GetAllRole(ctx context.Context) ([]*response.RoleResponse, error) {
+func (r *roleService) GetAllRole(ctx context.Context) ([]*response.RoleResponse, *fiber.Error) {
 	roles, err := r.roleRepo.All(ctx)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch roles")
 	}
 
 	return models.RolesEntityToResponse(roles), nil
 }
 
-func (r *roleService) GetRoleByID(ctx context.Context, id string) (*response.RoleResponse, error) {
+func (r *roleService) GetRoleByID(ctx context.Context, id string) (*response.RoleResponse, *fiber.Error) {
 	roleId, err := convert.StringToUUID(id)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid role ID format")
 	}
 	role, err := r.roleRepo.GetByID(ctx, roleId)
 	if err != nil {
