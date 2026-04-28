@@ -348,6 +348,8 @@ func (r *projectRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", convert.UUIDToString(id)))
 	go func() {
 		bgCtx := context.Background()
+		_ = r.c.DelByPattern(bgCtx, "project:search*")
+		_ = r.c.DelByPattern(bgCtx, "project:user*")
 		_ = r.c.DelByPattern(bgCtx, "project:count*")
 	}()
 	return nil
