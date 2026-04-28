@@ -79,6 +79,7 @@ func ProjectRoutes(
 
 	route.Get(
 		"/",
+		middlewares.JwtAccess(userRepo),
 		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
 		controller.SearchProject,
 	)

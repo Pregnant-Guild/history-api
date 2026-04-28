@@ -118,13 +118,16 @@ func (q *Queries) CountProjects(ctx context.Context, arg CountProjectsParams) (i
 }
 
 const createProject = `-- name: CreateProject :one
-INSERT INTO projects (
-    title, description, project_status, user_id
-) VALUES (
-    $1, $2, $3, $4
+WITH inserted_project AS (
+    INSERT INTO projects (
+        title, description, project_status, user_id
+    ) VALUES (
+        $1, $2, $3, $4
+    )
+    RETURNING id, title, description, latest_commit_id, project_status, locked_by, is_deleted, user_id, created_at, updated_at
 )
-RETURNING 
-    id, title, description, latest_commit_id, project_status, locked_by, is_deleted, user_id, created_at, updated_at,
+SELECT 
+    p.id, p.title, p.description, p.latest_commit_id, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -135,6 +138,9 @@ RETURNING
     '[]'::json AS commits,
     '{}'::uuid[] AS submission_ids,
     '[]'::json AS members
+FROM inserted_project p
+JOIN users u ON p.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id
 `
 
 type CreateProjectParams struct {

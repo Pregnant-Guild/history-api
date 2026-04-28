@@ -1,11 +1,14 @@
 -- name: CreateProject :one
-INSERT INTO projects (
-    title, description, project_status, user_id
-) VALUES (
-    $1, $2, $3, $4
+WITH inserted_project AS (
+    INSERT INTO projects (
+        title, description, project_status, user_id
+    ) VALUES (
+        $1, $2, $3, $4
+    )
+    RETURNING *
 )
-RETURNING 
-    *,
+SELECT 
+    p.*,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -15,7 +18,10 @@ RETURNING
     )::json AS user,
     '[]'::json AS commits,
     '{}'::uuid[] AS submission_ids,
-    '[]'::json AS members;
+    '[]'::json AS members
+FROM inserted_project p
+JOIN users u ON p.user_id = u.id
+LEFT JOIN user_profiles up ON u.id = up.user_id;
 
 -- name: GetProjectById :one
 SELECT 
