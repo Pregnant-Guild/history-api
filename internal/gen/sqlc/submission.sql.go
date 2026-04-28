@@ -16,7 +16,7 @@ SELECT count(*)
 FROM submissions s
 WHERE s.is_deleted = false
   AND ($1::uuid IS NULL OR s.project_id = $1)
-  AND ($2::uuid[] IS NULL OR uv.user_id = ANY($2::uuid[]))
+  AND ($2::uuid[] IS NULL OR s.user_id = ANY($2::uuid[]))
   AND ($3::uuid IS NULL OR s.reviewed_by = $3)
   AND (
       $4::smallint[] IS NULL 
@@ -320,7 +320,7 @@ LEFT JOIN users ru ON s.reviewed_by = ru.id
 LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE s.is_deleted = false
   AND ($1::uuid IS NULL OR s.project_id = $1)
-  AND ($2::uuid[] IS NULL OR uv.user_id = ANY($2::uuid[]))
+  AND ($2::uuid[] IS NULL OR s.user_id = ANY($2::uuid[]))
   AND ($3::uuid IS NULL OR s.reviewed_by = $3)
   AND (
       $4::smallint[] IS NULL 
@@ -429,14 +429,14 @@ SET
     reviewed_by = COALESCE($2, reviewed_by),
     review_note = COALESCE($3, review_note),
     content = COALESCE($4, content)
-FROM submissions s
-JOIN users u ON s.user_id = u.id
+FROM users u
 LEFT JOIN user_profiles up ON u.id = up.user_id
-LEFT JOIN users ru ON s.reviewed_by = ru.id
+LEFT JOIN users ru ON submissions.reviewed_by = ru.id
 LEFT JOIN user_profiles rup ON ru.id = rup.user_id
-WHERE s.id = $5
+WHERE submissions.id = $5
+  AND submissions.user_id = u.id
 RETURNING 
-    s.id, s.project_id, s.commit_id, s.user_id, s.created_at, s.status, s.reviewed_by, s.reviewed_at, s.review_note, s.content, s.is_deleted,
+    submissions.id, submissions.project_id, submissions.commit_id, submissions.user_id, submissions.created_at, submissions.status, submissions.reviewed_by, submissions.reviewed_at, submissions.review_note, submissions.content, submissions.is_deleted,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -444,7 +444,7 @@ RETURNING
         'full_name', up.full_name,
         'avatar_url', up.avatar_url
     )::json AS user,
-    CASE WHEN s.reviewed_by IS NOT NULL THEN
+    CASE WHEN submissions.reviewed_by IS NOT NULL THEN
         json_build_object(
             'id', ru.id,
             'email', ru.email,

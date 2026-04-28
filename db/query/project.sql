@@ -61,18 +61,18 @@ WHERE p.id = $1 AND p.is_deleted = false;
 -- name: UpdateProject :one
 UPDATE projects
 SET 
-    title = COALESCE(sqlc.narg('title'), title),
-    description = COALESCE(sqlc.narg('description'), description),
-    latest_commit_id = COALESCE(sqlc.narg('latest_commit_id'), latest_commit_id),
-    project_status = COALESCE(sqlc.narg('status'), status),
-    locked_by = COALESCE(sqlc.narg('locked_by'), locked_by),
+    title = COALESCE(sqlc.narg('title'), projects.title),
+    description = COALESCE(sqlc.narg('description'), projects.description),
+    latest_commit_id = COALESCE(sqlc.narg('latest_commit_id'), projects.latest_commit_id),
+    project_status = COALESCE(sqlc.narg('status'), projects.project_status),
+    locked_by = COALESCE(sqlc.narg('locked_by'), projects.locked_by),
     updated_at = NOW()
-FROM projects p
-JOIN users u ON p.user_id = u.id
+FROM users u
 LEFT JOIN user_profiles up ON u.id = up.user_id
-WHERE p.id = sqlc.arg('id') AND p.is_deleted = false
+WHERE projects.id = sqlc.arg('id') AND projects.is_deleted = false
+  AND projects.user_id = u.id
 RETURNING 
-    p.*,
+    projects.*,
     json_build_object(
         'id', u.id,
         'email', u.email,

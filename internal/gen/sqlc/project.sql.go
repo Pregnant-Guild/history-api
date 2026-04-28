@@ -630,18 +630,18 @@ func (q *Queries) UpdateLatestCommit(ctx context.Context, arg UpdateLatestCommit
 const updateProject = `-- name: UpdateProject :one
 UPDATE projects
 SET 
-    title = COALESCE($1, title),
-    description = COALESCE($2, description),
-    latest_commit_id = COALESCE($3, latest_commit_id),
-    project_status = COALESCE($4, status),
-    locked_by = COALESCE($5, locked_by),
+    title = COALESCE($1, projects.title),
+    description = COALESCE($2, projects.description),
+    latest_commit_id = COALESCE($3, projects.latest_commit_id),
+    project_status = COALESCE($4, projects.project_status),
+    locked_by = COALESCE($5, projects.locked_by),
     updated_at = NOW()
-FROM projects p
-JOIN users u ON p.user_id = u.id
+FROM users u
 LEFT JOIN user_profiles up ON u.id = up.user_id
-WHERE p.id = $6 AND p.is_deleted = false
+WHERE projects.id = $6 AND projects.is_deleted = false
+  AND projects.user_id = u.id
 RETURNING 
-    p.id, p.title, p.description, p.latest_commit_id, p.project_status, p.locked_by, p.is_deleted, p.user_id, p.created_at, p.updated_at,
+    projects.id, projects.title, projects.description, projects.latest_commit_id, projects.project_status, projects.locked_by, projects.is_deleted, projects.user_id, projects.created_at, projects.updated_at,
     json_build_object(
         'id', u.id,
         'email', u.email,

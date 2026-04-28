@@ -64,14 +64,14 @@ SET
     reviewed_by = COALESCE(sqlc.narg('reviewed_by'), reviewed_by),
     review_note = COALESCE(sqlc.narg('review_note'), review_note),
     content = COALESCE(sqlc.narg('content'), content)
-FROM submissions s
-JOIN users u ON s.user_id = u.id
+FROM users u
 LEFT JOIN user_profiles up ON u.id = up.user_id
-LEFT JOIN users ru ON s.reviewed_by = ru.id
+LEFT JOIN users ru ON submissions.reviewed_by = ru.id
 LEFT JOIN user_profiles rup ON ru.id = rup.user_id
-WHERE s.id = sqlc.arg('id')
+WHERE submissions.id = sqlc.arg('id')
+  AND submissions.user_id = u.id
 RETURNING 
-    s.id, s.project_id, s.commit_id, s.user_id, s.created_at, s.status, s.reviewed_by, s.reviewed_at, s.review_note, s.content, s.is_deleted,
+    submissions.id, submissions.project_id, submissions.commit_id, submissions.user_id, submissions.created_at, submissions.status, submissions.reviewed_by, submissions.reviewed_at, submissions.review_note, submissions.content, submissions.is_deleted,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -79,7 +79,7 @@ RETURNING
         'full_name', up.full_name,
         'avatar_url', up.avatar_url
     )::json AS user,
-    CASE WHEN s.reviewed_by IS NOT NULL THEN
+    CASE WHEN submissions.reviewed_by IS NOT NULL THEN
         json_build_object(
             'id', ru.id,
             'email', ru.email,
@@ -120,7 +120,7 @@ LEFT JOIN users ru ON s.reviewed_by = ru.id
 LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE s.is_deleted = false
   AND (sqlc.narg('project_id')::uuid IS NULL OR s.project_id = sqlc.narg('project_id'))
-  AND (sqlc.narg('user_ids')::uuid[] IS NULL OR uv.user_id = ANY(sqlc.narg('user_ids')::uuid[]))
+  AND (sqlc.narg('user_ids')::uuid[] IS NULL OR s.user_id = ANY(sqlc.narg('user_ids')::uuid[]))
   AND (sqlc.narg('reviewed_by')::uuid IS NULL OR s.reviewed_by = sqlc.narg('reviewed_by'))
   AND (
       sqlc.narg('statuses')::smallint[] IS NULL 
@@ -150,7 +150,7 @@ SELECT count(*)
 FROM submissions s
 WHERE s.is_deleted = false
   AND (sqlc.narg('project_id')::uuid IS NULL OR s.project_id = sqlc.narg('project_id'))
-  AND (sqlc.narg('user_ids')::uuid[] IS NULL OR uv.user_id = ANY(sqlc.narg('user_ids')::uuid[]))
+  AND (sqlc.narg('user_ids')::uuid[] IS NULL OR s.user_id = ANY(sqlc.narg('user_ids')::uuid[]))
   AND (sqlc.narg('reviewed_by')::uuid IS NULL OR s.reviewed_by = sqlc.narg('reviewed_by'))
   AND (
       sqlc.narg('statuses')::smallint[] IS NULL 
