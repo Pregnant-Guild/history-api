@@ -20,13 +20,13 @@ type ProjectService interface {
 	GetProjectByID(ctx context.Context, id string) (*response.ProjectResponse, *fiber.Error)
 	GetProjectByUserID(ctx context.Context, userID string, dto *request.GetProjectsByUserDto) ([]*response.ProjectResponse, *fiber.Error)
 	SearchProject(ctx context.Context, dto *request.SearchProjectDto) (*response.PaginatedResponse, *fiber.Error)
-	DeleteProject(ctx context.Context, id string) *fiber.Error
+	DeleteProject(ctx context.Context, claims *response.JWTClaims, id string) *fiber.Error
 	CreateProject(ctx context.Context, userID string, dto *request.CreateProjectDto) (*response.ProjectResponse, *fiber.Error)
-	UpdateProject(ctx context.Context, id string, dto *request.UpdateProjectDto) (*response.ProjectResponse, *fiber.Error)
-	AddMember(ctx context.Context, callerID string, projectID string, dto *request.AddProjectMemberDto) (*response.ProjectResponse, *fiber.Error)
-	UpdateMemberRole(ctx context.Context, callerID string, projectID string, memberUserID string, dto *request.UpdateProjectMemberDto) (*response.ProjectResponse, *fiber.Error)
-	RemoveMember(ctx context.Context, callerID string, projectID string, memberUserID string) *fiber.Error
-	ChangeOwner(ctx context.Context, callerID string, projectID string, newOwnerID string) (*response.ProjectResponse, *fiber.Error)
+	UpdateProject(ctx context.Context, claims *response.JWTClaims, id string, dto *request.UpdateProjectDto) (*response.ProjectResponse, *fiber.Error)
+	AddMember(ctx context.Context, claims *response.JWTClaims, projectID string, dto *request.AddProjectMemberDto) (*response.ProjectResponse, *fiber.Error)
+	UpdateMemberRole(ctx context.Context, claims *response.JWTClaims, projectID string, memberUserID string, dto *request.UpdateProjectMemberDto) (*response.ProjectResponse, *fiber.Error)
+	RemoveMember(ctx context.Context, claims *response.JWTClaims, projectID string, memberUserID string) *fiber.Error
+	ChangeOwner(ctx context.Context, claims *response.JWTClaims, projectID string, newOwnerID string) (*response.ProjectResponse, *fiber.Error)
 }
 
 type projectService struct {
@@ -39,15 +39,22 @@ func NewProjectService(projectRepo repositories.ProjectRepository) ProjectServic
 	}
 }
 
-func (s *projectService) checkCallerIsOwner(ctx context.Context, callerID string, projectUUID pgtype.UUID) *fiber.Error {
+func (s *projectService) checkPermission(ctx context.Context, claims *response.JWTClaims, projectUUID pgtype.UUID) *fiber.Error {
 	project, err := s.projectRepo.GetByID(ctx, projectUUID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Project not found")
 	}
-	if project.UserID == callerID {
+	if project.UserID == claims.ID {
 		return nil
 	}
-	callerUUID, _ := convert.StringToUUID(callerID)
+
+	for _, r := range claims.Roles {
+		if r == constants.RoleTypeAdmin || r == constants.RoleTypeMod {
+			return nil
+		}
+	}
+
+	callerUUID, _ := convert.StringToUUID(claims.ID)
 	role, err := s.projectRepo.CheckPermission(ctx, sqlc.CheckProjectPermissionParams{
 		ProjectID: projectUUID,
 		UserID:    callerUUID,
@@ -55,6 +62,7 @@ func (s *projectService) checkCallerIsOwner(ctx context.Context, callerID string
 	if err != nil || constants.ParseProjectMemberRole(role) != constants.ProjectMemberRoleOwner {
 		return fiber.NewError(fiber.StatusForbidden, "Only project owner can perform this action")
 	}
+
 	return nil
 }
 
@@ -221,15 +229,14 @@ func (s *projectService) CreateProject(ctx context.Context, userID string, dto *
 	return project.ToResponse(), nil
 }
 
-func (s *projectService) UpdateProject(ctx context.Context, id string, dto *request.UpdateProjectDto) (*response.ProjectResponse, *fiber.Error) {
+func (s *projectService) UpdateProject(ctx context.Context, claims *response.JWTClaims, id string, dto *request.UpdateProjectDto) (*response.ProjectResponse, *fiber.Error) {
 	projectUUID, err := convert.StringToUUID(id)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
 	}
 
-	_, err = s.projectRepo.GetByID(ctx, projectUUID)
-	if err != nil {
-		return nil, fiber.NewError(fiber.StatusNotFound, "Project not found")
+	if fErr := s.checkPermission(ctx, claims, projectUUID); fErr != nil {
+		return nil, fErr
 	}
 
 	arg := sqlc.UpdateProjectParams{
@@ -254,15 +261,14 @@ func (s *projectService) UpdateProject(ctx context.Context, id string, dto *requ
 	return project.ToResponse(), nil
 }
 
-func (s *projectService) DeleteProject(ctx context.Context, id string) *fiber.Error {
+func (s *projectService) DeleteProject(ctx context.Context, claims *response.JWTClaims, id string) *fiber.Error {
 	projectUUID, err := convert.StringToUUID(id)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
 	}
 
-	_, err = s.projectRepo.GetByID(ctx, projectUUID)
-	if err != nil {
-		return fiber.NewError(fiber.StatusNotFound, "Project not found")
+	if fErr := s.checkPermission(ctx, claims, projectUUID); fErr != nil {
+		return fErr
 	}
 
 	err = s.projectRepo.Delete(ctx, projectUUID)
@@ -273,13 +279,13 @@ func (s *projectService) DeleteProject(ctx context.Context, id string) *fiber.Er
 	return nil
 }
 
-func (s *projectService) AddMember(ctx context.Context, callerID string, projectID string, dto *request.AddProjectMemberDto) (*response.ProjectResponse, *fiber.Error) {
+func (s *projectService) AddMember(ctx context.Context, claims *response.JWTClaims, projectID string, dto *request.AddProjectMemberDto) (*response.ProjectResponse, *fiber.Error) {
 	projectUUID, err := convert.StringToUUID(projectID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
 	}
 
-	if fErr := s.checkCallerIsOwner(ctx, callerID, projectUUID); fErr != nil {
+	if fErr := s.checkPermission(ctx, claims, projectUUID); fErr != nil {
 		return nil, fErr
 	}
 
@@ -288,9 +294,9 @@ func (s *projectService) AddMember(ctx context.Context, callerID string, project
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid member user ID format")
 	}
 
-	callerUUID, _ := convert.StringToUUID(callerID)
+	callerUUID, _ := convert.StringToUUID(claims.ID)
 
-	if dto.UserID == callerID {
+	if dto.UserID == claims.ID {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Cannot add yourself as a member")
 	}
 
@@ -314,13 +320,13 @@ func (s *projectService) AddMember(ctx context.Context, callerID string, project
 	return project.ToResponse(), nil
 }
 
-func (s *projectService) UpdateMemberRole(ctx context.Context, callerID string, projectID string, memberUserID string, dto *request.UpdateProjectMemberDto) (*response.ProjectResponse, *fiber.Error) {
+func (s *projectService) UpdateMemberRole(ctx context.Context, claims *response.JWTClaims, projectID string, memberUserID string, dto *request.UpdateProjectMemberDto) (*response.ProjectResponse, *fiber.Error) {
 	projectUUID, err := convert.StringToUUID(projectID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
 	}
 
-	if fErr := s.checkCallerIsOwner(ctx, callerID, projectUUID); fErr != nil {
+	if fErr := s.checkPermission(ctx, claims, projectUUID); fErr != nil {
 		return nil, fErr
 	}
 
@@ -348,13 +354,13 @@ func (s *projectService) UpdateMemberRole(ctx context.Context, callerID string, 
 	return project.ToResponse(), nil
 }
 
-func (s *projectService) RemoveMember(ctx context.Context, callerID string, projectID string, memberUserID string) *fiber.Error {
+func (s *projectService) RemoveMember(ctx context.Context, claims *response.JWTClaims, projectID string, memberUserID string) *fiber.Error {
 	projectUUID, err := convert.StringToUUID(projectID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
 	}
 
-	if fErr := s.checkCallerIsOwner(ctx, callerID, projectUUID); fErr != nil {
+	if fErr := s.checkPermission(ctx, claims, projectUUID); fErr != nil {
 		return fErr
 	}
 
@@ -363,7 +369,7 @@ func (s *projectService) RemoveMember(ctx context.Context, callerID string, proj
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid member user ID format")
 	}
 
-	if callerID == memberUserID {
+	if claims.ID == memberUserID {
 		return fiber.NewError(fiber.StatusBadRequest, "Cannot remove yourself from the project")
 	}
 
@@ -378,17 +384,17 @@ func (s *projectService) RemoveMember(ctx context.Context, callerID string, proj
 	return nil
 }
 
-func (s *projectService) ChangeOwner(ctx context.Context, callerID string, projectID string, newOwnerID string) (*response.ProjectResponse, *fiber.Error) {
+func (s *projectService) ChangeOwner(ctx context.Context, claims *response.JWTClaims, projectID string, newOwnerID string) (*response.ProjectResponse, *fiber.Error) {
 	projectUUID, err := convert.StringToUUID(projectID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
 	}
 
-	if fErr := s.checkCallerIsOwner(ctx, callerID, projectUUID); fErr != nil {
+	if fErr := s.checkPermission(ctx, claims, projectUUID); fErr != nil {
 		return nil, fErr
 	}
 
-	if callerID == newOwnerID {
+	if claims.ID == newOwnerID {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "You are already the owner")
 	}
 

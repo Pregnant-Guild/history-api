@@ -154,8 +154,22 @@ func (h *ProjectController) UpdateProject(c fiber.Ctx) error {
 			Errors: err,
 		})
 	}
+	claimsVal := c.Locals("user_claims")
+	if claimsVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Unauthorized",
+		})
+	}
 
-	res, err := h.service.UpdateProject(ctx, projectID, dto)
+	claims, ok := claimsVal.(*response.JWTClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Invalid user claims",
+		})
+	}
+	res, err := h.service.UpdateProject(ctx, claims, projectID, dto)
 	if err != nil {
 		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
@@ -187,7 +201,23 @@ func (h *ProjectController) DeleteProject(c fiber.Ctx) error {
 	defer cancel()
 
 	projectID := c.Params("id")
-	err := h.service.DeleteProject(ctx, projectID)
+
+	claimsVal := c.Locals("user_claims")
+	if claimsVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Unauthorized",
+		})
+	}
+
+	claims, ok := claimsVal.(*response.JWTClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Invalid user claims",
+		})
+	}
+	err := h.service.DeleteProject(ctx, claims, projectID)
 	if err != nil {
 		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
@@ -229,8 +259,23 @@ func (h *ProjectController) AddMember(c fiber.Ctx) error {
 		})
 	}
 
-	uid := c.Locals("uid").(string)
-	res, err := h.service.AddMember(ctx, uid, projectID, dto)
+	claimsVal := c.Locals("user_claims")
+	if claimsVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Unauthorized",
+		})
+	}
+
+	claims, ok := claimsVal.(*response.JWTClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Invalid user claims",
+		})
+	}
+
+	res, err := h.service.AddMember(ctx, claims, projectID, dto)
 	if err != nil {
 		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
@@ -274,8 +319,23 @@ func (h *ProjectController) UpdateMemberRole(c fiber.Ctx) error {
 		})
 	}
 
-	uid := c.Locals("uid").(string)
-	res, err := h.service.UpdateMemberRole(ctx, uid, projectID, memberUserID, dto)
+	claimsVal := c.Locals("user_claims")
+	if claimsVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Unauthorized",
+		})
+	}
+
+	claims, ok := claimsVal.(*response.JWTClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Invalid user claims",
+		})
+	}
+
+	res, err := h.service.UpdateMemberRole(ctx, claims, projectID, memberUserID, dto)
 	if err != nil {
 		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
@@ -310,9 +370,24 @@ func (h *ProjectController) RemoveMember(c fiber.Ctx) error {
 
 	projectID := c.Params("id")
 	memberUserID := c.Params("userId")
-	uid := c.Locals("uid").(string)
 
-	err := h.service.RemoveMember(ctx, uid, projectID, memberUserID)
+	claimsVal := c.Locals("user_claims")
+	if claimsVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Unauthorized",
+		})
+	}
+
+	claims, ok := claimsVal.(*response.JWTClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Invalid user claims",
+		})
+	}
+
+	err := h.service.RemoveMember(ctx, claims, projectID, memberUserID)
 	if err != nil {
 		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
@@ -353,8 +428,22 @@ func (h *ProjectController) ChangeOwner(c fiber.Ctx) error {
 		})
 	}
 
-	uid := c.Locals("uid").(string)
-	res, err := h.service.ChangeOwner(ctx, uid, projectID, dto.NewOwnerID)
+	claimsVal := c.Locals("user_claims")
+	if claimsVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Unauthorized",
+		})
+	}
+
+	claims, ok := claimsVal.(*response.JWTClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.CommonResponse{
+			Status:  false,
+			Message: "Invalid user claims",
+		})
+	}
+	res, err := h.service.ChangeOwner(ctx, claims, projectID, dto.NewOwnerID)
 	if err != nil {
 		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
