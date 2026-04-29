@@ -44,7 +44,8 @@ func (s *projectService) checkPermission(ctx context.Context, claims *response.J
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Project not found")
 	}
-	if project.UserID == claims.ID {
+
+	if project.UserID == claims.UId {
 		return nil
 	}
 
@@ -54,7 +55,7 @@ func (s *projectService) checkPermission(ctx context.Context, claims *response.J
 		}
 	}
 
-	callerUUID, _ := convert.StringToUUID(claims.ID)
+	callerUUID, _ := convert.StringToUUID(claims.UId)
 	role, err := s.projectRepo.CheckPermission(ctx, sqlc.CheckProjectPermissionParams{
 		ProjectID: projectUUID,
 		UserID:    callerUUID,
@@ -294,9 +295,9 @@ func (s *projectService) AddMember(ctx context.Context, claims *response.JWTClai
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid member user ID format")
 	}
 
-	callerUUID, _ := convert.StringToUUID(claims.ID)
+	callerUUID, _ := convert.StringToUUID(claims.UId)
 
-	if dto.UserID == claims.ID {
+	if dto.UserID == claims.UId {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Cannot add yourself as a member")
 	}
 
@@ -369,7 +370,7 @@ func (s *projectService) RemoveMember(ctx context.Context, claims *response.JWTC
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid member user ID format")
 	}
 
-	if claims.ID == memberUserID {
+	if claims.UId == memberUserID {
 		return fiber.NewError(fiber.StatusBadRequest, "Cannot remove yourself from the project")
 	}
 
@@ -394,7 +395,7 @@ func (s *projectService) ChangeOwner(ctx context.Context, claims *response.JWTCl
 		return nil, fErr
 	}
 
-	if claims.ID == newOwnerID {
+	if claims.UId == newOwnerID {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "You are already the owner")
 	}
 
