@@ -65,6 +65,8 @@ INSERT INTO submissions (
 )
 RETURNING 
     id, project_id, commit_id, user_id, created_at, status, reviewed_by, reviewed_at, review_note, content, is_deleted,
+    (SELECT title FROM projects WHERE id = submissions.project_id) AS project_title,
+    (SELECT description FROM projects WHERE id = submissions.project_id) AS project_description,
     (
         SELECT json_build_object(
             'id', u.id,
@@ -100,19 +102,21 @@ type CreateSubmissionParams struct {
 }
 
 type CreateSubmissionRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	ProjectID  pgtype.UUID        `json:"project_id"`
-	CommitID   pgtype.UUID        `json:"commit_id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	Status     int16              `json:"status"`
-	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
-	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
-	ReviewNote pgtype.Text        `json:"review_note"`
-	Content    pgtype.Text        `json:"content"`
-	IsDeleted  bool               `json:"is_deleted"`
-	User       []byte             `json:"user"`
-	Reviewer   []byte             `json:"reviewer"`
+	ID                 pgtype.UUID        `json:"id"`
+	ProjectID          pgtype.UUID        `json:"project_id"`
+	CommitID           pgtype.UUID        `json:"commit_id"`
+	UserID             pgtype.UUID        `json:"user_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	Status             int16              `json:"status"`
+	ReviewedBy         pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt         pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote         pgtype.Text        `json:"review_note"`
+	Content            pgtype.Text        `json:"content"`
+	IsDeleted          bool               `json:"is_deleted"`
+	ProjectTitle       string             `json:"project_title"`
+	ProjectDescription pgtype.Text        `json:"project_description"`
+	User               []byte             `json:"user"`
+	Reviewer           []byte             `json:"reviewer"`
 }
 
 func (q *Queries) CreateSubmission(ctx context.Context, arg CreateSubmissionParams) (CreateSubmissionRow, error) {
@@ -136,6 +140,8 @@ func (q *Queries) CreateSubmission(ctx context.Context, arg CreateSubmissionPara
 		&i.ReviewNote,
 		&i.Content,
 		&i.IsDeleted,
+		&i.ProjectTitle,
+		&i.ProjectDescription,
 		&i.User,
 		&i.Reviewer,
 	)
@@ -156,6 +162,7 @@ func (q *Queries) DeleteSubmission(ctx context.Context, id pgtype.UUID) error {
 const getSubmissionById = `-- name: GetSubmissionById :one
 SELECT 
     s.id, s.project_id, s.commit_id, s.user_id, s.created_at, s.status, s.reviewed_by, s.reviewed_at, s.review_note, s.content, s.is_deleted,
+    p.title AS project_title, p.description AS project_description,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -173,6 +180,7 @@ SELECT
         )::json
     ELSE NULL::json END AS reviewer
 FROM submissions s
+JOIN projects p ON s.project_id = p.id
 JOIN users u ON s.user_id = u.id
 LEFT JOIN user_profiles up ON u.id = up.user_id
 LEFT JOIN users ru ON s.reviewed_by = ru.id
@@ -181,19 +189,21 @@ WHERE s.id = $1 AND s.is_deleted = false
 `
 
 type GetSubmissionByIdRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	ProjectID  pgtype.UUID        `json:"project_id"`
-	CommitID   pgtype.UUID        `json:"commit_id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	Status     int16              `json:"status"`
-	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
-	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
-	ReviewNote pgtype.Text        `json:"review_note"`
-	Content    pgtype.Text        `json:"content"`
-	IsDeleted  bool               `json:"is_deleted"`
-	User       []byte             `json:"user"`
-	Reviewer   []byte             `json:"reviewer"`
+	ID                 pgtype.UUID        `json:"id"`
+	ProjectID          pgtype.UUID        `json:"project_id"`
+	CommitID           pgtype.UUID        `json:"commit_id"`
+	UserID             pgtype.UUID        `json:"user_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	Status             int16              `json:"status"`
+	ReviewedBy         pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt         pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote         pgtype.Text        `json:"review_note"`
+	Content            pgtype.Text        `json:"content"`
+	IsDeleted          bool               `json:"is_deleted"`
+	ProjectTitle       string             `json:"project_title"`
+	ProjectDescription pgtype.Text        `json:"project_description"`
+	User               []byte             `json:"user"`
+	Reviewer           []byte             `json:"reviewer"`
 }
 
 func (q *Queries) GetSubmissionById(ctx context.Context, id pgtype.UUID) (GetSubmissionByIdRow, error) {
@@ -211,6 +221,8 @@ func (q *Queries) GetSubmissionById(ctx context.Context, id pgtype.UUID) (GetSub
 		&i.ReviewNote,
 		&i.Content,
 		&i.IsDeleted,
+		&i.ProjectTitle,
+		&i.ProjectDescription,
 		&i.User,
 		&i.Reviewer,
 	)
@@ -220,6 +232,7 @@ func (q *Queries) GetSubmissionById(ctx context.Context, id pgtype.UUID) (GetSub
 const getSubmissionsByIDs = `-- name: GetSubmissionsByIDs :many
 SELECT 
     s.id, s.project_id, s.commit_id, s.user_id, s.created_at, s.status, s.reviewed_by, s.reviewed_at, s.review_note, s.content, s.is_deleted,
+    p.title AS project_title, p.description AS project_description,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -237,6 +250,7 @@ SELECT
         )::json
     ELSE NULL::json END AS reviewer
 FROM submissions s
+JOIN projects p ON s.project_id = p.id
 JOIN users u ON s.user_id = u.id
 LEFT JOIN user_profiles up ON u.id = up.user_id
 LEFT JOIN users ru ON s.reviewed_by = ru.id
@@ -245,19 +259,21 @@ WHERE s.id = ANY($1::uuid[]) AND s.is_deleted = false
 `
 
 type GetSubmissionsByIDsRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	ProjectID  pgtype.UUID        `json:"project_id"`
-	CommitID   pgtype.UUID        `json:"commit_id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	Status     int16              `json:"status"`
-	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
-	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
-	ReviewNote pgtype.Text        `json:"review_note"`
-	Content    pgtype.Text        `json:"content"`
-	IsDeleted  bool               `json:"is_deleted"`
-	User       []byte             `json:"user"`
-	Reviewer   []byte             `json:"reviewer"`
+	ID                 pgtype.UUID        `json:"id"`
+	ProjectID          pgtype.UUID        `json:"project_id"`
+	CommitID           pgtype.UUID        `json:"commit_id"`
+	UserID             pgtype.UUID        `json:"user_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	Status             int16              `json:"status"`
+	ReviewedBy         pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt         pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote         pgtype.Text        `json:"review_note"`
+	Content            pgtype.Text        `json:"content"`
+	IsDeleted          bool               `json:"is_deleted"`
+	ProjectTitle       string             `json:"project_title"`
+	ProjectDescription pgtype.Text        `json:"project_description"`
+	User               []byte             `json:"user"`
+	Reviewer           []byte             `json:"reviewer"`
 }
 
 func (q *Queries) GetSubmissionsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetSubmissionsByIDsRow, error) {
@@ -281,6 +297,8 @@ func (q *Queries) GetSubmissionsByIDs(ctx context.Context, dollar_1 []pgtype.UUI
 			&i.ReviewNote,
 			&i.Content,
 			&i.IsDeleted,
+			&i.ProjectTitle,
+			&i.ProjectDescription,
 			&i.User,
 			&i.Reviewer,
 		); err != nil {
@@ -297,6 +315,7 @@ func (q *Queries) GetSubmissionsByIDs(ctx context.Context, dollar_1 []pgtype.UUI
 const searchSubmissions = `-- name: SearchSubmissions :many
 SELECT 
     s.id, s.project_id, s.commit_id, s.user_id, s.created_at, s.status, s.reviewed_by, s.reviewed_at, s.review_note, s.content, s.is_deleted,
+    p.title AS project_title, p.description AS project_description,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -314,6 +333,7 @@ SELECT
         )::json
     ELSE NULL::json END AS reviewer
 FROM submissions s
+JOIN projects p ON s.project_id = p.id
 JOIN users u ON s.user_id = u.id
 LEFT JOIN user_profiles up ON u.id = up.user_id
 LEFT JOIN users ru ON s.reviewed_by = ru.id
@@ -361,19 +381,21 @@ type SearchSubmissionsParams struct {
 }
 
 type SearchSubmissionsRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	ProjectID  pgtype.UUID        `json:"project_id"`
-	CommitID   pgtype.UUID        `json:"commit_id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	Status     int16              `json:"status"`
-	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
-	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
-	ReviewNote pgtype.Text        `json:"review_note"`
-	Content    pgtype.Text        `json:"content"`
-	IsDeleted  bool               `json:"is_deleted"`
-	User       []byte             `json:"user"`
-	Reviewer   []byte             `json:"reviewer"`
+	ID                 pgtype.UUID        `json:"id"`
+	ProjectID          pgtype.UUID        `json:"project_id"`
+	CommitID           pgtype.UUID        `json:"commit_id"`
+	UserID             pgtype.UUID        `json:"user_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	Status             int16              `json:"status"`
+	ReviewedBy         pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt         pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote         pgtype.Text        `json:"review_note"`
+	Content            pgtype.Text        `json:"content"`
+	IsDeleted          bool               `json:"is_deleted"`
+	ProjectTitle       string             `json:"project_title"`
+	ProjectDescription pgtype.Text        `json:"project_description"`
+	User               []byte             `json:"user"`
+	Reviewer           []byte             `json:"reviewer"`
 }
 
 func (q *Queries) SearchSubmissions(ctx context.Context, arg SearchSubmissionsParams) ([]SearchSubmissionsRow, error) {
@@ -409,6 +431,8 @@ func (q *Queries) SearchSubmissions(ctx context.Context, arg SearchSubmissionsPa
 			&i.ReviewNote,
 			&i.Content,
 			&i.IsDeleted,
+			&i.ProjectTitle,
+			&i.ProjectDescription,
 			&i.User,
 			&i.Reviewer,
 		); err != nil {
@@ -429,14 +453,16 @@ SET
     reviewed_by = COALESCE($2, reviewed_by),
     review_note = COALESCE($3, review_note),
     content = COALESCE($4, content)
-FROM users u
+FROM projects p, users u
 LEFT JOIN user_profiles up ON u.id = up.user_id
 LEFT JOIN users ru ON submissions.reviewed_by = ru.id
 LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE submissions.id = $5
+  AND submissions.project_id = p.id
   AND submissions.user_id = u.id
 RETURNING 
     submissions.id, submissions.project_id, submissions.commit_id, submissions.user_id, submissions.created_at, submissions.status, submissions.reviewed_by, submissions.reviewed_at, submissions.review_note, submissions.content, submissions.is_deleted,
+    p.title AS project_title, p.description AS project_description,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -464,19 +490,21 @@ type UpdateSubmissionParams struct {
 }
 
 type UpdateSubmissionRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	ProjectID  pgtype.UUID        `json:"project_id"`
-	CommitID   pgtype.UUID        `json:"commit_id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	Status     int16              `json:"status"`
-	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
-	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
-	ReviewNote pgtype.Text        `json:"review_note"`
-	Content    pgtype.Text        `json:"content"`
-	IsDeleted  bool               `json:"is_deleted"`
-	User       []byte             `json:"user"`
-	Reviewer   []byte             `json:"reviewer"`
+	ID                 pgtype.UUID        `json:"id"`
+	ProjectID          pgtype.UUID        `json:"project_id"`
+	CommitID           pgtype.UUID        `json:"commit_id"`
+	UserID             pgtype.UUID        `json:"user_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	Status             int16              `json:"status"`
+	ReviewedBy         pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt         pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote         pgtype.Text        `json:"review_note"`
+	Content            pgtype.Text        `json:"content"`
+	IsDeleted          bool               `json:"is_deleted"`
+	ProjectTitle       string             `json:"project_title"`
+	ProjectDescription pgtype.Text        `json:"project_description"`
+	User               []byte             `json:"user"`
+	Reviewer           []byte             `json:"reviewer"`
 }
 
 func (q *Queries) UpdateSubmission(ctx context.Context, arg UpdateSubmissionParams) (UpdateSubmissionRow, error) {
@@ -500,6 +528,8 @@ func (q *Queries) UpdateSubmission(ctx context.Context, arg UpdateSubmissionPara
 		&i.ReviewNote,
 		&i.Content,
 		&i.IsDeleted,
+		&i.ProjectTitle,
+		&i.ProjectDescription,
 		&i.User,
 		&i.Reviewer,
 	)

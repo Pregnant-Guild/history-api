@@ -58,17 +58,19 @@ func (r *submissionRepository) GetByID(ctx context.Context, id pgtype.UUID) (*mo
 		return nil, err
 	}
 	entity := &models.SubmissionEntity{
-		ID:         convert.UUIDToString(row.ID),
-		ProjectID:  convert.UUIDToString(row.ProjectID),
-		CommitID:   convert.UUIDToString(row.CommitID),
-		UserID:     convert.UUIDToString(row.UserID),
-		CreatedAt:  convert.TimeToPtr(row.CreatedAt),
-		Status:     constants.ParseStatusType(row.Status),
-		ReviewedBy: convert.UUIDToStringPtr(row.ReviewedBy),
-		ReviewedAt: convert.TimeToPtr(row.ReviewedAt),
-		ReviewNote: convert.TextToPtr(row.ReviewNote),
-		Content:    convert.TextToPtr(row.Content),
-		IsDeleted:  row.IsDeleted,
+		ID:                 convert.UUIDToString(row.ID),
+		ProjectID:          convert.UUIDToString(row.ProjectID),
+		CommitID:           convert.UUIDToString(row.CommitID),
+		UserID:             convert.UUIDToString(row.UserID),
+		CreatedAt:          convert.TimeToPtr(row.CreatedAt),
+		Status:             constants.ParseStatusType(row.Status),
+		ReviewedBy:         convert.UUIDToStringPtr(row.ReviewedBy),
+		ReviewedAt:         convert.TimeToPtr(row.ReviewedAt),
+		ReviewNote:         convert.TextToPtr(row.ReviewNote),
+		Content:            convert.TextToPtr(row.Content),
+		IsDeleted:          row.IsDeleted,
+		ProjectTitle:       row.ProjectTitle,
+		ProjectDescription: convert.TextToPtr(row.ProjectDescription),
 	}
 	_ = entity.ParseUser(row.User)
 	_ = entity.ParseReviewer(row.Reviewer)
@@ -113,17 +115,19 @@ func (r *submissionRepository) getByIDsWithFallback(ctx context.Context, ids []s
 		if err == nil {
 			for _, row := range dbRows {
 				entity := &models.SubmissionEntity{
-					ID:         convert.UUIDToString(row.ID),
-					ProjectID:  convert.UUIDToString(row.ProjectID),
-					CommitID:   convert.UUIDToString(row.CommitID),
-					UserID:     convert.UUIDToString(row.UserID),
-					CreatedAt:  convert.TimeToPtr(row.CreatedAt),
-					Status:     constants.ParseStatusType(row.Status),
-					ReviewedBy: convert.UUIDToStringPtr(row.ReviewedBy),
-					ReviewedAt: convert.TimeToPtr(row.ReviewedAt),
-					ReviewNote: convert.TextToPtr(row.ReviewNote),
-					Content:    convert.TextToPtr(row.Content),
-					IsDeleted:  row.IsDeleted,
+					ID:                 convert.UUIDToString(row.ID),
+					ProjectID:          convert.UUIDToString(row.ProjectID),
+					CommitID:           convert.UUIDToString(row.CommitID),
+					UserID:             convert.UUIDToString(row.UserID),
+					CreatedAt:          convert.TimeToPtr(row.CreatedAt),
+					Status:             constants.ParseStatusType(row.Status),
+					ReviewedBy:         convert.UUIDToStringPtr(row.ReviewedBy),
+					ReviewedAt:         convert.TimeToPtr(row.ReviewedAt),
+					ReviewNote:         convert.TextToPtr(row.ReviewNote),
+					Content:            convert.TextToPtr(row.Content),
+					IsDeleted:          row.IsDeleted,
+					ProjectTitle:       row.ProjectTitle,
+					ProjectDescription: convert.TextToPtr(row.ProjectDescription),
 				}
 				_ = entity.ParseUser(row.User)
 				_ = entity.ParseReviewer(row.Reviewer)
@@ -183,17 +187,19 @@ func (r *submissionRepository) Search(ctx context.Context, params sqlc.SearchSub
 
 	for _, row := range rows {
 		entity := &models.SubmissionEntity{
-			ID:         convert.UUIDToString(row.ID),
-			ProjectID:  convert.UUIDToString(row.ProjectID),
-			CommitID:   convert.UUIDToString(row.CommitID),
-			UserID:     convert.UUIDToString(row.UserID),
-			CreatedAt:  convert.TimeToPtr(row.CreatedAt),
-			Status:     constants.ParseStatusType(row.Status),
-			ReviewedBy: convert.UUIDToStringPtr(row.ReviewedBy),
-			ReviewedAt: convert.TimeToPtr(row.ReviewedAt),
-			ReviewNote: convert.TextToPtr(row.ReviewNote),
-			Content:    convert.TextToPtr(row.Content),
-			IsDeleted:  row.IsDeleted,
+			ID:                 convert.UUIDToString(row.ID),
+			ProjectID:          convert.UUIDToString(row.ProjectID),
+			CommitID:           convert.UUIDToString(row.CommitID),
+			UserID:             convert.UUIDToString(row.UserID),
+			CreatedAt:          convert.TimeToPtr(row.CreatedAt),
+			Status:             constants.ParseStatusType(row.Status),
+			ReviewedBy:         convert.UUIDToStringPtr(row.ReviewedBy),
+			ReviewedAt:         convert.TimeToPtr(row.ReviewedAt),
+			ReviewNote:         convert.TextToPtr(row.ReviewNote),
+			Content:            convert.TextToPtr(row.Content),
+			IsDeleted:          row.IsDeleted,
+			ProjectTitle:       row.ProjectTitle,
+			ProjectDescription: convert.TextToPtr(row.ProjectDescription),
 		}
 		_ = entity.ParseUser(row.User)
 		_ = entity.ParseReviewer(row.Reviewer)
@@ -236,17 +242,19 @@ func (r *submissionRepository) Create(ctx context.Context, params sqlc.CreateSub
 		return nil, err
 	}
 	submission := models.SubmissionEntity{
-		ID:         convert.UUIDToString(row.ID),
-		ProjectID:  convert.UUIDToString(row.ProjectID),
-		CommitID:   convert.UUIDToString(row.CommitID),
-		UserID:     convert.UUIDToString(row.UserID),
-		CreatedAt:  convert.TimeToPtr(row.CreatedAt),
-		Status:     constants.ParseStatusType(row.Status),
-		ReviewedBy: convert.UUIDToStringPtr(row.ReviewedBy),
-		ReviewedAt: convert.TimeToPtr(row.ReviewedAt),
-		ReviewNote: convert.TextToPtr(row.ReviewNote),
-		Content:    convert.TextToPtr(row.Content),
-		IsDeleted:  row.IsDeleted,
+		ID:                 convert.UUIDToString(row.ID),
+		ProjectID:          convert.UUIDToString(row.ProjectID),
+		CommitID:           convert.UUIDToString(row.CommitID),
+		UserID:             convert.UUIDToString(row.UserID),
+		CreatedAt:          convert.TimeToPtr(row.CreatedAt),
+		Status:             constants.ParseStatusType(row.Status),
+		ReviewedBy:         convert.UUIDToStringPtr(row.ReviewedBy),
+		ReviewedAt:         convert.TimeToPtr(row.ReviewedAt),
+		ReviewNote:         convert.TextToPtr(row.ReviewNote),
+		Content:            convert.TextToPtr(row.Content),
+		IsDeleted:          row.IsDeleted,
+		ProjectTitle:       row.ProjectTitle,
+		ProjectDescription: convert.TextToPtr(row.ProjectDescription),
 	}
 
 	if err := submission.ParseUser(row.User); err != nil {
@@ -273,17 +281,19 @@ func (r *submissionRepository) Update(ctx context.Context, params sqlc.UpdateSub
 	}
 
 	submission := models.SubmissionEntity{
-		ID:         convert.UUIDToString(row.ID),
-		ProjectID:  convert.UUIDToString(row.ProjectID),
-		CommitID:   convert.UUIDToString(row.CommitID),
-		UserID:     convert.UUIDToString(row.UserID),
-		CreatedAt:  convert.TimeToPtr(row.CreatedAt),
-		Status:     constants.ParseStatusType(row.Status),
-		ReviewedBy: convert.UUIDToStringPtr(row.ReviewedBy),
-		ReviewedAt: convert.TimeToPtr(row.ReviewedAt),
-		ReviewNote: convert.TextToPtr(row.ReviewNote),
-		Content:    convert.TextToPtr(row.Content),
-		IsDeleted:  row.IsDeleted,
+		ID:                 convert.UUIDToString(row.ID),
+		ProjectID:          convert.UUIDToString(row.ProjectID),
+		CommitID:           convert.UUIDToString(row.CommitID),
+		UserID:             convert.UUIDToString(row.UserID),
+		CreatedAt:          convert.TimeToPtr(row.CreatedAt),
+		Status:             constants.ParseStatusType(row.Status),
+		ReviewedBy:         convert.UUIDToStringPtr(row.ReviewedBy),
+		ReviewedAt:         convert.TimeToPtr(row.ReviewedAt),
+		ReviewNote:         convert.TextToPtr(row.ReviewNote),
+		Content:            convert.TextToPtr(row.Content),
+		IsDeleted:          row.IsDeleted,
+		ProjectTitle:       row.ProjectTitle,
+		ProjectDescription: convert.TextToPtr(row.ProjectDescription),
 	}
 
 	if err := submission.ParseUser(row.User); err != nil {

@@ -8,19 +8,21 @@ import (
 )
 
 type SubmissionEntity struct {
-	ID          string               `json:"id"`
-	ProjectID   string               `json:"project_id"`
-	CommitID    string               `json:"commit_id"`
-	UserID      string               `json:"user_id"`
-	CreatedAt   *time.Time           `json:"created_at"`
-	Status      constants.StatusType `json:"status"`
-	ReviewedBy  *string              `json:"reviewed_by"`
-	ReviewedAt  *time.Time           `json:"reviewed_at"`
-	ReviewNote  *string              `json:"review_note"`
-	Content     *string              `json:"content"`
-	IsDeleted   bool                 `json:"is_deleted"`
-	User        *UserSimpleEntity    `json:"user"`
-	Reviewer    *UserSimpleEntity    `json:"reviewer"`
+	ID                 string               `json:"id"`
+	ProjectID          string               `json:"project_id"`
+	CommitID           string               `json:"commit_id"`
+	UserID             string               `json:"user_id"`
+	CreatedAt          *time.Time           `json:"created_at"`
+	Status             constants.StatusType `json:"status"`
+	ReviewedBy         *string              `json:"reviewed_by"`
+	ReviewedAt         *time.Time           `json:"reviewed_at"`
+	ReviewNote         *string              `json:"review_note"`
+	Content            *string              `json:"content"`
+	IsDeleted          bool                 `json:"is_deleted"`
+	ProjectTitle       string               `json:"project_title"`
+	ProjectDescription *string              `json:"project_description"`
+	User               *UserSimpleEntity    `json:"user"`
+	Reviewer           *UserSimpleEntity    `json:"reviewer"`
 }
 
 func (s *SubmissionEntity) ParseUser(data []byte) error {
@@ -45,18 +47,20 @@ func (s *SubmissionEntity) ToResponse() *response.SubmissionResponse {
 	}
 
 	return &response.SubmissionResponse{
-		ID:         s.ID,
-		ProjectID:  s.ProjectID,
-		CommitID:   s.CommitID,
-		UserID:     s.UserID,
-		CreatedAt:  s.CreatedAt,
-		Status:     s.Status.String(),
-		ReviewedBy: s.ReviewedBy,
-		ReviewedAt: s.ReviewedAt,
-		ReviewNote: s.ReviewNote,
-		Content:    s.Content,
-		User:       s.User.ToResponse(),
-		Reviewer:   s.Reviewer.ToResponse(),
+		ID:                 s.ID,
+		ProjectID:          s.ProjectID,
+		CommitID:           s.CommitID,
+		UserID:             s.UserID,
+		CreatedAt:          s.CreatedAt,
+		Status:             s.Status.String(),
+		ReviewedBy:         s.ReviewedBy,
+		ReviewedAt:         s.ReviewedAt,
+		ReviewNote:         s.ReviewNote,
+		Content:            s.Content,
+		ProjectTitle:       s.ProjectTitle,
+		ProjectDescription: s.ProjectDescription,
+		User:               s.User.ToResponse(),
+		Reviewer:           s.Reviewer.ToResponse(),
 	}
 }
 

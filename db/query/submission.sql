@@ -6,6 +6,8 @@ INSERT INTO submissions (
 )
 RETURNING 
     id, project_id, commit_id, user_id, created_at, status, reviewed_by, reviewed_at, review_note, content, is_deleted,
+    (SELECT title FROM projects WHERE id = submissions.project_id) AS project_title,
+    (SELECT description FROM projects WHERE id = submissions.project_id) AS project_description,
     (
         SELECT json_build_object(
             'id', u.id,
@@ -34,6 +36,7 @@ RETURNING
 -- name: GetSubmissionById :one
 SELECT 
     s.id, s.project_id, s.commit_id, s.user_id, s.created_at, s.status, s.reviewed_by, s.reviewed_at, s.review_note, s.content, s.is_deleted,
+    p.title AS project_title, p.description AS project_description,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -51,6 +54,7 @@ SELECT
         )::json
     ELSE NULL::json END AS reviewer
 FROM submissions s
+JOIN projects p ON s.project_id = p.id
 JOIN users u ON s.user_id = u.id
 LEFT JOIN user_profiles up ON u.id = up.user_id
 LEFT JOIN users ru ON s.reviewed_by = ru.id
@@ -64,14 +68,16 @@ SET
     reviewed_by = COALESCE(sqlc.narg('reviewed_by'), reviewed_by),
     review_note = COALESCE(sqlc.narg('review_note'), review_note),
     content = COALESCE(sqlc.narg('content'), content)
-FROM users u
+FROM projects p, users u
 LEFT JOIN user_profiles up ON u.id = up.user_id
 LEFT JOIN users ru ON submissions.reviewed_by = ru.id
 LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE submissions.id = sqlc.arg('id')
+  AND submissions.project_id = p.id
   AND submissions.user_id = u.id
 RETURNING 
     submissions.id, submissions.project_id, submissions.commit_id, submissions.user_id, submissions.created_at, submissions.status, submissions.reviewed_by, submissions.reviewed_at, submissions.review_note, submissions.content, submissions.is_deleted,
+    p.title AS project_title, p.description AS project_description,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -97,6 +103,7 @@ WHERE id = $1;
 -- name: SearchSubmissions :many
 SELECT 
     s.id, s.project_id, s.commit_id, s.user_id, s.created_at, s.status, s.reviewed_by, s.reviewed_at, s.review_note, s.content, s.is_deleted,
+    p.title AS project_title, p.description AS project_description,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -114,6 +121,7 @@ SELECT
         )::json
     ELSE NULL::json END AS reviewer
 FROM submissions s
+JOIN projects p ON s.project_id = p.id
 JOIN users u ON s.user_id = u.id
 LEFT JOIN user_profiles up ON u.id = up.user_id
 LEFT JOIN users ru ON s.reviewed_by = ru.id
@@ -168,6 +176,7 @@ WHERE s.is_deleted = false
 -- name: GetSubmissionsByIDs :many
 SELECT 
     s.id, s.project_id, s.commit_id, s.user_id, s.created_at, s.status, s.reviewed_by, s.reviewed_at, s.review_note, s.content, s.is_deleted,
+    p.title AS project_title, p.description AS project_description,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -185,8 +194,10 @@ SELECT
         )::json
     ELSE NULL::json END AS reviewer
 FROM submissions s
+JOIN projects p ON s.project_id = p.id
 JOIN users u ON s.user_id = u.id
 LEFT JOIN user_profiles up ON u.id = up.user_id
 LEFT JOIN users ru ON s.reviewed_by = ru.id
 LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE s.id = ANY($1::uuid[]) AND s.is_deleted = false;
+
