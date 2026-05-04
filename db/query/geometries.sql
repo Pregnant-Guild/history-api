@@ -67,7 +67,7 @@ WHERE g.is_deleted = false
   )
   AND (
     sqlc.narg('time_point')::int IS NULL OR
-    (g.time_start <= sqlc.narg('time_point')::int AND g.time_end >= sqlc.narg('time_point')::int)
+    int4range(g.time_start, g.time_end, '[]') @> sqlc.narg('time_point')::int
   )
   AND (
     sqlc.narg('entity_id')::uuid IS NULL OR

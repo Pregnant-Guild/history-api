@@ -55,8 +55,9 @@ func (s *entityService) SearchEntities(ctx context.Context, req *request.SearchE
 			params.CursorID = cursor
 		}
 	}
+
 	if req.Name != "" {
-		params.Name = req.Name
+		params.Name = convert.PtrToText(&req.Name)
 	}
 
 	if req.ProjectID != nil {

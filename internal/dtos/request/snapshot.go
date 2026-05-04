@@ -38,16 +38,17 @@ type FeatureProperties struct {
 }
 
 type EntitySnapshot struct {
-	ID            string  `json:"id" validate:"required,uuidv7"`
-	Source        string  `json:"source,omitempty" validate:"omitempty,oneof=inline ref"`
-	Operation     string  `json:"operation,omitempty" validate:"omitempty,oneof=create update delete reference"`
-	Name          string  `json:"name,omitempty"`
-	Slug          *string `json:"slug,omitempty"`
-	Description   string  `json:"description,omitempty"`
-	TypeID        string  `json:"type_id,omitempty"`
-	Status        *int    `json:"status,omitempty" validate:"omitempty,oneof=0 1"`
-	BaseUpdatedAt string  `json:"base_updated_at,omitempty"`
-	BaseHash      string  `json:"base_hash,omitempty"`
+	ID            string   `json:"id" validate:"required,uuidv7"`
+	Source        string   `json:"source,omitempty" validate:"omitempty,oneof=inline ref"`
+	Operation     string   `json:"operation,omitempty" validate:"omitempty,oneof=create update delete reference"`
+	Name          string   `json:"name,omitempty"`
+	Slug          *string  `json:"slug,omitempty"`
+	Description   string   `json:"description,omitempty"`
+	Status        *int     `json:"status,omitempty" validate:"omitempty,oneof=0 1"`
+	TimeStart     *float64 `json:"time_start,omitempty"`
+	TimeEnd       *float64 `json:"time_end,omitempty"`
+	BaseUpdatedAt string   `json:"base_updated_at,omitempty"`
+	BaseHash      string   `json:"base_hash,omitempty"`
 }
 
 type GeometrySnapshot struct {
@@ -90,7 +91,5 @@ type EntityWikiLinkSnapshot struct {
 	EntityID  string `json:"entity_id" validate:"required,uuidv7"`
 	WikiID    string `json:"wiki_id" validate:"required,uuidv7"`
 	Operation string `json:"operation,omitempty" validate:"omitempty,oneof=reference delete"`
-
-	// Legacy / Compatibility
-	IsDeleted *int `json:"is_deleted,omitempty" validate:"omitempty,oneof=0 1"`
+	IsDeleted *int   `json:"is_deleted,omitempty" validate:"omitempty,oneof=0 1"`
 }

@@ -13,11 +13,11 @@ import (
 
 const createEntity = `-- name: CreateEntity :one
 INSERT INTO entities (
-    id, name, slug, description, project_id, status
+    id, name, slug, description, project_id, status, time_start, time_end
 ) VALUES (
-    COALESCE($6::uuid, uuidv7()), $1, $2, $3, $4, $5
+    COALESCE($8::uuid, uuidv7()), $1, $2, $3, $4, $5, $6, $7
 )
-RETURNING id, project_id, name, slug, description, status, is_deleted, created_at, updated_at
+RETURNING id, project_id, name, slug, description, status, time_start, time_end, is_deleted, created_at, updated_at
 `
 
 type CreateEntityParams struct {
@@ -26,6 +26,8 @@ type CreateEntityParams struct {
 	Description pgtype.Text `json:"description"`
 	ProjectID   pgtype.UUID `json:"project_id"`
 	Status      pgtype.Int2 `json:"status"`
+	TimeStart   pgtype.Int4 `json:"time_start"`
+	TimeEnd     pgtype.Int4 `json:"time_end"`
 	ID          pgtype.UUID `json:"id"`
 }
 
@@ -36,6 +38,8 @@ func (q *Queries) CreateEntity(ctx context.Context, arg CreateEntityParams) (Ent
 		arg.Description,
 		arg.ProjectID,
 		arg.Status,
+		arg.TimeStart,
+		arg.TimeEnd,
 		arg.ID,
 	)
 	var i Entity
@@ -46,6 +50,8 @@ func (q *Queries) CreateEntity(ctx context.Context, arg CreateEntityParams) (Ent
 		&i.Slug,
 		&i.Description,
 		&i.Status,
+		&i.TimeStart,
+		&i.TimeEnd,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -77,7 +83,7 @@ func (q *Queries) DeleteEntity(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getEntitiesByIDs = `-- name: GetEntitiesByIDs :many
-SELECT id, project_id, name, slug, description, status, is_deleted, created_at, updated_at FROM entities WHERE id = ANY($1::uuid[]) AND is_deleted = false
+SELECT id, project_id, name, slug, description, status, time_start, time_end, is_deleted, created_at, updated_at FROM entities WHERE id = ANY($1::uuid[]) AND is_deleted = false
 `
 
 func (q *Queries) GetEntitiesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Entity, error) {
@@ -96,6 +102,8 @@ func (q *Queries) GetEntitiesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) 
 			&i.Slug,
 			&i.Description,
 			&i.Status,
+			&i.TimeStart,
+			&i.TimeEnd,
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -111,7 +119,7 @@ func (q *Queries) GetEntitiesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) 
 }
 
 const getEntitiesByProjectId = `-- name: GetEntitiesByProjectId :many
-SELECT id, project_id, name, slug, description, status, is_deleted, created_at, updated_at
+SELECT id, project_id, name, slug, description, status, time_start, time_end, is_deleted, created_at, updated_at
 FROM entities
 WHERE project_id = $1 AND is_deleted = false
 `
@@ -132,6 +140,8 @@ func (q *Queries) GetEntitiesByProjectId(ctx context.Context, projectID pgtype.U
 			&i.Slug,
 			&i.Description,
 			&i.Status,
+			&i.TimeStart,
+			&i.TimeEnd,
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -147,7 +157,7 @@ func (q *Queries) GetEntitiesByProjectId(ctx context.Context, projectID pgtype.U
 }
 
 const getEntityById = `-- name: GetEntityById :one
-SELECT id, project_id, name, slug, description, status, is_deleted, created_at, updated_at
+SELECT id, project_id, name, slug, description, status, time_start, time_end, is_deleted, created_at, updated_at
 FROM entities
 WHERE id = $1 AND is_deleted = false
 `
@@ -162,6 +172,8 @@ func (q *Queries) GetEntityById(ctx context.Context, id pgtype.UUID) (Entity, er
 		&i.Slug,
 		&i.Description,
 		&i.Status,
+		&i.TimeStart,
+		&i.TimeEnd,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -170,19 +182,24 @@ func (q *Queries) GetEntityById(ctx context.Context, id pgtype.UUID) (Entity, er
 }
 
 const searchEntities = `-- name: SearchEntities :many
-SELECT id, project_id, name, slug, description, status, is_deleted, created_at, updated_at
+SELECT id, project_id, name, slug, description, status, time_start, time_end, is_deleted, created_at, updated_at
 FROM entities
 WHERE is_deleted = false
   AND ($1::uuid IS NULL OR project_id = $1::uuid)
-  AND name ILIKE '%' || $2::text || '%'
-  AND ($3::uuid IS NULL OR id < $3::uuid)
+  AND ($2::text IS NULL OR name ILIKE '%' || $2::text || '%')
+  AND (
+    $3::int IS NULL OR
+    int4range(time_start, time_end, '[]') @> $3::int
+  )
+  AND ($4::uuid IS NULL OR id < $4::uuid)
 ORDER BY id DESC
-LIMIT $4
+LIMIT $5
 `
 
 type SearchEntitiesParams struct {
 	ProjectID  pgtype.UUID `json:"project_id"`
-	Name       string      `json:"name"`
+	Name       pgtype.Text `json:"name"`
+	TimePoint  pgtype.Int4 `json:"time_point"`
 	CursorID   pgtype.UUID `json:"cursor_id"`
 	LimitCount int32       `json:"limit_count"`
 }
@@ -191,6 +208,7 @@ func (q *Queries) SearchEntities(ctx context.Context, arg SearchEntitiesParams) 
 	rows, err := q.db.Query(ctx, searchEntities,
 		arg.ProjectID,
 		arg.Name,
+		arg.TimePoint,
 		arg.CursorID,
 		arg.LimitCount,
 	)
@@ -208,6 +226,8 @@ func (q *Queries) SearchEntities(ctx context.Context, arg SearchEntitiesParams) 
 			&i.Slug,
 			&i.Description,
 			&i.Status,
+			&i.TimeStart,
+			&i.TimeEnd,
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -229,9 +249,11 @@ SET
     slug = COALESCE($2, slug),
     description = COALESCE($3, description),
     project_id = COALESCE($4, project_id),
-    status = COALESCE($5, status)
-WHERE id = $6 AND is_deleted = false
-RETURNING id, project_id, name, slug, description, status, is_deleted, created_at, updated_at
+    status = COALESCE($5, status),
+    time_start = COALESCE($6, time_start),
+    time_end = COALESCE($7, time_end)
+WHERE id = $8 AND is_deleted = false
+RETURNING id, project_id, name, slug, description, status, time_start, time_end, is_deleted, created_at, updated_at
 `
 
 type UpdateEntityParams struct {
@@ -240,6 +262,8 @@ type UpdateEntityParams struct {
 	Description pgtype.Text `json:"description"`
 	ProjectID   pgtype.UUID `json:"project_id"`
 	Status      pgtype.Int2 `json:"status"`
+	TimeStart   pgtype.Int4 `json:"time_start"`
+	TimeEnd     pgtype.Int4 `json:"time_end"`
 	ID          pgtype.UUID `json:"id"`
 }
 
@@ -250,6 +274,8 @@ func (q *Queries) UpdateEntity(ctx context.Context, arg UpdateEntityParams) (Ent
 		arg.Description,
 		arg.ProjectID,
 		arg.Status,
+		arg.TimeStart,
+		arg.TimeEnd,
 		arg.ID,
 	)
 	var i Entity
@@ -260,6 +286,8 @@ func (q *Queries) UpdateEntity(ctx context.Context, arg UpdateEntityParams) (Ent
 		&i.Slug,
 		&i.Description,
 		&i.Status,
+		&i.TimeStart,
+		&i.TimeEnd,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,

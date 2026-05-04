@@ -34,7 +34,7 @@ ON geometries USING GIST (bbox)
 WHERE is_deleted = false;
 
 CREATE INDEX idx_geom_time_range
-ON geometries USING GIST (int4range(time_start, time_end))
+ON geometries USING GIST (int4range(time_start, time_end, '[]'))
 WHERE is_deleted = false;
 
 CREATE INDEX idx_entity_geometries_geometry

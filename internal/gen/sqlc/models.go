@@ -28,6 +28,8 @@ type Entity struct {
 	Slug        pgtype.Text        `json:"slug"`
 	Description pgtype.Text        `json:"description"`
 	Status      pgtype.Int2        `json:"status"`
+	TimeStart   pgtype.Int4        `json:"time_start"`
+	TimeEnd     pgtype.Int4        `json:"time_end"`
 	IsDeleted   bool               `json:"is_deleted"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`

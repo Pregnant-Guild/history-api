@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS entities (
     slug TEXT,
     description TEXT,
     status SMALLINT,
+    time_start INT,
+    time_end INT,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -15,6 +17,10 @@ CREATE INDEX idx_entities_name_search
 ON entities USING GIN (name gin_trgm_ops);
 
 CREATE INDEX idx_entities_project_id ON entities(project_id);
+
+CREATE INDEX idx_entities_time_range
+ON entities USING GIST (int4range(time_start, time_end, '[]'))
+WHERE is_deleted = false;
 
 CREATE INDEX idx_entities_created_active 
 ON entities(created_at DESC)

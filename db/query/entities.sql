@@ -1,8 +1,8 @@
 -- name: CreateEntity :one
 INSERT INTO entities (
-    id, name, slug, description, project_id, status
+    id, name, slug, description, project_id, status, time_start, time_end
 ) VALUES (
-    COALESCE(sqlc.narg('id')::uuid, uuidv7()), $1, $2, $3, $4, $5
+    COALESCE(sqlc.narg('id')::uuid, uuidv7()), $1, $2, $3, $4, $5, $6, $7
 )
 RETURNING *;
 
@@ -20,7 +20,9 @@ SET
     slug = COALESCE(sqlc.narg('slug'), slug),
     description = COALESCE(sqlc.narg('description'), description),
     project_id = COALESCE(sqlc.narg('project_id'), project_id),
-    status = COALESCE(sqlc.narg('status'), status)
+    status = COALESCE(sqlc.narg('status'), status),
+    time_start = COALESCE(sqlc.narg('time_start'), time_start),
+    time_end = COALESCE(sqlc.narg('time_end'), time_end)
 WHERE id = sqlc.arg('id') AND is_deleted = false
 RETURNING *;
 
@@ -37,7 +39,11 @@ SELECT *
 FROM entities
 WHERE is_deleted = false
   AND (sqlc.narg('project_id')::uuid IS NULL OR project_id = sqlc.narg('project_id')::uuid)
-  AND name ILIKE '%' || sqlc.arg('name')::text || '%'
+  AND (sqlc.narg('name')::text IS NULL OR name ILIKE '%' || sqlc.narg('name')::text || '%')
+  AND (
+    sqlc.narg('time_point')::int IS NULL OR
+    int4range(time_start, time_end, '[]') @> sqlc.narg('time_point')::int
+  )
   AND (sqlc.narg('cursor_id')::uuid IS NULL OR id < sqlc.narg('cursor_id')::uuid)
 ORDER BY id DESC
 LIMIT sqlc.arg('limit_count');

@@ -12,6 +12,8 @@ type EntityEntity struct {
 	Description  string     `json:"description"`
 	ProjectID    string     `json:"project_id"`
 	Status       *int16     `json:"status"`
+	TimeStart    *int32     `json:"time_start"`
+	TimeEnd      *int32     `json:"time_end"`
 	IsDeleted    bool       `json:"is_deleted"`
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at"`
@@ -28,6 +30,8 @@ func (e *EntityEntity) ToResponse() *response.EntityResponse {
 		Description:  e.Description,
 		ProjectID:    e.ProjectID,
 		Status:       e.Status,
+		TimeStart:    e.TimeStart,
+		TimeEnd:      e.TimeEnd,
 		IsDeleted:    e.IsDeleted,
 		CreatedAt:    e.CreatedAt,
 		UpdatedAt:    e.UpdatedAt,

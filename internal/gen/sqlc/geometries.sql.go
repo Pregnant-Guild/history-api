@@ -392,7 +392,7 @@ WHERE g.is_deleted = false
   )
   AND (
     $6::int IS NULL OR
-    (g.time_start <= $6::int AND g.time_end >= $6::int)
+    int4range(g.time_start, g.time_end, '[]') @> $6::int
   )
   AND (
     $7::uuid IS NULL OR

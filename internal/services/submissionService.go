@@ -297,6 +297,8 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 					Description: convert.StringToText(entity.Description),
 					Slug:        convert.PtrToText(entity.Slug),
 					Status:      convert.PtrToInt2(entity.Status),
+					TimeStart:   convert.PtrFloat64ToInt4(entity.TimeStart),
+					TimeEnd:     convert.PtrFloat64ToInt4(entity.TimeEnd),
 					ID:          entityUUID,
 				})
 
@@ -314,6 +316,8 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 					ProjectID:   projectUUID,
 					Slug:        convert.PtrToText(entity.Slug),
 					Status:      convert.PtrToInt2(entity.Status),
+					TimeStart:   convert.PtrFloat64ToInt4(entity.TimeStart),
+					TimeEnd:     convert.PtrFloat64ToInt4(entity.TimeEnd),
 				})
 
 				if err != nil {

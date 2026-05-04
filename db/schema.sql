@@ -90,6 +90,8 @@ CREATE TABLE IF NOT EXISTS entities (
     slug TEXT,
     description TEXT,
     status SMALLINT,
+    time_start INT,
+    time_end INT,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
