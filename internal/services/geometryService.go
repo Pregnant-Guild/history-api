@@ -57,17 +57,15 @@ func (s *geometryService) SearchGeometries(ctx context.Context, req *request.Sea
 	}
 
 	if req.TimePoint != nil {
-		if *req.TimePoint < 0 {
-			return nil, fiber.NewError(fiber.StatusBadRequest, "Time point must be non-negative")
-		}
 		params.TimePoint = pgtype.Int4{Int32: *req.TimePoint, Valid: true}
 	}
 
 	if req.EntityID != nil {
 		entityId, err := convert.StringToUUID(*req.EntityID)
-		if err == nil {
-			params.EntityID = entityId
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid entity ID format")
 		}
+		params.EntityID = entityId
 	}
 
 	geometries, err := s.geometryRepo.Search(ctx, params)
