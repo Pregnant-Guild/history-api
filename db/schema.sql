@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS wikis (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     title TEXT,
-    content JSONB,
+    content TEXT,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -172,3 +172,16 @@ CREATE TABLE IF NOT EXISTS project_members (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (project_id, user_id)
 );
+
+CREATE TABLE IF NOT EXISTS rag_chunks (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    source_type VARCHAR(50) NOT NULL,
+    source_id UUID NOT NULL,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    chunk_index INT NOT NULL,
+    content TEXT NOT NULL,
+    embedding vector(3072),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+

@@ -399,6 +399,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/chatbot/chat": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Ask a history question based on project context or global knowledge using RAG",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chatbot"
+                ],
+                "summary": "Ask the AI chatbot",
+                "parameters": [
+                    {
+                        "description": "Chatbot query",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.ChatbotDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response with AI answer",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/entities": {
             "get": {
                 "description": "Search entities with cursor pagination",
@@ -3582,6 +3645,20 @@ const docTemplate = `{
                 }
             }
         },
+        "history-api_internal_dtos_request.ChatbotDto": {
+            "type": "object",
+            "required": [
+                "question"
+            ],
+            "properties": {
+                "project_id": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string"
+                }
+            }
+        },
         "history-api_internal_dtos_request.CommitSnapshot": {
             "type": "object",
             "properties": {
@@ -3814,8 +3891,11 @@ const docTemplate = `{
                         1
                     ]
                 },
-                "type_id": {
-                    "type": "string"
+                "time_end": {
+                    "type": "number"
+                },
+                "time_start": {
+                    "type": "number"
                 }
             }
         },
@@ -3830,7 +3910,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "is_deleted": {
-                    "description": "Legacy / Compatibility",
                     "type": "integer",
                     "enum": [
                         0,
@@ -4267,10 +4346,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "doc": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "id": {
                     "type": "string"

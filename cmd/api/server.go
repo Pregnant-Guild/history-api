@@ -8,6 +8,7 @@ import (
 	"history-api/internal/repositories"
 	"history-api/internal/routes"
 	"history-api/internal/services"
+	"history-api/pkg/ai"
 	"history-api/pkg/cache"
 	"history-api/pkg/storage"
 	"os"
@@ -63,6 +64,7 @@ func (s *FiberServer) SetupServer(
 	redis cache.Cache,
 	sclient storage.Storage,
 	oauth *oauth2.Config,
+	raguUtils *ai.RagUtils,
 ) {
 	// Apply CORS middleware
 	s.App.Use(cors.New(cors.Config{
@@ -92,6 +94,8 @@ func (s *FiberServer) SetupServer(
 	commitRepo := repositories.NewCommitRepository(poolPg, redis)
 	submissionRepo := repositories.NewSubmissionRepository(poolPg, redis)
 
+	raguRepo := repositories.NewRagRepository(poolPg, redis)
+
 	// service setup
 	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis, poolPg)
 	userService := services.NewUserService(userRepo, roleRepo, redis, poolPg)
@@ -107,8 +111,10 @@ func (s *FiberServer) SetupServer(
 	commitService := services.NewCommitService(poolPg, commitRepo, projectRepo)
 	submissionService := services.NewSubmissionService(
 		submissionRepo, projectRepo, commitRepo,
-		userRepo, wikiRepo, geometryRepo, entityRepo, poolPg, redis,
+		userRepo, wikiRepo, geometryRepo, entityRepo,
+		raguRepo, raguUtils, poolPg, redis,
 	)
+	chatbotService := services.NewChatbotService(raguRepo, raguUtils)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)
@@ -124,6 +130,7 @@ func (s *FiberServer) SetupServer(
 	projectController := controllers.NewProjectController(projectService)
 	commitController := controllers.NewCommitController(commitService)
 	submissionController := controllers.NewSubmissionController(submissionService)
+	chatbotController := controllers.NewChatbotController(chatbotService)
 
 	// route setup
 	routes.AuthRoutes(s.App, authController, userRepo)
@@ -138,5 +145,6 @@ func (s *FiberServer) SetupServer(
 	routes.WikiRoutes(s.App, wikiController)
 	routes.ProjectRoutes(s.App, projectController, commitController, userRepo)
 	routes.SubmissionRoutes(s.App, submissionController, userRepo)
+	routes.ChatbotRoutes(s.App, chatbotController, userRepo)
 	routes.NotFoundRoute(s.App)
 }

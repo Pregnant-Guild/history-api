@@ -59,6 +59,15 @@ definitions:
     required:
     - role_ids
     type: object
+  history-api_internal_dtos_request.ChatbotDto:
+    properties:
+      project_id:
+        type: string
+      question:
+        type: string
+    required:
+    - question
+    type: object
   history-api_internal_dtos_request.CommitSnapshot:
     properties:
       editor_feature_collection:
@@ -217,8 +226,10 @@ definitions:
         - 0
         - 1
         type: integer
-      type_id:
-        type: string
+      time_end:
+        type: number
+      time_start:
+        type: number
     required:
     - id
     type: object
@@ -227,7 +238,6 @@ definitions:
       entity_id:
         type: string
       is_deleted:
-        description: Legacy / Compatibility
         enum:
         - 0
         - 1
@@ -530,9 +540,7 @@ definitions:
   history-api_internal_dtos_request.WikiSnapshot:
     properties:
       doc:
-        items:
-          type: integer
-        type: array
+        type: string
       id:
         type: string
       operation:
@@ -857,6 +865,44 @@ paths:
       summary: Verify a security token
       tags:
       - Auth
+  /chatbot/chat:
+    post:
+      consumes:
+      - application/json
+      description: Ask a history question based on project context or global knowledge
+        using RAG
+      parameters:
+      - description: Chatbot query
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.ChatbotDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful response with AI answer
+          schema:
+            allOf:
+            - $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Ask the AI chatbot
+      tags:
+      - Chatbot
   /entities:
     get:
       consumes:

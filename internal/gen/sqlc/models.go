@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 type Commit struct {
@@ -94,6 +95,18 @@ type ProjectMember struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type RagChunk struct {
+	ID         pgtype.UUID        `json:"id"`
+	SourceType string             `json:"source_type"`
+	SourceID   pgtype.UUID        `json:"source_id"`
+	ProjectID  pgtype.UUID        `json:"project_id"`
+	ChunkIndex int32              `json:"chunk_index"`
+	Content    string             `json:"content"`
+	Embedding  pgvector.Vector    `json:"embedding"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Role struct {
 	ID        pgtype.UUID        `json:"id"`
 	Name      string             `json:"name"`
@@ -170,7 +183,7 @@ type Wiki struct {
 	ID        pgtype.UUID        `json:"id"`
 	ProjectID pgtype.UUID        `json:"project_id"`
 	Title     pgtype.Text        `json:"title"`
-	Content   []byte             `json:"content"`
+	Content   pgtype.Text        `json:"content"`
 	IsDeleted bool               `json:"is_deleted"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`

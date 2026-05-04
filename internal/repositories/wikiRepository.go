@@ -90,7 +90,7 @@ func (r *wikiRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 				item := models.WikiEntity{
 					ID:        convert.UUIDToString(row.ID),
 					Title:     convert.TextToString(row.Title),
-					Content:   json.RawMessage(row.Content),
+					Content:   convert.TextToString(row.Content),
 					IsDeleted: row.IsDeleted,
 					ProjectID: convert.UUIDToString(row.ProjectID),
 					CreatedAt: convert.TimeToPtr(row.CreatedAt),
@@ -143,7 +143,7 @@ func (r *wikiRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.W
 	wiki = models.WikiEntity{
 		ID:        convert.UUIDToString(row.ID),
 		Title:     convert.TextToString(row.Title),
-		Content:   json.RawMessage(row.Content),
+		Content:   convert.TextToString(row.Content),
 		IsDeleted: row.IsDeleted,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
@@ -172,7 +172,7 @@ func (r *wikiRepository) Search(ctx context.Context, params sqlc.SearchWikisPara
 		wiki := &models.WikiEntity{
 			ID:        convert.UUIDToString(row.ID),
 			Title:     convert.TextToString(row.Title),
-			Content:   json.RawMessage(row.Content),
+			Content:   convert.TextToString(row.Content),
 			IsDeleted: row.IsDeleted,
 			CreatedAt: convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
@@ -201,7 +201,7 @@ func (r *wikiRepository) Create(ctx context.Context, params sqlc.CreateWikiParam
 	wiki := models.WikiEntity{
 		ID:        convert.UUIDToString(row.ID),
 		Title:     convert.TextToString(row.Title),
-		Content:   json.RawMessage(row.Content),
+		Content:   convert.TextToString(row.Content),
 		IsDeleted: row.IsDeleted,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
@@ -218,7 +218,7 @@ func (r *wikiRepository) Update(ctx context.Context, params sqlc.UpdateWikiParam
 	wiki := models.WikiEntity{
 		ID:        convert.UUIDToString(row.ID),
 		Title:     convert.TextToString(row.Title),
-		Content:   json.RawMessage(row.Content),
+		Content:   convert.TextToString(row.Content),
 		IsDeleted: row.IsDeleted,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
@@ -272,7 +272,7 @@ func (r *wikiRepository) GetByProjectID(ctx context.Context, projectID pgtype.UU
 		wiki := &models.WikiEntity{
 			ID:        convert.UUIDToString(row.ID),
 			Title:     convert.TextToString(row.Title),
-			Content:   json.RawMessage(row.Content),
+			Content:   convert.TextToString(row.Content),
 			IsDeleted: row.IsDeleted,
 			ProjectID: convert.UUIDToString(row.ProjectID),
 			CreatedAt: convert.TimeToPtr(row.CreatedAt),

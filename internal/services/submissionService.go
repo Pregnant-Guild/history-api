@@ -9,6 +9,7 @@ import (
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/internal/repositories"
+	"history-api/pkg/ai"
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
@@ -36,6 +37,8 @@ type submissionService struct {
 	wikiRepo       repositories.WikiRepository
 	geometryRepo   repositories.GeometryRepository
 	entityRepo     repositories.EntityRepository
+	ragRepo        repositories.RagRepository
+	ragUtils       *ai.RagUtils
 	db             *pgxpool.Pool
 	c              cache.Cache
 }
@@ -48,6 +51,8 @@ func NewSubmissionService(
 	wikiRepo repositories.WikiRepository,
 	geometryRepo repositories.GeometryRepository,
 	entityRepo repositories.EntityRepository,
+	ragRepo repositories.RagRepository,
+	ragUtils *ai.RagUtils,
 	db *pgxpool.Pool,
 	c cache.Cache,
 ) SubmissionService {
@@ -59,6 +64,8 @@ func NewSubmissionService(
 		wikiRepo:       wikiRepo,
 		geometryRepo:   geometryRepo,
 		entityRepo:     entityRepo,
+		ragRepo:        ragRepo,
+		ragUtils:       ragUtils,
 		db:             db,
 		c:              c,
 	}
@@ -127,6 +134,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 	entityRepo := s.entityRepo.WithTx(tx)
 	geometryRepo := s.geometryRepo.WithTx(tx)
 	wikiRepo := s.wikiRepo.WithTx(tx)
+	ragRepo := s.ragRepo.WithTx(tx)
 
 	submissionUUID, err := convert.StringToUUID(submissionID)
 	if err != nil {
@@ -166,8 +174,11 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Commit does not belong to project")
 	}
 
+	listDeleteEntities := make([]pgtype.UUID, 0)
+	listDeleteWikis := make([]pgtype.UUID, 0)
+	listDeleteGeometries := make([]pgtype.UUID, 0)
+	var snapshotData request.CommitSnapshot
 	if status == constants.StatusTypeApproved {
-		var snapshotData request.CommitSnapshot
 		err = json.Unmarshal(commit.SnapshotJson, &snapshotData)
 		if err != nil {
 			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to parse commit snapshot")
@@ -214,7 +225,6 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 			persistCurrentItemIDs[item.ID] = struct{}{}
 		}
 
-		listDeleteEntities := make([]pgtype.UUID, 0)
 		for _, e := range currentEntity {
 			if _, ok := persistItemIDs[e.ID]; !ok {
 				itemUUID, err := convert.StringToUUID(e.ID)
@@ -226,7 +236,6 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 			}
 		}
 
-		listDeleteGeometries := make([]pgtype.UUID, 0)
 		for _, g := range currentGeometry {
 			if _, ok := persistItemIDs[g.ID]; !ok {
 				itemUUID, err := convert.StringToUUID(g.ID)
@@ -238,7 +247,6 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 			}
 		}
 
-		listDeleteWikis := make([]pgtype.UUID, 0)
 		for _, w := range currentWiki {
 			if _, ok := persistItemIDs[w.ID]; !ok {
 				itemUUID, err := convert.StringToUUID(w.ID)
@@ -274,6 +282,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 				refEntityIDs = append(refEntityIDs, e.ID)
 			}
 		}
+
 		refEntities, _ := s.entityRepo.GetByIDs(ctx, refEntityIDs)
 		refEntityMap := make(map[string]bool)
 		for _, e := range refEntities {
@@ -444,7 +453,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 				_, err := wikiRepo.Update(ctx, sqlc.UpdateWikiParams{
 					ID:        wikiUUID,
 					Title:     convert.StringToText(wiki.Title),
-					Content:   wiki.Doc,
+					Content:   convert.StringToText(wiki.Doc),
 					ProjectID: projectUUID,
 				})
 				if err != nil {
@@ -456,7 +465,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 				_, err := wikiRepo.Create(ctx, sqlc.CreateWikiParams{
 					ID:        wikiUUID,
 					Title:     convert.StringToText(wiki.Title),
-					Content:   wiki.Doc,
+					Content:   convert.StringToText(wiki.Doc),
 					ProjectID: projectUUID,
 				})
 				if err != nil {
@@ -554,6 +563,58 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 		}
 	}
 
+	if status == constants.StatusTypeApproved {
+		wikiDeleteIDs := make([]string, 0)
+		entityDeleteIDs := make([]string, 0)
+
+		for _, id := range listDeleteWikis {
+			wikiDeleteIDs = append(wikiDeleteIDs, convert.UUIDToString(id))
+		}
+		for _, id := range listDeleteEntities {
+			entityDeleteIDs = append(entityDeleteIDs, convert.UUIDToString(id))
+		}
+
+		for _, wiki := range snapshotData.Wikis {
+			if wiki.Operation == "delete" {
+				wikiDeleteIDs = append(wikiDeleteIDs, wiki.ID)
+			}
+		}
+		for _, entity := range snapshotData.Entities {
+			if entity.Operation == "delete" {
+				entityDeleteIDs = append(entityDeleteIDs, entity.ID)
+			}
+		}
+
+		_ = ragRepo.DeleteBySourceIDs(ctx, "wiki", wikiDeleteIDs)
+		_ = ragRepo.DeleteBySourceIDs(ctx, "entity", entityDeleteIDs)
+
+		for _, wiki := range snapshotData.Wikis {
+			if wiki.Source == "inline" {
+				cleanText := s.ragUtils.StripHTML(wiki.Title + "\n" + wiki.Doc)
+				chunks, vectors, err := s.ragUtils.PrepareChunks(ctx, cleanText)
+				if err == nil {
+					_ = ragRepo.DeleteBySourceIDs(ctx, "wiki", []string{wiki.ID})
+					for i, chunk := range chunks {
+						_ = ragRepo.SaveChunk(ctx, "wiki", wiki.ID, commit.ProjectID, i, chunk, vectors[i])
+					}
+				}
+			}
+		}
+
+		for _, entity := range snapshotData.Entities {
+			if entity.Source == "inline" {
+				cleanText := s.ragUtils.StripHTML(entity.Name + "\n" + entity.Description)
+				chunks, vectors, err := s.ragUtils.PrepareChunks(ctx, cleanText)
+				if err == nil {
+					_ = ragRepo.DeleteBySourceIDs(ctx, "entity", []string{entity.ID})
+					for i, chunk := range chunks {
+						_ = ragRepo.SaveChunk(ctx, "entity", entity.ID, commit.ProjectID, i, chunk, vectors[i])
+					}
+				}
+			}
+		}
+	}
+
 	arg := sqlc.UpdateSubmissionParams{
 		ID:         submissionUUID,
 		Status:     pgtype.Int2{Int16: status.Int16(), Valid: true},
@@ -563,12 +624,12 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 
 	updatedSubmission, err := submissionRepo.Update(ctx, arg)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update submission status: " + err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update submission status: "+err.Error())
 	}
 
 	err = tx.Commit(ctx)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction: " + err.Error())
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction: "+err.Error())
 	}
 
 	if status == constants.StatusTypeApproved {
@@ -579,6 +640,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 			_ = s.c.DelByPattern(bgCtx, "wiki:search*")
 		}()
 	}
+
 	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", submission.ProjectID))
 
 	return updatedSubmission.ToResponse(), nil

@@ -77,7 +77,7 @@ RETURNING id, project_id, title, content, is_deleted, created_at, updated_at
 
 type CreateWikiParams struct {
 	Title     pgtype.Text `json:"title"`
-	Content   []byte      `json:"content"`
+	Content   pgtype.Text `json:"content"`
 	ProjectID pgtype.UUID `json:"project_id"`
 	ID        pgtype.UUID `json:"id"`
 }
@@ -312,7 +312,7 @@ RETURNING id, project_id, title, content, is_deleted, created_at, updated_at
 
 type UpdateWikiParams struct {
 	Title     pgtype.Text `json:"title"`
-	Content   []byte      `json:"content"`
+	Content   pgtype.Text `json:"content"`
 	ProjectID pgtype.UUID `json:"project_id"`
 	ID        pgtype.UUID `json:"id"`
 }

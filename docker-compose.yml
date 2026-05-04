@@ -1,6 +1,6 @@
 services:
   history_db:
-    image: postgis/postgis:18-3.6
+    image: azenkain/postgres-postgis-pgvector:18
     container_name: history_db
     restart: unless-stopped
     env_file:

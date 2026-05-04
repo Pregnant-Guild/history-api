@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	_ "history-api/docs"
+	"history-api/pkg/ai"
 	"history-api/pkg/cache"
 	"history-api/pkg/config"
 	"history-api/pkg/database"
@@ -67,7 +68,6 @@ func StartServer() {
 	}
 	defer sqlTile.Close()
 
-
 	sqlRasterTile, err := mbtiles.NewMBTilesDB("data/raster.mbtiles")
 	if err != nil {
 		log.Error().Msg(err.Error())
@@ -93,6 +93,12 @@ func StartServer() {
 		panic(err)
 	}
 
+	raguUtils, err := ai.NewRagUtils()
+	if err != nil {
+		log.Error().Msg(err.Error())
+		panic(err)
+	}
+
 	serverIp, _ := config.GetConfig("SERVER_IP")
 	if serverIp == "" {
 		serverIp = "127.0.0.1"
@@ -104,7 +110,7 @@ func StartServer() {
 	}
 
 	serverHttp := NewHttpServer()
-	serverHttp.SetupServer(poolPg, sqlTile, sqlRasterTile, redisClient, storageClient, googleOAuthConfig)
+	serverHttp.SetupServer(poolPg, sqlTile, sqlRasterTile, redisClient, storageClient, googleOAuthConfig, raguUtils)
 	Singleton = serverHttp
 
 	done := make(chan bool, 1)

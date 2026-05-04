@@ -83,7 +83,7 @@ type WikiSnapshot struct {
 	Source    string          `json:"source,omitempty" validate:"omitempty,oneof=inline ref"`
 	Operation string          `json:"operation,omitempty" validate:"omitempty,oneof=create update delete reference"`
 	Title     string          `json:"title" validate:"required"`
-	Doc       json.RawMessage `json:"doc,omitempty"`
+	Doc       string          `json:"doc,omitempty"`
 	UpdatedAt string          `json:"updated_at,omitempty"`
 }
 
