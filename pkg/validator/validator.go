@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 )
 
 var validate = validator.New()
@@ -39,6 +40,18 @@ func init() {
 			return true
 		}
 		return isValidURL(val)
+	})
+
+	validate.RegisterValidation("uuidv7", func(fl validator.FieldLevel) bool {
+		val := fl.Field().String()
+		if val == "" {
+			return true
+		}
+		u, err := uuid.Parse(val)
+		if err != nil {
+			return false
+		}
+		return u.Version() == 7
 	})
 }
 
@@ -100,6 +113,8 @@ func formatValidationError(err error) []*ErrorResponse {
 				message = fieldError.Field() + " is too long (max " + fieldError.Param() + ")"
 			case "image_url":
 				message = fieldError.Field() + " must be a link to an image (jpg, png, etc.)"
+			case "uuidv7":
+				message = fieldError.Field() + " must be a valid UUID v7"
 			default:
 				message = "Field " + fieldError.Field() + " failed on validation: " + fieldError.Tag()
 			}
