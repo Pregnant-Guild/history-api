@@ -423,6 +423,11 @@
                         "type": "string",
                         "name": "name",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "name": "project_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -529,6 +534,11 @@
                         "name": "min_lng",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "name": "project_id",
+                        "in": "query"
                     },
                     {
                         "type": "integer",
@@ -3412,6 +3422,11 @@
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "name": "project_id",
+                        "in": "query"
+                    },
+                    {
                         "maxLength": 1000,
                         "type": "string",
                         "name": "title",
@@ -3493,6 +3508,29 @@
                 }
             }
         },
+        "history-api_internal_dtos_request.BBox": {
+            "type": "object",
+            "required": [
+                "max_lat",
+                "max_lng",
+                "min_lat",
+                "min_lng"
+            ],
+            "properties": {
+                "max_lat": {
+                    "type": "number"
+                },
+                "max_lng": {
+                    "type": "number"
+                },
+                "min_lat": {
+                    "type": "number"
+                },
+                "min_lng": {
+                    "type": "number"
+                }
+            }
+        },
         "history-api_internal_dtos_request.ChangeOwnerDto": {
             "type": "object",
             "required": [
@@ -3537,6 +3575,50 @@
                 }
             }
         },
+        "history-api_internal_dtos_request.CommitSnapshot": {
+            "type": "object",
+            "properties": {
+                "editor_feature_collection": {
+                    "$ref": "#/definitions/history-api_internal_dtos_request.FeatureCollection"
+                },
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/history-api_internal_dtos_request.EntitySnapshot"
+                    }
+                },
+                "entity_wiki": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/history-api_internal_dtos_request.EntityWikiLinkSnapshot"
+                    }
+                },
+                "entity_wikis": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/history-api_internal_dtos_request.EntityWikiLinkSnapshot"
+                    }
+                },
+                "geometries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/history-api_internal_dtos_request.GeometrySnapshot"
+                    }
+                },
+                "geometry_entity": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/history-api_internal_dtos_request.GeometryEntitySnapshot"
+                    }
+                },
+                "wikis": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/history-api_internal_dtos_request.WikiSnapshot"
+                    }
+                }
+            }
+        },
         "history-api_internal_dtos_request.CreateCommitDto": {
             "type": "object",
             "required": [
@@ -3549,10 +3631,7 @@
                     "maxLength": 500
                 },
                 "snapshot_json": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "$ref": "#/definitions/history-api_internal_dtos_request.CommitSnapshot"
                 }
             }
         },
@@ -3681,6 +3760,176 @@
                 }
             }
         },
+        "history-api_internal_dtos_request.EntitySnapshot": {
+            "type": "object",
+            "required": [
+                "id"
+            ],
+            "properties": {
+                "base_hash": {
+                    "type": "string"
+                },
+                "base_updated_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "operation": {
+                    "type": "string",
+                    "enum": [
+                        "create",
+                        "update",
+                        "delete",
+                        "reference"
+                    ]
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string",
+                    "enum": [
+                        "inline",
+                        "ref"
+                    ]
+                },
+                "status": {
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ]
+                },
+                "type_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "history-api_internal_dtos_request.EntityWikiLinkSnapshot": {
+            "type": "object",
+            "required": [
+                "entity_id",
+                "wiki_id"
+            ],
+            "properties": {
+                "entity_id": {
+                    "type": "string"
+                },
+                "is_deleted": {
+                    "description": "Legacy / Compatibility",
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ]
+                },
+                "operation": {
+                    "type": "string",
+                    "enum": [
+                        "reference",
+                        "delete"
+                    ]
+                },
+                "wiki_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "history-api_internal_dtos_request.Feature": {
+            "type": "object",
+            "required": [
+                "geometry",
+                "properties",
+                "type"
+            ],
+            "properties": {
+                "geometry": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "properties": {
+                    "$ref": "#/definitions/history-api_internal_dtos_request.FeatureProperties"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "history-api_internal_dtos_request.FeatureCollection": {
+            "type": "object",
+            "required": [
+                "features",
+                "type"
+            ],
+            "properties": {
+                "features": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/history-api_internal_dtos_request.Feature"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "history-api_internal_dtos_request.FeatureProperties": {
+            "type": "object",
+            "required": [
+                "id"
+            ],
+            "properties": {
+                "binding": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "entity_id": {
+                    "type": "string"
+                },
+                "entity_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "entity_name": {
+                    "type": "string"
+                },
+                "entity_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "entity_type_id": {
+                    "type": "string"
+                },
+                "geometry_preset": {
+                    "type": "string"
+                },
+                "id": {},
+                "time_end": {
+                    "type": "number"
+                },
+                "time_start": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "history-api_internal_dtos_request.ForgotPasswordDto": {
             "type": "object",
             "required": [
@@ -3700,6 +3949,82 @@
                     "minLength": 8
                 },
                 "token_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "history-api_internal_dtos_request.GeometryEntitySnapshot": {
+            "type": "object",
+            "required": [
+                "entity_id",
+                "geometry_id"
+            ],
+            "properties": {
+                "base_links_hash": {
+                    "type": "string"
+                },
+                "entity_id": {
+                    "type": "string"
+                },
+                "geometry_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "history-api_internal_dtos_request.GeometrySnapshot": {
+            "type": "object",
+            "required": [
+                "id",
+                "type"
+            ],
+            "properties": {
+                "base_hash": {
+                    "type": "string"
+                },
+                "base_updated_at": {
+                    "type": "string"
+                },
+                "bbox": {
+                    "$ref": "#/definitions/history-api_internal_dtos_request.BBox"
+                },
+                "binding": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "draw_geometry": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "operation": {
+                    "type": "string",
+                    "enum": [
+                        "create",
+                        "update",
+                        "delete",
+                        "reference"
+                    ]
+                },
+                "source": {
+                    "type": "string",
+                    "enum": [
+                        "inline",
+                        "ref"
+                    ]
+                },
+                "time_end": {
+                    "type": "number"
+                },
+                "time_start": {
+                    "type": "number"
+                },
+                "type": {
                     "type": "string"
                 }
             }
@@ -3924,6 +4249,46 @@
                             "$ref": "#/definitions/history-api_pkg_constants.TokenType"
                         }
                     ]
+                }
+            }
+        },
+        "history-api_internal_dtos_request.WikiSnapshot": {
+            "type": "object",
+            "required": [
+                "id",
+                "title"
+            ],
+            "properties": {
+                "doc": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "operation": {
+                    "type": "string",
+                    "enum": [
+                        "create",
+                        "update",
+                        "delete",
+                        "reference"
+                    ]
+                },
+                "source": {
+                    "type": "string",
+                    "enum": [
+                        "inline",
+                        "ref"
+                    ]
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },

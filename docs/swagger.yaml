@@ -13,6 +13,22 @@ definitions:
     - role
     - user_id
     type: object
+  history-api_internal_dtos_request.BBox:
+    properties:
+      max_lat:
+        type: number
+      max_lng:
+        type: number
+      min_lat:
+        type: number
+      min_lng:
+        type: number
+    required:
+    - max_lat
+    - max_lng
+    - min_lat
+    - min_lng
+    type: object
   history-api_internal_dtos_request.ChangeOwnerDto:
     properties:
       new_owner_id:
@@ -43,15 +59,42 @@ definitions:
     required:
     - role_ids
     type: object
+  history-api_internal_dtos_request.CommitSnapshot:
+    properties:
+      editor_feature_collection:
+        $ref: '#/definitions/history-api_internal_dtos_request.FeatureCollection'
+      entities:
+        items:
+          $ref: '#/definitions/history-api_internal_dtos_request.EntitySnapshot'
+        type: array
+      entity_wiki:
+        items:
+          $ref: '#/definitions/history-api_internal_dtos_request.EntityWikiLinkSnapshot'
+        type: array
+      entity_wikis:
+        items:
+          $ref: '#/definitions/history-api_internal_dtos_request.EntityWikiLinkSnapshot'
+        type: array
+      geometries:
+        items:
+          $ref: '#/definitions/history-api_internal_dtos_request.GeometrySnapshot'
+        type: array
+      geometry_entity:
+        items:
+          $ref: '#/definitions/history-api_internal_dtos_request.GeometryEntitySnapshot'
+        type: array
+      wikis:
+        items:
+          $ref: '#/definitions/history-api_internal_dtos_request.WikiSnapshot'
+        type: array
+    type: object
   history-api_internal_dtos_request.CreateCommitDto:
     properties:
       edit_summary:
         maxLength: 500
         type: string
       snapshot_json:
-        items:
-          type: integer
-        type: array
+        $ref: '#/definitions/history-api_internal_dtos_request.CommitSnapshot'
     required:
     - edit_summary
     - snapshot_json
@@ -143,6 +186,122 @@ definitions:
     - content
     - verify_type
     type: object
+  history-api_internal_dtos_request.EntitySnapshot:
+    properties:
+      base_hash:
+        type: string
+      base_updated_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      operation:
+        enum:
+        - create
+        - update
+        - delete
+        - reference
+        type: string
+      slug:
+        type: string
+      source:
+        enum:
+        - inline
+        - ref
+        type: string
+      status:
+        enum:
+        - 0
+        - 1
+        type: integer
+      type_id:
+        type: string
+    required:
+    - id
+    type: object
+  history-api_internal_dtos_request.EntityWikiLinkSnapshot:
+    properties:
+      entity_id:
+        type: string
+      is_deleted:
+        description: Legacy / Compatibility
+        enum:
+        - 0
+        - 1
+        type: integer
+      operation:
+        enum:
+        - reference
+        - delete
+        type: string
+      wiki_id:
+        type: string
+    required:
+    - entity_id
+    - wiki_id
+    type: object
+  history-api_internal_dtos_request.Feature:
+    properties:
+      geometry:
+        items:
+          type: integer
+        type: array
+      properties:
+        $ref: '#/definitions/history-api_internal_dtos_request.FeatureProperties'
+      type:
+        type: string
+    required:
+    - geometry
+    - properties
+    - type
+    type: object
+  history-api_internal_dtos_request.FeatureCollection:
+    properties:
+      features:
+        items:
+          $ref: '#/definitions/history-api_internal_dtos_request.Feature'
+        type: array
+      type:
+        type: string
+    required:
+    - features
+    - type
+    type: object
+  history-api_internal_dtos_request.FeatureProperties:
+    properties:
+      binding:
+        items:
+          type: string
+        type: array
+      entity_id:
+        type: string
+      entity_ids:
+        items:
+          type: string
+        type: array
+      entity_name:
+        type: string
+      entity_names:
+        items:
+          type: string
+        type: array
+      entity_type_id:
+        type: string
+      geometry_preset:
+        type: string
+      id: {}
+      time_end:
+        type: number
+      time_start:
+        type: number
+      type:
+        type: string
+    required:
+    - id
+    type: object
   history-api_internal_dtos_request.ForgotPasswordDto:
     properties:
       email:
@@ -159,6 +318,58 @@ definitions:
     - email
     - new_password
     - token_id
+    type: object
+  history-api_internal_dtos_request.GeometryEntitySnapshot:
+    properties:
+      base_links_hash:
+        type: string
+      entity_id:
+        type: string
+      geometry_id:
+        type: string
+    required:
+    - entity_id
+    - geometry_id
+    type: object
+  history-api_internal_dtos_request.GeometrySnapshot:
+    properties:
+      base_hash:
+        type: string
+      base_updated_at:
+        type: string
+      bbox:
+        $ref: '#/definitions/history-api_internal_dtos_request.BBox'
+      binding:
+        items:
+          type: string
+        type: array
+      draw_geometry:
+        items:
+          type: integer
+        type: array
+      id:
+        type: string
+      operation:
+        enum:
+        - create
+        - update
+        - delete
+        - reference
+        type: string
+      source:
+        enum:
+        - inline
+        - ref
+        type: string
+      time_end:
+        type: number
+      time_start:
+        type: number
+      type:
+        type: string
+    required:
+    - id
+    - type
     type: object
   history-api_internal_dtos_request.MediaBulkDeleteDto:
     properties:
@@ -315,6 +526,34 @@ definitions:
     - email
     - token
     - token_type
+    type: object
+  history-api_internal_dtos_request.WikiSnapshot:
+    properties:
+      doc:
+        items:
+          type: integer
+        type: array
+      id:
+        type: string
+      operation:
+        enum:
+        - create
+        - update
+        - delete
+        - reference
+        type: string
+      source:
+        enum:
+        - inline
+        - ref
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    required:
+    - id
+    - title
     type: object
   history-api_internal_dtos_response.CommonResponse:
     properties:
@@ -636,6 +875,9 @@ paths:
         maxLength: 255
         name: name
         type: string
+      - in: query
+        name: project_id
+        type: string
       produces:
       - application/json
       responses:
@@ -708,6 +950,9 @@ paths:
         name: min_lng
         required: true
         type: number
+      - in: query
+        name: project_id
+        type: string
       - in: query
         name: time
         type: integer
@@ -2565,6 +2810,9 @@ paths:
         minimum: 1
         name: limit
         type: integer
+      - in: query
+        name: project_id
+        type: string
       - in: query
         maxLength: 1000
         name: title

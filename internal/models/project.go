@@ -19,6 +19,11 @@ type MemberSimple struct {
 	AvatarUrl   string                      `json:"avatar_url"`
 }
 
+type SubmissionSimple struct {
+	ID     string               `json:"id"`
+	Status constants.StatusType `json:"status"`
+}
+
 type ProjectEntity struct {
 	ID             string                      `json:"id"`
 	Title          string                      `json:"title"`
@@ -32,7 +37,7 @@ type ProjectEntity struct {
 	UpdatedAt      *time.Time                  `json:"updated_at"`
 	User           *UserSimpleEntity           `json:"user"`
 	Commits        []CommitSimple              `json:"commits"`
-	SubmissionIds  []string                    `json:"submission_ids"`
+	Submissions    []SubmissionSimple          `json:"submissions"`
 	Members        []MemberSimple              `json:"members"`
 }
 
@@ -60,6 +65,14 @@ func (p *ProjectEntity) ParseMembers(data []byte) error {
 	return json.Unmarshal(data, &p.Members)
 }
 
+func (p *ProjectEntity) ParseSubmissions(data []byte) error {
+	if len(data) == 0 || string(data) == "null" || string(data) == "[]" {
+		p.Submissions = []SubmissionSimple{}
+		return nil
+	}
+	return json.Unmarshal(data, &p.Submissions)
+}
+
 func (p *ProjectEntity) ToResponse() *response.ProjectResponse {
 	if p == nil {
 		return nil
@@ -74,6 +87,14 @@ func (p *ProjectEntity) ToResponse() *response.ProjectResponse {
 		commits = append(commits, response.CommitSimpleResponse{
 			ID:          c.ID,
 			EditSummary: c.EditSummary,
+		})
+	}
+
+	submissions := make([]response.SubmissionSimpleResponse, 0, len(p.Submissions))
+	for _, s := range p.Submissions {
+		submissions = append(submissions, response.SubmissionSimpleResponse{
+			ID:     s.ID,
+			Status: s.Status.String(),
 		})
 	}
 
@@ -100,7 +121,7 @@ func (p *ProjectEntity) ToResponse() *response.ProjectResponse {
 		UpdatedAt:      p.UpdatedAt,
 		User:           userResponse,
 		Commits:        commits,
-		SubmissionIds:  p.SubmissionIds,
+		Submissions:    submissions,
 		Members:        members,
 	}
 }

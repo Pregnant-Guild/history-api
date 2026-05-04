@@ -20,6 +20,7 @@ type CommitRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.CommitEntity, error)
 	GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.CommitEntity, error)
 	Search(ctx context.Context, params sqlc.SearchCommitsParams) ([]*models.CommitEntity, error)
+	UpdateSnapshot(ctx context.Context, id pgtype.UUID, snapshot json.RawMessage) (*models.CommitEntity, error)
 	WithTx(tx pgx.Tx) CommitRepository
 }
 
@@ -227,4 +228,26 @@ func (r *commitRepository) Search(ctx context.Context, params sqlc.SearchCommits
 	}
 
 	return commits, nil
+}
+
+func (r *commitRepository) UpdateSnapshot(ctx context.Context, id pgtype.UUID, snapshot json.RawMessage) (*models.CommitEntity, error) {
+	row, err := r.q.UpdateCommitSnapshot(ctx, sqlc.UpdateCommitSnapshotParams{
+		ID:           id,
+		SnapshotJson: snapshot,
+	})
+	if err != nil {
+		return nil, err
+	}
+	r.c.Del(ctx, fmt.Sprintf("commit:id:%s", convert.UUIDToString(id)))
+
+	return &models.CommitEntity{
+		ID:           convert.UUIDToString(row.ID),
+		ProjectID:    convert.UUIDToString(row.ProjectID),
+		SnapshotJson: row.SnapshotJson,
+		SnapshotHash: convert.TextToString(row.SnapshotHash),
+		UserID:       convert.UUIDToString(row.UserID),
+		EditSummary:  convert.TextToString(row.EditSummary),
+		IsDeleted:    row.IsDeleted,
+		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
+	}, nil
 }

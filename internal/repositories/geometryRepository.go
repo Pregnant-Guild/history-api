@@ -26,6 +26,11 @@ type GeometryRepository interface {
 	Delete(ctx context.Context, id pgtype.UUID) error
 	CreateEntityGeometries(ctx context.Context, params sqlc.CreateEntityGeometriesParams) error
 	BulkDeleteEntityGeometriesByEntityId(ctx context.Context, entityId pgtype.UUID) error
+	GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.GeometryEntity, error)
+	DeleteByIDs(ctx context.Context, ids []pgtype.UUID) error
+	BulkDeleteEntityGeometriesByGeometryID(ctx context.Context, geometryID pgtype.UUID) error
+	DeleteEntityGeometry(ctx context.Context, entityID pgtype.UUID, geometryID pgtype.UUID) error
+	DeleteEntityGeometriesByProjectID(ctx context.Context, projectID pgtype.UUID) error
 	WithTx(tx pgx.Tx) GeometryRepository
 }
 
@@ -96,6 +101,7 @@ func (r *geometryRepository) getByIDsWithFallback(ctx context.Context, ids []str
 						MaxLng: row.MaxLng,
 						MaxLat: row.MaxLat,
 					},
+					ProjectID: convert.UUIDToString(row.ProjectID),
 					IsDeleted: row.IsDeleted,
 					CreatedAt: convert.TimeToPtr(row.CreatedAt),
 					UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
@@ -157,6 +163,7 @@ func (r *geometryRepository) GetByID(ctx context.Context, id pgtype.UUID) (*mode
 			MaxLng: row.MaxLng,
 			MaxLat: row.MaxLat,
 		},
+		ProjectID: convert.UUIDToString(row.ProjectID),
 		IsDeleted: row.IsDeleted,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
@@ -195,6 +202,7 @@ func (r *geometryRepository) Search(ctx context.Context, params sqlc.SearchGeome
 				MaxLng: row.MaxLng,
 				MaxLat: row.MaxLat,
 			},
+			ProjectID: convert.UUIDToString(row.ProjectID),
 			IsDeleted: row.IsDeleted,
 			CreatedAt: convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
@@ -233,14 +241,11 @@ func (r *geometryRepository) Create(ctx context.Context, params sqlc.CreateGeome
 			MaxLng: row.MaxLng,
 			MaxLat: row.MaxLat,
 		},
+		ProjectID: convert.UUIDToString(row.ProjectID),
 		IsDeleted: row.IsDeleted,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-
-	go func() {
-		_ = r.c.DelByPattern(context.Background(), "geometry:search*")
-	}()
 
 	return &geometry, nil
 }
@@ -263,6 +268,7 @@ func (r *geometryRepository) Update(ctx context.Context, params sqlc.UpdateGeome
 			MaxLng: row.MaxLng,
 			MaxLat: row.MaxLat,
 		},
+		ProjectID: convert.UUIDToString(row.ProjectID),
 		IsDeleted: row.IsDeleted,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
@@ -281,26 +287,93 @@ func (r *geometryRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 }
 
 func (r *geometryRepository) CreateEntityGeometries(ctx context.Context, params sqlc.CreateEntityGeometriesParams) error {
-	err := r.q.CreateEntityGeometries(ctx, params)
-	if err != nil {
-		return err
-	}
-	return err
+	return r.q.CreateEntityGeometries(ctx, params)
+}
+
+func (r *geometryRepository) DeleteEntityGeometriesByProjectID(ctx context.Context, projectID pgtype.UUID) error {
+	return r.q.DeleteEntityGeometriesByProjectID(ctx, projectID)
 }
 
 func (r *geometryRepository) BulkDeleteEntityGeometriesByEntityId(ctx context.Context, entityId pgtype.UUID) error {
-	geometryIDs, err := r.q.BulkDeleteEntityGeometriesByEntityId(ctx, entityId)
+	_, err := r.q.BulkDeleteEntityGeometriesByEntityId(ctx, entityId)
 	if err != nil {
 		return err
 	}
-	if len(geometryIDs) > 0 {
-		keys := make([]string, len(geometryIDs))
-		for i, id := range geometryIDs {
+	return nil
+}
+
+func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.GeometryEntity, error) {
+	cacheKey := fmt.Sprintf("geometry:project:%s", convert.UUIDToString(projectID))
+	var cachedIDs []string
+	if err := r.c.Get(ctx, cacheKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+		return r.getByIDsWithFallback(ctx, cachedIDs)
+	}
+
+	rows, err := r.q.GetGeometriesByProjectId(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var geometries []*models.GeometryEntity
+	var ids []string
+	geometryToCache := make(map[string]any)
+
+	for _, row := range rows {
+		geometry := &models.GeometryEntity{
+			ID:           convert.UUIDToString(row.ID),
+			GeoType:      constants.ParseGeoType(row.GeoType),
+			DrawGeometry: row.DrawGeometry,
+			Binding:      row.Binding,
+			TimeStart:    convert.Int4ToInt32(row.TimeStart),
+			TimeEnd:      convert.Int4ToInt32(row.TimeEnd),
+			Bbox: &response.Bbox{
+				MinLng: row.MinLng,
+				MinLat: row.MinLat,
+				MaxLng: row.MaxLng,
+				MaxLat: row.MaxLat,
+			},
+			ProjectID: convert.UUIDToString(row.ProjectID),
+			IsDeleted: row.IsDeleted,
+			CreatedAt: convert.TimeToPtr(row.CreatedAt),
+			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
+		}
+		ids = append(ids, geometry.ID)
+		geometries = append(geometries, geometry)
+		geometryToCache[fmt.Sprintf("geometry:id:%s", geometry.ID)] = geometry
+	}
+
+	if len(geometryToCache) > 0 {
+		_ = r.c.MSet(ctx, geometryToCache, constants.NormalCacheDuration)
+	}
+	if len(ids) > 0 {
+		_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
+	}
+
+	return geometries, nil
+}
+
+func (r *geometryRepository) DeleteByIDs(ctx context.Context, ids []pgtype.UUID) error {
+	err := r.q.DeleteGeometriesByIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+	if len(ids) > 0 {
+		keys := make([]string, len(ids))
+		for i, id := range ids {
 			keys[i] = fmt.Sprintf("geometry:id:%s", convert.UUIDToString(id))
 		}
-		go func() {
-			_ = r.c.Del(context.Background(), keys...)
-		}()
+		_ = r.c.Del(ctx, keys...)
 	}
 	return nil
+}
+
+func (r *geometryRepository) BulkDeleteEntityGeometriesByGeometryID(ctx context.Context, geometryID pgtype.UUID) error {
+	return r.q.BulkDeleteEntityGeometriesByGeometryID(ctx, geometryID)
+}
+
+func (r *geometryRepository) DeleteEntityGeometry(ctx context.Context, entityID pgtype.UUID, geometryID pgtype.UUID) error {
+	return r.q.DeleteEntityGeometry(ctx, sqlc.DeleteEntityGeometryParams{
+		EntityID:   entityID,
+		GeometryID: geometryID,
+	})
 }

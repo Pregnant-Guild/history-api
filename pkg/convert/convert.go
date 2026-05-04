@@ -101,6 +101,16 @@ func TextToPtr(v pgtype.Text) *string {
 	return &v.String
 }
 
+func PtrToInt4(i *int32) pgtype.Int4 {
+	if i == nil {
+		return pgtype.Int4{Valid: false}
+	}
+	return pgtype.Int4{
+		Int32: *i,
+		Valid: true,
+	}
+}
+
 func Int4ToPtr(v pgtype.Int4) *int32 {
 	if !v.Valid {
 		return nil
@@ -113,4 +123,32 @@ func Int4ToInt32(v pgtype.Int4) int32 {
 		return v.Int32
 	}
 	return 0
+}
+
+func PtrToInt2(v *int) pgtype.Int2 {
+	if v == nil {
+		return pgtype.Int2{Valid: false}
+	}
+	return pgtype.Int2{
+		Int16: int16(*v),
+		Valid: true,
+	}
+}
+
+func Int2ToInt16Ptr(v pgtype.Int2) *int16 {
+	if !v.Valid {
+		return nil
+	}
+	int16Val := v.Int16
+	return &int16Val
+}
+
+func PtrFloat64ToInt4(v *float64) pgtype.Int4 {
+	if v == nil {
+		return pgtype.Int4{Valid: false}
+	}
+	return pgtype.Int4{
+		Int32: int32(*v),
+		Valid: true,
+	}
 }

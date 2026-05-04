@@ -13,32 +13,55 @@ import (
 
 const createEntity = `-- name: CreateEntity :one
 INSERT INTO entities (
-    name, description, thumbnail_url
+    id, name, slug, description, project_id, status
 ) VALUES (
-    $1, $2, $3
+    COALESCE($6::uuid, uuidv7()), $1, $2, $3, $4, $5
 )
-RETURNING id, name, description, thumbnail_url, is_deleted, created_at, updated_at
+RETURNING id, project_id, name, slug, description, status, is_deleted, created_at, updated_at
 `
 
 type CreateEntityParams struct {
-	Name         string      `json:"name"`
-	Description  pgtype.Text `json:"description"`
-	ThumbnailUrl pgtype.Text `json:"thumbnail_url"`
+	Name        string      `json:"name"`
+	Slug        pgtype.Text `json:"slug"`
+	Description pgtype.Text `json:"description"`
+	ProjectID   pgtype.UUID `json:"project_id"`
+	Status      pgtype.Int2 `json:"status"`
+	ID          pgtype.UUID `json:"id"`
 }
 
 func (q *Queries) CreateEntity(ctx context.Context, arg CreateEntityParams) (Entity, error) {
-	row := q.db.QueryRow(ctx, createEntity, arg.Name, arg.Description, arg.ThumbnailUrl)
+	row := q.db.QueryRow(ctx, createEntity,
+		arg.Name,
+		arg.Slug,
+		arg.Description,
+		arg.ProjectID,
+		arg.Status,
+		arg.ID,
+	)
 	var i Entity
 	err := row.Scan(
 		&i.ID,
+		&i.ProjectID,
 		&i.Name,
+		&i.Slug,
 		&i.Description,
-		&i.ThumbnailUrl,
+		&i.Status,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const deleteEntitiesByIDs = `-- name: DeleteEntitiesByIDs :exec
+UPDATE entities
+SET is_deleted = true
+WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) DeleteEntitiesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteEntitiesByIDs, dollar_1)
+	return err
 }
 
 const deleteEntity = `-- name: DeleteEntity :exec
@@ -54,7 +77,7 @@ func (q *Queries) DeleteEntity(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getEntitiesByIDs = `-- name: GetEntitiesByIDs :many
-SELECT id, name, description, thumbnail_url, is_deleted, created_at, updated_at FROM entities WHERE id = ANY($1::uuid[]) AND is_deleted = false
+SELECT id, project_id, name, slug, description, status, is_deleted, created_at, updated_at FROM entities WHERE id = ANY($1::uuid[]) AND is_deleted = false
 `
 
 func (q *Queries) GetEntitiesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Entity, error) {
@@ -68,9 +91,47 @@ func (q *Queries) GetEntitiesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) 
 		var i Entity
 		if err := rows.Scan(
 			&i.ID,
+			&i.ProjectID,
 			&i.Name,
+			&i.Slug,
 			&i.Description,
-			&i.ThumbnailUrl,
+			&i.Status,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getEntitiesByProjectId = `-- name: GetEntitiesByProjectId :many
+SELECT id, project_id, name, slug, description, status, is_deleted, created_at, updated_at
+FROM entities
+WHERE project_id = $1 AND is_deleted = false
+`
+
+func (q *Queries) GetEntitiesByProjectId(ctx context.Context, projectID pgtype.UUID) ([]Entity, error) {
+	rows, err := q.db.Query(ctx, getEntitiesByProjectId, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Entity{}
+	for rows.Next() {
+		var i Entity
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Slug,
+			&i.Description,
+			&i.Status,
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -86,7 +147,7 @@ func (q *Queries) GetEntitiesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) 
 }
 
 const getEntityById = `-- name: GetEntityById :one
-SELECT id, name, description, thumbnail_url, is_deleted, created_at, updated_at
+SELECT id, project_id, name, slug, description, status, is_deleted, created_at, updated_at
 FROM entities
 WHERE id = $1 AND is_deleted = false
 `
@@ -96,9 +157,11 @@ func (q *Queries) GetEntityById(ctx context.Context, id pgtype.UUID) (Entity, er
 	var i Entity
 	err := row.Scan(
 		&i.ID,
+		&i.ProjectID,
 		&i.Name,
+		&i.Slug,
 		&i.Description,
-		&i.ThumbnailUrl,
+		&i.Status,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -107,23 +170,30 @@ func (q *Queries) GetEntityById(ctx context.Context, id pgtype.UUID) (Entity, er
 }
 
 const searchEntities = `-- name: SearchEntities :many
-SELECT id, name, description, thumbnail_url, is_deleted, created_at, updated_at
+SELECT id, project_id, name, slug, description, status, is_deleted, created_at, updated_at
 FROM entities
 WHERE is_deleted = false
-  AND name ILIKE '%' || $1::text || '%'
-  AND ($2::uuid IS NULL OR id < $2::uuid)
+  AND ($1::uuid IS NULL OR project_id = $1::uuid)
+  AND name ILIKE '%' || $2::text || '%'
+  AND ($3::uuid IS NULL OR id < $3::uuid)
 ORDER BY id DESC
-LIMIT $3
+LIMIT $4
 `
 
 type SearchEntitiesParams struct {
+	ProjectID  pgtype.UUID `json:"project_id"`
 	Name       string      `json:"name"`
 	CursorID   pgtype.UUID `json:"cursor_id"`
 	LimitCount int32       `json:"limit_count"`
 }
 
 func (q *Queries) SearchEntities(ctx context.Context, arg SearchEntitiesParams) ([]Entity, error) {
-	rows, err := q.db.Query(ctx, searchEntities, arg.Name, arg.CursorID, arg.LimitCount)
+	rows, err := q.db.Query(ctx, searchEntities,
+		arg.ProjectID,
+		arg.Name,
+		arg.CursorID,
+		arg.LimitCount,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +203,11 @@ func (q *Queries) SearchEntities(ctx context.Context, arg SearchEntitiesParams) 
 		var i Entity
 		if err := rows.Scan(
 			&i.ID,
+			&i.ProjectID,
 			&i.Name,
+			&i.Slug,
 			&i.Description,
-			&i.ThumbnailUrl,
+			&i.Status,
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -154,32 +226,40 @@ const updateEntity = `-- name: UpdateEntity :one
 UPDATE entities
 SET 
     name = COALESCE($1, name),
-    description = COALESCE($2, description),
-    thumbnail_url = COALESCE($3, thumbnail_url)
-WHERE id = $4 AND is_deleted = false
-RETURNING id, name, description, thumbnail_url, is_deleted, created_at, updated_at
+    slug = COALESCE($2, slug),
+    description = COALESCE($3, description),
+    project_id = COALESCE($4, project_id),
+    status = COALESCE($5, status)
+WHERE id = $6 AND is_deleted = false
+RETURNING id, project_id, name, slug, description, status, is_deleted, created_at, updated_at
 `
 
 type UpdateEntityParams struct {
-	Name         pgtype.Text `json:"name"`
-	Description  pgtype.Text `json:"description"`
-	ThumbnailUrl pgtype.Text `json:"thumbnail_url"`
-	ID           pgtype.UUID `json:"id"`
+	Name        pgtype.Text `json:"name"`
+	Slug        pgtype.Text `json:"slug"`
+	Description pgtype.Text `json:"description"`
+	ProjectID   pgtype.UUID `json:"project_id"`
+	Status      pgtype.Int2 `json:"status"`
+	ID          pgtype.UUID `json:"id"`
 }
 
 func (q *Queries) UpdateEntity(ctx context.Context, arg UpdateEntityParams) (Entity, error) {
 	row := q.db.QueryRow(ctx, updateEntity,
 		arg.Name,
+		arg.Slug,
 		arg.Description,
-		arg.ThumbnailUrl,
+		arg.ProjectID,
+		arg.Status,
 		arg.ID,
 	)
 	var i Entity
 	err := row.Scan(
 		&i.ID,
+		&i.ProjectID,
 		&i.Name,
+		&i.Slug,
 		&i.Description,
-		&i.ThumbnailUrl,
+		&i.Status,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,

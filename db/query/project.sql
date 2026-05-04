@@ -17,7 +17,7 @@ SELECT
         'avatar_url', up.avatar_url
     )::json AS user,
     '[]'::json AS commits,
-    '{}'::uuid[] AS submission_ids,
+    '[]'::json AS submissions,
     '[]'::json AS members
 FROM inserted_project p
 JOIN users u ON p.user_id = u.id
@@ -32,9 +32,9 @@ SELECT
         '[]'
     )::json AS commits,
     COALESCE(
-        (SELECT array_agg(id) FROM submissions WHERE project_id = p.id), 
-        '{}'
-    )::uuid[] AS submission_ids,
+        (SELECT json_agg(json_build_object('id', s.id, 'status', s.status)) FROM submissions s WHERE s.project_id = p.id), 
+        '[]'
+    )::json AS submissions,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -85,7 +85,10 @@ RETURNING
          FROM commits c WHERE c.project_id = projects.id AND c.is_deleted = false),
         '[]'
     )::json AS commits,
-    COALESCE((SELECT array_agg(id) FROM submissions WHERE project_id = projects.id), '{}')::uuid[] AS submission_ids,
+    COALESCE(
+        (SELECT json_agg(json_build_object('id', s.id, 'status', s.status)) FROM submissions s WHERE s.project_id = projects.id),
+        '[]'
+    )::json AS submissions,
     COALESCE(
         (SELECT json_agg(json_build_object(
             'user_id', pm.user_id, 'role', pm.role,
@@ -113,9 +116,9 @@ SELECT
         '[]'
     )::json AS commits,
     COALESCE(
-        (SELECT array_agg(id) FROM submissions WHERE project_id = p.id), 
-        '{}'
-    )::uuid[] AS submission_ids,
+        (SELECT json_agg(json_build_object('id', s.id, 'status', s.status)) FROM submissions s WHERE s.project_id = p.id), 
+        '[]'
+    )::json AS submissions,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -187,9 +190,9 @@ SELECT
         '[]'
     )::json AS commits,
     COALESCE(
-        (SELECT array_agg(id) FROM submissions WHERE project_id = p.id), 
-        '{}'
-    )::uuid[] AS submission_ids,
+        (SELECT json_agg(json_build_object('id', s.id, 'status', s.status)) FROM submissions s WHERE s.project_id = p.id), 
+        '[]'
+    )::json AS submissions,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -225,7 +228,10 @@ SELECT
          FROM commits c WHERE c.project_id = p.id AND c.is_deleted = false),
         '[]'
     )::json AS commits,
-    COALESCE((SELECT array_agg(id) FROM submissions WHERE project_id = p.id), '{}')::uuid[] AS submission_ids,
+    COALESCE(
+        (SELECT json_agg(json_build_object('id', s.id, 'status', s.status)) FROM submissions s WHERE s.project_id = p.id),
+        '[]'
+    )::json AS submissions,
     json_build_object(
         'id', u.id,
         'email', u.email,

@@ -70,51 +70,6 @@ CREATE TABLE IF NOT EXISTS verification_medias (
     PRIMARY KEY (verification_id, media_id)
 );
 
-CREATE TABLE IF NOT EXISTS entities (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    name TEXT NOT NULL,
-    description TEXT,
-    thumbnail_url TEXT,
-    is_deleted BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS wikis (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    title TEXT,
-    content TEXT,
-    is_deleted BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-
-CREATE TABLE IF NOT EXISTS entity_wikis (
-    entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
-    wiki_id UUID REFERENCES wikis(id) ON DELETE CASCADE,
-    PRIMARY KEY (entity_id, wiki_id)
-);
-
-CREATE TABLE IF NOT EXISTS geometries (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
-    geo_type SMALLINT NOT NULL DEFAULT 1,
-    draw_geometry JSONB NOT NULL,
-    binding JSONB,
-    time_start INT,
-    time_end INT,
-    bbox GEOMETRY(Polygon, 4326), 
-    is_deleted BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS entity_geometries (
-    entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
-    geometry_id UUID REFERENCES geometries(id) ON DELETE CASCADE,
-    PRIMARY KEY (entity_id, geometry_id)
-);
-
 CREATE TABLE IF NOT EXISTS projects (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     title TEXT NOT NULL,
@@ -127,6 +82,60 @@ CREATE TABLE IF NOT EXISTS projects (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS entities (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    slug TEXT,
+    description TEXT,
+    status SMALLINT,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS wikis (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    title TEXT,
+    content JSONB,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS entity_wikis (
+    entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
+    wiki_id UUID REFERENCES wikis(id) ON DELETE CASCADE,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    PRIMARY KEY (entity_id, wiki_id)
+);
+
+CREATE INDEX idx_entity_wikis_project_id ON entity_wikis(project_id);
+
+CREATE TABLE IF NOT EXISTS geometries (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    geo_type SMALLINT NOT NULL DEFAULT 1,
+    draw_geometry JSONB NOT NULL,
+    binding JSONB,
+    time_start INT,
+    time_end INT,
+    bbox GEOMETRY(Polygon, 4326), 
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS entity_geometries (
+    entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
+    geometry_id UUID REFERENCES geometries(id) ON DELETE CASCADE,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    PRIMARY KEY (entity_id, geometry_id)
+);
+
+CREATE INDEX idx_entity_geometries_project_id ON entity_geometries(project_id);
 
 CREATE TABLE IF NOT EXISTS commits (
     id UUID PRIMARY KEY DEFAULT uuidv7(),

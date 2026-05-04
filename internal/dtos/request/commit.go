@@ -1,9 +1,7 @@
 package request
 
-import "encoding/json"
-
 type CreateCommitDto struct {
-	SnapshotJson json.RawMessage `json:"snapshot_json" validate:"required"`
+	SnapshotJson *CommitSnapshot `json:"snapshot_json" validate:"required"`
 	EditSummary  string          `json:"edit_summary" validate:"required,max=500"`
 }
 

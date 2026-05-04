@@ -22,23 +22,27 @@ type Commit struct {
 }
 
 type Entity struct {
-	ID           pgtype.UUID        `json:"id"`
-	Name         string             `json:"name"`
-	Description  pgtype.Text        `json:"description"`
-	ThumbnailUrl pgtype.Text        `json:"thumbnail_url"`
-	IsDeleted    bool               `json:"is_deleted"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID          pgtype.UUID        `json:"id"`
+	ProjectID   pgtype.UUID        `json:"project_id"`
+	Name        string             `json:"name"`
+	Slug        pgtype.Text        `json:"slug"`
+	Description pgtype.Text        `json:"description"`
+	Status      pgtype.Int2        `json:"status"`
+	IsDeleted   bool               `json:"is_deleted"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type EntityGeometry struct {
 	EntityID   pgtype.UUID `json:"entity_id"`
 	GeometryID pgtype.UUID `json:"geometry_id"`
+	ProjectID  pgtype.UUID `json:"project_id"`
 }
 
 type EntityWiki struct {
-	EntityID pgtype.UUID `json:"entity_id"`
-	WikiID   pgtype.UUID `json:"wiki_id"`
+	EntityID  pgtype.UUID `json:"entity_id"`
+	WikiID    pgtype.UUID `json:"wiki_id"`
+	ProjectID pgtype.UUID `json:"project_id"`
 }
 
 type Geometry struct {
@@ -49,6 +53,7 @@ type Geometry struct {
 	TimeStart    pgtype.Int4        `json:"time_start"`
 	TimeEnd      pgtype.Int4        `json:"time_end"`
 	Bbox         interface{}        `json:"bbox"`
+	ProjectID    pgtype.UUID        `json:"project_id"`
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
@@ -161,8 +166,9 @@ type VerificationMedia struct {
 
 type Wiki struct {
 	ID        pgtype.UUID        `json:"id"`
+	ProjectID pgtype.UUID        `json:"project_id"`
 	Title     pgtype.Text        `json:"title"`
-	Content   pgtype.Text        `json:"content"`
+	Content   []byte             `json:"content"`
 	IsDeleted bool               `json:"is_deleted"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`

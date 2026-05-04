@@ -20,6 +20,7 @@ type GeometryResponse struct {
 	TimeStart    int32           `json:"time_start,omitempty"`
 	TimeEnd      int32           `json:"time_end,omitempty"`
 	Bbox         *Bbox           `json:"bbox,omitempty"`
+	ProjectID    string          `json:"project_id"`
 	IsDeleted    bool            `json:"is_deleted,omitempty"`
 	CreatedAt    *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt    *time.Time      `json:"updated_at,omitempty"`

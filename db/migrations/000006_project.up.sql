@@ -23,3 +23,6 @@ ON projects (project_status, updated_at DESC);
 
 CREATE INDEX idx_projects_title_trgm 
 ON projects USING GIN (title gin_trgm_ops);
+
+
+

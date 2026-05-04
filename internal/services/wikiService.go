@@ -58,10 +58,18 @@ func (s *wikiService) SearchWikis(ctx context.Context, req *request.SearchWikiDt
 	if req.Title != "" {
 		params.Title = req.Title
 	}
+
 	if req.EntityID != "" {
 		entityId, err := convert.StringToUUID(req.EntityID)
 		if err == nil {
 			params.EntityID = entityId
+		}
+	}
+
+	if req.ProjectID != nil {
+		projectID, err := convert.StringToUUID(*req.ProjectID)
+		if err == nil {
+			params.ProjectID = projectID
 		}
 	}
 

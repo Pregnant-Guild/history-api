@@ -14,19 +14,24 @@ type MemberSimpleResponse struct {
 	AvatarUrl   string `json:"avatar_url"`
 }
 
+type SubmissionSimpleResponse struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
 type ProjectResponse struct {
-	ID             string                 `json:"id"`
-	Title          string                 `json:"title"`
-	Description    string                 `json:"description"`
-	LatestCommitID *string                `json:"latest_commit_id,omitempty"`
-	ProjectStatus  string                 `json:"project_status"`
-	LockedBy       *string                `json:"locked_by,omitempty"`
-	IsDeleted      bool                   `json:"is_deleted"`
-	UserID         string                 `json:"user_id"`
-	CreatedAt      *time.Time             `json:"created_at"`
-	UpdatedAt      *time.Time             `json:"updated_at"`
-	User           *UserSimpleResponse    `json:"user,omitempty"`
-	Commits        []CommitSimpleResponse `json:"commits"`
-	SubmissionIds  []string               `json:"submission_ids"`
-	Members        []MemberSimpleResponse `json:"members"`
+	ID             string                     `json:"id"`
+	Title          string                     `json:"title"`
+	Description    string                     `json:"description"`
+	LatestCommitID *string                    `json:"latest_commit_id,omitempty"`
+	ProjectStatus  string                     `json:"project_status"`
+	LockedBy       *string                    `json:"locked_by,omitempty"`
+	IsDeleted      bool                       `json:"is_deleted"`
+	UserID         string                     `json:"user_id"`
+	CreatedAt      *time.Time                 `json:"created_at"`
+	UpdatedAt      *time.Time                 `json:"updated_at"`
+	User           *UserSimpleResponse        `json:"user,omitempty"`
+	Commits        []CommitSimpleResponse     `json:"commits"`
+	Submissions    []SubmissionSimpleResponse `json:"submissions"`
+	Members        []MemberSimpleResponse     `json:"members"`
 }

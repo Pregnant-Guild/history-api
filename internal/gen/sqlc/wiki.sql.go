@@ -37,42 +37,62 @@ func (q *Queries) BulkDeleteEntityWikisByEntityId(ctx context.Context, entityID 
 	return items, nil
 }
 
+const bulkDeleteEntityWikisByWikiID = `-- name: BulkDeleteEntityWikisByWikiID :exec
+DELETE FROM entity_wikis
+WHERE wiki_id = $1
+`
+
+func (q *Queries) BulkDeleteEntityWikisByWikiID(ctx context.Context, wikiID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, bulkDeleteEntityWikisByWikiID, wikiID)
+	return err
+}
+
 const createEntityWikis = `-- name: CreateEntityWikis :exec
 INSERT INTO entity_wikis (
-    entity_id, wiki_id
+    entity_id, wiki_id, project_id
 )
-SELECT $1, unnest($2::uuid[])
+SELECT $1, unnest($3::uuid[]), $2
+ON CONFLICT DO NOTHING
 `
 
 type CreateEntityWikisParams struct {
-	EntityID pgtype.UUID   `json:"entity_id"`
-	WikiIds  []pgtype.UUID `json:"wiki_ids"`
+	EntityID  pgtype.UUID   `json:"entity_id"`
+	ProjectID pgtype.UUID   `json:"project_id"`
+	WikiIds   []pgtype.UUID `json:"wiki_ids"`
 }
 
 func (q *Queries) CreateEntityWikis(ctx context.Context, arg CreateEntityWikisParams) error {
-	_, err := q.db.Exec(ctx, createEntityWikis, arg.EntityID, arg.WikiIds)
+	_, err := q.db.Exec(ctx, createEntityWikis, arg.EntityID, arg.ProjectID, arg.WikiIds)
 	return err
 }
 
 const createWiki = `-- name: CreateWiki :one
 INSERT INTO wikis (
-    title, content
+    id, title, content, project_id
 ) VALUES (
-    $1, $2
+    COALESCE($4::uuid, uuidv7()), $1, $2, $3
 )
-RETURNING id, title, content, is_deleted, created_at, updated_at
+RETURNING id, project_id, title, content, is_deleted, created_at, updated_at
 `
 
 type CreateWikiParams struct {
-	Title   pgtype.Text `json:"title"`
-	Content pgtype.Text `json:"content"`
+	Title     pgtype.Text `json:"title"`
+	Content   []byte      `json:"content"`
+	ProjectID pgtype.UUID `json:"project_id"`
+	ID        pgtype.UUID `json:"id"`
 }
 
 func (q *Queries) CreateWiki(ctx context.Context, arg CreateWikiParams) (Wiki, error) {
-	row := q.db.QueryRow(ctx, createWiki, arg.Title, arg.Content)
+	row := q.db.QueryRow(ctx, createWiki,
+		arg.Title,
+		arg.Content,
+		arg.ProjectID,
+		arg.ID,
+	)
 	var i Wiki
 	err := row.Scan(
 		&i.ID,
+		&i.ProjectID,
 		&i.Title,
 		&i.Content,
 		&i.IsDeleted,
@@ -80,6 +100,31 @@ func (q *Queries) CreateWiki(ctx context.Context, arg CreateWikiParams) (Wiki, e
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const deleteEntityWiki = `-- name: DeleteEntityWiki :exec
+DELETE FROM entity_wikis
+WHERE entity_id = $1 AND wiki_id = $2
+`
+
+type DeleteEntityWikiParams struct {
+	EntityID pgtype.UUID `json:"entity_id"`
+	WikiID   pgtype.UUID `json:"wiki_id"`
+}
+
+func (q *Queries) DeleteEntityWiki(ctx context.Context, arg DeleteEntityWikiParams) error {
+	_, err := q.db.Exec(ctx, deleteEntityWiki, arg.EntityID, arg.WikiID)
+	return err
+}
+
+const deleteEntityWikisByProjectID = `-- name: DeleteEntityWikisByProjectID :exec
+DELETE FROM entity_wikis
+WHERE project_id = $1
+`
+
+func (q *Queries) DeleteEntityWikisByProjectID(ctx context.Context, projectID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteEntityWikisByProjectID, projectID)
+	return err
 }
 
 const deleteWiki = `-- name: DeleteWiki :exec
@@ -94,8 +139,19 @@ func (q *Queries) DeleteWiki(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const deleteWikisByIDs = `-- name: DeleteWikisByIDs :exec
+UPDATE wikis
+SET is_deleted = true
+WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) DeleteWikisByIDs(ctx context.Context, dollar_1 []pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteWikisByIDs, dollar_1)
+	return err
+}
+
 const getWikiById = `-- name: GetWikiById :one
-SELECT id, title, content, is_deleted, created_at, updated_at
+SELECT id, project_id, title, content, is_deleted, created_at, updated_at
 FROM wikis
 WHERE id = $1 AND is_deleted = false
 `
@@ -105,6 +161,7 @@ func (q *Queries) GetWikiById(ctx context.Context, id pgtype.UUID) (Wiki, error)
 	var i Wiki
 	err := row.Scan(
 		&i.ID,
+		&i.ProjectID,
 		&i.Title,
 		&i.Content,
 		&i.IsDeleted,
@@ -115,7 +172,7 @@ func (q *Queries) GetWikiById(ctx context.Context, id pgtype.UUID) (Wiki, error)
 }
 
 const getWikisByIDs = `-- name: GetWikisByIDs :many
-SELECT id, title, content, is_deleted, created_at, updated_at FROM wikis WHERE id = ANY($1::uuid[]) AND is_deleted = false
+SELECT id, project_id, title, content, is_deleted, created_at, updated_at FROM wikis WHERE id = ANY($1::uuid[]) AND is_deleted = false
 `
 
 func (q *Queries) GetWikisByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Wiki, error) {
@@ -129,6 +186,41 @@ func (q *Queries) GetWikisByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]
 		var i Wiki
 		if err := rows.Scan(
 			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Content,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getWikisByProjectId = `-- name: GetWikisByProjectId :many
+SELECT id, project_id, title, content, is_deleted, created_at, updated_at
+FROM wikis
+WHERE project_id = $1 AND is_deleted = false
+`
+
+func (q *Queries) GetWikisByProjectId(ctx context.Context, projectID pgtype.UUID) ([]Wiki, error) {
+	rows, err := q.db.Query(ctx, getWikisByProjectId, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Wiki{}
+	for rows.Next() {
+		var i Wiki
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
 			&i.Title,
 			&i.Content,
 			&i.IsDeleted,
@@ -146,26 +238,28 @@ func (q *Queries) GetWikisByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]
 }
 
 const searchWikis = `-- name: SearchWikis :many
-SELECT w.id, w.title, w.content, w.is_deleted, w.created_at, w.updated_at
+SELECT w.id, w.project_id, w.title, w.content, w.is_deleted, w.created_at, w.updated_at
 FROM wikis w
 WHERE w.is_deleted = false
-  AND w.title ILIKE '%' || $1::text || '%'
+  AND ($1::uuid IS NULL OR w.project_id = $1::uuid)
+  AND w.title ILIKE '%' || $2::text || '%'
   AND (
-    $2::uuid IS NULL OR
+    $3::uuid IS NULL OR
     EXISTS (
         SELECT 1 
         FROM entity_wikis ew 
         WHERE ew.wiki_id = w.id 
-          AND ew.entity_id = $2::uuid
+          AND ew.entity_id = $3::uuid
     )
   )
-  AND ($3::uuid IS NULL OR w.id < $3::uuid)
+  AND ($4::uuid IS NULL OR w.id < $4::uuid)
 
 ORDER BY w.id DESC
-LIMIT $4
+LIMIT $5
 `
 
 type SearchWikisParams struct {
+	ProjectID  pgtype.UUID `json:"project_id"`
 	Title      string      `json:"title"`
 	EntityID   pgtype.UUID `json:"entity_id"`
 	CursorID   pgtype.UUID `json:"cursor_id"`
@@ -174,6 +268,7 @@ type SearchWikisParams struct {
 
 func (q *Queries) SearchWikis(ctx context.Context, arg SearchWikisParams) ([]Wiki, error) {
 	rows, err := q.db.Query(ctx, searchWikis,
+		arg.ProjectID,
 		arg.Title,
 		arg.EntityID,
 		arg.CursorID,
@@ -188,6 +283,7 @@ func (q *Queries) SearchWikis(ctx context.Context, arg SearchWikisParams) ([]Wik
 		var i Wiki
 		if err := rows.Scan(
 			&i.ID,
+			&i.ProjectID,
 			&i.Title,
 			&i.Content,
 			&i.IsDeleted,
@@ -208,22 +304,30 @@ const updateWiki = `-- name: UpdateWiki :one
 UPDATE wikis
 SET 
     title = COALESCE($1, title),
-    content = COALESCE($2, content)
-WHERE id = $3 AND is_deleted = false
-RETURNING id, title, content, is_deleted, created_at, updated_at
+    content = COALESCE($2, content),
+    project_id = COALESCE($3, project_id)
+WHERE id = $4 AND is_deleted = false
+RETURNING id, project_id, title, content, is_deleted, created_at, updated_at
 `
 
 type UpdateWikiParams struct {
-	Title   pgtype.Text `json:"title"`
-	Content pgtype.Text `json:"content"`
-	ID      pgtype.UUID `json:"id"`
+	Title     pgtype.Text `json:"title"`
+	Content   []byte      `json:"content"`
+	ProjectID pgtype.UUID `json:"project_id"`
+	ID        pgtype.UUID `json:"id"`
 }
 
 func (q *Queries) UpdateWiki(ctx context.Context, arg UpdateWikiParams) (Wiki, error) {
-	row := q.db.QueryRow(ctx, updateWiki, arg.Title, arg.Content, arg.ID)
+	row := q.db.QueryRow(ctx, updateWiki,
+		arg.Title,
+		arg.Content,
+		arg.ProjectID,
+		arg.ID,
+	)
 	var i Wiki
 	err := row.Scan(
 		&i.ID,
+		&i.ProjectID,
 		&i.Title,
 		&i.Content,
 		&i.IsDeleted,

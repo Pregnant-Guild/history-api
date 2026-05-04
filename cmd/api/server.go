@@ -105,7 +105,10 @@ func (s *FiberServer) SetupServer(
 	wikiService := services.NewWikiService(wikiRepo)
 	projectService := services.NewProjectService(projectRepo)
 	commitService := services.NewCommitService(poolPg, commitRepo, projectRepo)
-	submissionService := services.NewSubmissionService(submissionRepo, projectRepo, commitRepo, userRepo, poolPg, redis)
+	submissionService := services.NewSubmissionService(
+		submissionRepo, projectRepo, commitRepo,
+		userRepo, wikiRepo, geometryRepo, entityRepo, poolPg, redis,
+	)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)

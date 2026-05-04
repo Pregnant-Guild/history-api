@@ -7,4 +7,5 @@ type SearchGeometryDto struct {
 	MaxLat    *float64 `json:"max_lat" query:"max_lat" validate:"required,gte=-90,lte=90"`
 	TimePoint *int32   `json:"time" query:"time" validate:"omitempty,number"`
 	EntityID  *string  `json:"entity_id" query:"entity_id" validate:"omitempty,uuid"`
+	ProjectID *string  `json:"project_id" query:"project_id" validate:"omitempty,uuid"`
 }

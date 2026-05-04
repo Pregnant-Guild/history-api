@@ -204,3 +204,31 @@ func (q *Queries) SearchCommits(ctx context.Context, arg SearchCommitsParams) ([
 	}
 	return items, nil
 }
+
+const updateCommitSnapshot = `-- name: UpdateCommitSnapshot :one
+UPDATE commits
+SET snapshot_json = $2
+WHERE id = $1
+RETURNING id, project_id, snapshot_json, snapshot_hash, user_id, edit_summary, is_deleted, created_at
+`
+
+type UpdateCommitSnapshotParams struct {
+	ID           pgtype.UUID     `json:"id"`
+	SnapshotJson json.RawMessage `json:"snapshot_json"`
+}
+
+func (q *Queries) UpdateCommitSnapshot(ctx context.Context, arg UpdateCommitSnapshotParams) (Commit, error) {
+	row := q.db.QueryRow(ctx, updateCommitSnapshot, arg.ID, arg.SnapshotJson)
+	var i Commit
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.SnapshotJson,
+		&i.SnapshotHash,
+		&i.UserID,
+		&i.EditSummary,
+		&i.IsDeleted,
+		&i.CreatedAt,
+	)
+	return i, err
+}

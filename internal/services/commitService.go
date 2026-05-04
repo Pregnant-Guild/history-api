@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
 	"history-api/internal/gen/sqlc"
@@ -63,6 +64,12 @@ func (s *commitService) checkWritePermission(ctx context.Context, userID string,
 		return fiber.NewError(fiber.StatusForbidden, "You do not have permission to write to this project")
 	}
 
+	for _, s := range project.Submissions {
+		if s.Status == constants.StatusTypePending {
+			return fiber.NewError(fiber.StatusConflict, "Cannot create commit while there is a pending submission")
+		}
+	}
+
 	return nil
 }
 
@@ -90,9 +97,14 @@ func (s *commitService) CreateCommit(ctx context.Context, userID string, project
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid user ID")
 	}
 
+	snapshotJSON, err := json.Marshal(dto.SnapshotJson)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid snapshot JSON")
+	}
+
 	commit, err := cRepoTx.Create(ctx, sqlc.CreateCommitParams{
 		ProjectID:    projectUUID,
-		SnapshotJson: dto.SnapshotJson,
+		SnapshotJson: snapshotJSON,
 		UserID:       userUUID,
 		EditSummary:  convert.StringToText(dto.EditSummary),
 	})

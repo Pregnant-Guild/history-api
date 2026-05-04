@@ -15,6 +15,7 @@ type GeometryEntity struct {
 	TimeStart    int32             `json:"time_start"`
 	TimeEnd      int32             `json:"time_end"`
 	Bbox         *response.Bbox    `json:"bbox"`
+	ProjectID    string            `json:"project_id"`
 	IsDeleted    bool              `json:"is_deleted"`
 	CreatedAt    *time.Time        `json:"created_at"`
 	UpdatedAt    *time.Time        `json:"updated_at"`
@@ -32,6 +33,7 @@ func (g *GeometryEntity) ToResponse() *response.GeometryResponse {
 		TimeStart:    g.TimeStart,
 		TimeEnd:      g.TimeEnd,
 		Bbox:         g.Bbox,
+		ProjectID:    g.ProjectID,
 		IsDeleted:    g.IsDeleted,
 		CreatedAt:    g.CreatedAt,
 		UpdatedAt:    g.UpdatedAt,

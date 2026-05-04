@@ -23,6 +23,8 @@ type EntityRepository interface {
 	Create(ctx context.Context, params sqlc.CreateEntityParams) (*models.EntityEntity, error)
 	Update(ctx context.Context, params sqlc.UpdateEntityParams) (*models.EntityEntity, error)
 	Delete(ctx context.Context, id pgtype.UUID) error
+	DeleteByIDs(ctx context.Context, ids []pgtype.UUID) error
+	GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.EntityEntity, error)
 	WithTx(tx pgx.Tx) EntityRepository
 }
 
@@ -83,8 +85,10 @@ func (r *entityRepository) getByIDsWithFallback(ctx context.Context, ids []strin
 				item := models.EntityEntity{
 					ID:           convert.UUIDToString(row.ID),
 					Name:         row.Name,
+					Slug:         convert.TextToString(row.Slug),
 					Description:  convert.TextToString(row.Description),
-					ThumbnailUrl: convert.TextToString(row.ThumbnailUrl),
+					ProjectID:    convert.UUIDToString(row.ProjectID),
+					Status:       convert.Int2ToInt16Ptr(row.Status),
 					IsDeleted:    row.IsDeleted,
 					CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 					UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
@@ -136,8 +140,10 @@ func (r *entityRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models
 	entity = models.EntityEntity{
 		ID:           convert.UUIDToString(row.ID),
 		Name:         row.Name,
+		Slug:         convert.TextToString(row.Slug),
 		Description:  convert.TextToString(row.Description),
-		ThumbnailUrl: convert.TextToString(row.ThumbnailUrl),
+		ProjectID:    convert.UUIDToString(row.ProjectID),
+		Status:       convert.Int2ToInt16Ptr(row.Status),
 		IsDeleted:    row.IsDeleted,
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
@@ -166,8 +172,10 @@ func (r *entityRepository) Search(ctx context.Context, params sqlc.SearchEntitie
 		entity := &models.EntityEntity{
 			ID:           convert.UUIDToString(row.ID),
 			Name:         row.Name,
+			Slug:         convert.TextToString(row.Slug),
 			Description:  convert.TextToString(row.Description),
-			ThumbnailUrl: convert.TextToString(row.ThumbnailUrl),
+			ProjectID:    convert.UUIDToString(row.ProjectID),
+			Status:       convert.Int2ToInt16Ptr(row.Status),
 			IsDeleted:    row.IsDeleted,
 			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
@@ -180,6 +188,7 @@ func (r *entityRepository) Search(ctx context.Context, params sqlc.SearchEntitie
 	if len(entityToCache) > 0 {
 		_ = r.c.MSet(ctx, entityToCache, constants.NormalCacheDuration)
 	}
+
 	if len(ids) > 0 {
 		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 	}
@@ -196,15 +205,15 @@ func (r *entityRepository) Create(ctx context.Context, params sqlc.CreateEntityP
 	entity := models.EntityEntity{
 		ID:           convert.UUIDToString(row.ID),
 		Name:         row.Name,
+		Slug:         convert.TextToString(row.Slug),
 		Description:  convert.TextToString(row.Description),
-		ThumbnailUrl: convert.TextToString(row.ThumbnailUrl),
+		ProjectID:    convert.UUIDToString(row.ProjectID),
+		Status:       convert.Int2ToInt16Ptr(row.Status),
 		IsDeleted:    row.IsDeleted,
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
 	}
-	go func() {
-		_ = r.c.DelByPattern(context.Background(), "entity:search*")
-	}()
+
 	return &entity, nil
 }
 
@@ -216,8 +225,10 @@ func (r *entityRepository) Update(ctx context.Context, params sqlc.UpdateEntityP
 	entity := models.EntityEntity{
 		ID:           convert.UUIDToString(row.ID),
 		Name:         row.Name,
+		Slug:         convert.TextToString(row.Slug),
 		Description:  convert.TextToString(row.Description),
-		ThumbnailUrl: convert.TextToString(row.ThumbnailUrl),
+		ProjectID:    convert.UUIDToString(row.ProjectID),
+		Status:       convert.Int2ToInt16Ptr(row.Status),
 		IsDeleted:    row.IsDeleted,
 		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
@@ -232,5 +243,63 @@ func (r *entityRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 		return err
 	}
 	_ = r.c.Del(ctx, fmt.Sprintf("entity:id:%s", convert.UUIDToString(id)))
+	return nil
+}
+
+func (r *entityRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.EntityEntity, error) {
+	cacheKey := fmt.Sprintf("entity:project:%s", convert.UUIDToString(projectID))
+	var cachedIDs []string
+	if err := r.c.Get(ctx, cacheKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+		return r.getByIDsWithFallback(ctx, cachedIDs)
+	}
+
+	rows, err := r.q.GetEntitiesByProjectId(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var entities []*models.EntityEntity
+	var ids []string
+	entityToCache := make(map[string]any)
+
+	for _, row := range rows {
+		entity := &models.EntityEntity{
+			ID:           convert.UUIDToString(row.ID),
+			Name:         row.Name,
+			Slug:         convert.TextToString(row.Slug),
+			Description:  convert.TextToString(row.Description),
+			ProjectID:    convert.UUIDToString(row.ProjectID),
+			Status:       convert.Int2ToInt16Ptr(row.Status),
+			IsDeleted:    row.IsDeleted,
+			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
+			UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+		}
+		ids = append(ids, entity.ID)
+		entities = append(entities, entity)
+		entityToCache[fmt.Sprintf("entity:id:%s", entity.ID)] = entity
+	}
+
+	if len(entityToCache) > 0 {
+		_ = r.c.MSet(ctx, entityToCache, constants.NormalCacheDuration)
+	}
+	if len(ids) > 0 {
+		_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
+	}
+
+	return entities, nil
+}
+
+func (r *entityRepository) DeleteByIDs(ctx context.Context, ids []pgtype.UUID) error {
+	err := r.q.DeleteEntitiesByIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+	if len(ids) > 0 {
+		keys := make([]string, len(ids))
+		for i, id := range ids {
+			keys[i] = fmt.Sprintf("entity:id:%s", convert.UUIDToString(id))
+		}
+		_ = r.c.Del(ctx, keys...)
+	}
 	return nil
 }

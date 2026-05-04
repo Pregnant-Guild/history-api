@@ -1,17 +1,19 @@
 package models
 
 import (
+	"encoding/json"
 	"history-api/internal/dtos/response"
 	"time"
 )
 
 type WikiEntity struct {
-	ID        string     `json:"id"`
-	Title     string     `json:"title"`
-	Content   string     `json:"content"`
-	IsDeleted bool       `json:"is_deleted"`
-	CreatedAt *time.Time `json:"created_at"`
-	UpdatedAt *time.Time `json:"updated_at"`
+	ID        string          `json:"id"`
+	Title     string          `json:"title"`
+	Content   json.RawMessage `json:"content"`
+	ProjectID string          `json:"project_id"`
+	IsDeleted bool            `json:"is_deleted"`
+	CreatedAt *time.Time      `json:"created_at"`
+	UpdatedAt *time.Time      `json:"updated_at"`
 }
 
 func (w *WikiEntity) ToResponse() *response.WikiResponse {
@@ -22,6 +24,7 @@ func (w *WikiEntity) ToResponse() *response.WikiResponse {
 		ID:        w.ID,
 		Title:     w.Title,
 		Content:   w.Content,
+		ProjectID: w.ProjectID,
 		IsDeleted: w.IsDeleted,
 		CreatedAt: w.CreatedAt,
 		UpdatedAt: w.UpdatedAt,

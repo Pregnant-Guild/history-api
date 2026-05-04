@@ -136,7 +136,7 @@ SELECT
         'avatar_url', up.avatar_url
     )::json AS user,
     '[]'::json AS commits,
-    '{}'::uuid[] AS submission_ids,
+    '[]'::json AS submissions,
     '[]'::json AS members
 FROM inserted_project p
 JOIN users u ON p.user_id = u.id
@@ -163,7 +163,7 @@ type CreateProjectRow struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	User           []byte             `json:"user"`
 	Commits        []byte             `json:"commits"`
-	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	Submissions    []byte             `json:"submissions"`
 	Members        []byte             `json:"members"`
 }
 
@@ -188,7 +188,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (C
 		&i.UpdatedAt,
 		&i.User,
 		&i.Commits,
-		&i.SubmissionIds,
+		&i.Submissions,
 		&i.Members,
 	)
 	return i, err
@@ -215,9 +215,9 @@ SELECT
         '[]'
     )::json AS commits,
     COALESCE(
-        (SELECT array_agg(id) FROM submissions WHERE project_id = p.id), 
-        '{}'
-    )::uuid[] AS submission_ids,
+        (SELECT json_agg(json_build_object('id', s.id, 'status', s.status)) FROM submissions s WHERE s.project_id = p.id), 
+        '[]'
+    )::json AS submissions,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -254,7 +254,7 @@ type GetProjectByIdRow struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	Commits        []byte             `json:"commits"`
-	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	Submissions    []byte             `json:"submissions"`
 	User           []byte             `json:"user"`
 	Members        []byte             `json:"members"`
 }
@@ -274,7 +274,7 @@ func (q *Queries) GetProjectById(ctx context.Context, id pgtype.UUID) (GetProjec
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Commits,
-		&i.SubmissionIds,
+		&i.Submissions,
 		&i.User,
 		&i.Members,
 	)
@@ -289,7 +289,10 @@ SELECT
          FROM commits c WHERE c.project_id = p.id AND c.is_deleted = false),
         '[]'
     )::json AS commits,
-    COALESCE((SELECT array_agg(id) FROM submissions WHERE project_id = p.id), '{}')::uuid[] AS submission_ids,
+    COALESCE(
+        (SELECT json_agg(json_build_object('id', s.id, 'status', s.status)) FROM submissions s WHERE s.project_id = p.id),
+        '[]'
+    )::json AS submissions,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -326,7 +329,7 @@ type GetProjectsByIDsRow struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	Commits        []byte             `json:"commits"`
-	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	Submissions    []byte             `json:"submissions"`
 	User           []byte             `json:"user"`
 	Members        []byte             `json:"members"`
 }
@@ -352,7 +355,7 @@ func (q *Queries) GetProjectsByIDs(ctx context.Context, dollar_1 []pgtype.UUID) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Commits,
-			&i.SubmissionIds,
+			&i.Submissions,
 			&i.User,
 			&i.Members,
 		); err != nil {
@@ -375,9 +378,9 @@ SELECT
         '[]'
     )::json AS commits,
     COALESCE(
-        (SELECT array_agg(id) FROM submissions WHERE project_id = p.id), 
-        '{}'
-    )::uuid[] AS submission_ids,
+        (SELECT json_agg(json_build_object('id', s.id, 'status', s.status)) FROM submissions s WHERE s.project_id = p.id), 
+        '[]'
+    )::json AS submissions,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -424,7 +427,7 @@ type GetProjectsByUserIdRow struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	Commits        []byte             `json:"commits"`
-	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	Submissions    []byte             `json:"submissions"`
 	User           []byte             `json:"user"`
 	Members        []byte             `json:"members"`
 }
@@ -450,7 +453,7 @@ func (q *Queries) GetProjectsByUserId(ctx context.Context, arg GetProjectsByUser
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Commits,
-			&i.SubmissionIds,
+			&i.Submissions,
 			&i.User,
 			&i.Members,
 		); err != nil {
@@ -488,9 +491,9 @@ SELECT
         '[]'
     )::json AS commits,
     COALESCE(
-        (SELECT array_agg(id) FROM submissions WHERE project_id = p.id), 
-        '{}'
-    )::uuid[] AS submission_ids,
+        (SELECT json_agg(json_build_object('id', s.id, 'status', s.status)) FROM submissions s WHERE s.project_id = p.id), 
+        '[]'
+    )::json AS submissions,
     json_build_object(
         'id', u.id,
         'email', u.email,
@@ -561,7 +564,7 @@ type SearchProjectsRow struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	Commits        []byte             `json:"commits"`
-	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	Submissions    []byte             `json:"submissions"`
 	User           []byte             `json:"user"`
 	Members        []byte             `json:"members"`
 }
@@ -597,7 +600,7 @@ func (q *Queries) SearchProjects(ctx context.Context, arg SearchProjectsParams) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Commits,
-			&i.SubmissionIds,
+			&i.Submissions,
 			&i.User,
 			&i.Members,
 		); err != nil {
@@ -654,7 +657,10 @@ RETURNING
          FROM commits c WHERE c.project_id = projects.id AND c.is_deleted = false),
         '[]'
     )::json AS commits,
-    COALESCE((SELECT array_agg(id) FROM submissions WHERE project_id = projects.id), '{}')::uuid[] AS submission_ids,
+    COALESCE(
+        (SELECT json_agg(json_build_object('id', s.id, 'status', s.status)) FROM submissions s WHERE s.project_id = projects.id),
+        '[]'
+    )::json AS submissions,
     COALESCE(
         (SELECT json_agg(json_build_object(
             'user_id', pm.user_id, 'role', pm.role,
@@ -690,7 +696,7 @@ type UpdateProjectRow struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	User           []byte             `json:"user"`
 	Commits        []byte             `json:"commits"`
-	SubmissionIds  []pgtype.UUID      `json:"submission_ids"`
+	Submissions    []byte             `json:"submissions"`
 	Members        []byte             `json:"members"`
 }
 
@@ -717,7 +723,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (U
 		&i.UpdatedAt,
 		&i.User,
 		&i.Commits,
-		&i.SubmissionIds,
+		&i.Submissions,
 		&i.Members,
 	)
 	return i, err

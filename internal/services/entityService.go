@@ -59,6 +59,13 @@ func (s *entityService) SearchEntities(ctx context.Context, req *request.SearchE
 		params.Name = req.Name
 	}
 
+	if req.ProjectID != nil {
+		projectID, err := convert.StringToUUID(*req.ProjectID)
+		if err == nil {
+			params.ProjectID = projectID
+		}
+	}
+
 	entities, err := s.entityRepo.Search(ctx, params)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search entities")

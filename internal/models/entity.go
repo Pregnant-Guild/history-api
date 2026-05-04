@@ -8,8 +8,10 @@ import (
 type EntityEntity struct {
 	ID           string     `json:"id"`
 	Name         string     `json:"name"`
+	Slug         string     `json:"slug"`
 	Description  string     `json:"description"`
-	ThumbnailUrl string     `json:"thumbnail_url"`
+	ProjectID    string     `json:"project_id"`
+	Status       *int16     `json:"status"`
 	IsDeleted    bool       `json:"is_deleted"`
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at"`
@@ -22,8 +24,10 @@ func (e *EntityEntity) ToResponse() *response.EntityResponse {
 	return &response.EntityResponse{
 		ID:           e.ID,
 		Name:         e.Name,
+		Slug:         e.Slug,
 		Description:  e.Description,
-		ThumbnailUrl: e.ThumbnailUrl,
+		ProjectID:    e.ProjectID,
+		Status:       e.Status,
 		IsDeleted:    e.IsDeleted,
 		CreatedAt:    e.CreatedAt,
 		UpdatedAt:    e.UpdatedAt,

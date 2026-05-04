@@ -34,3 +34,9 @@ LIMIT sqlc.arg('limit');
 
 -- name: GetCommitsByIDs :many
 SELECT * FROM commits WHERE id = ANY($1::uuid[]) AND is_deleted = false;
+
+-- name: UpdateCommitSnapshot :one
+UPDATE commits
+SET snapshot_json = $2
+WHERE id = $1
+RETURNING *;

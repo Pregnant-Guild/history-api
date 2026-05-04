@@ -98,10 +98,10 @@ func (r *projectRepository) getByIDsWithFallback(ctx context.Context, ids []stri
 					UserID:         convert.UUIDToString(row.UserID),
 					CreatedAt:      convert.TimeToPtr(row.CreatedAt),
 					UpdatedAt:      convert.TimeToPtr(row.UpdatedAt),
-					SubmissionIds:  convert.ListUUIDToString(row.SubmissionIds),
 				}
 				_ = item.ParseUser(row.User)
 				_ = item.ParseCommits(row.Commits)
+				_ = item.ParseSubmissions(row.Submissions)
 				_ = item.ParseMembers(row.Members)
 				dbMap[item.ID] = &item
 			}
@@ -158,10 +158,10 @@ func (r *projectRepository) GetByID(ctx context.Context, id pgtype.UUID) (*model
 		UserID:         convert.UUIDToString(row.UserID),
 		CreatedAt:      convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:      convert.TimeToPtr(row.UpdatedAt),
-		SubmissionIds:  convert.ListUUIDToString(row.SubmissionIds),
 	}
 	_ = project.ParseUser(row.User)
 	_ = project.ParseCommits(row.Commits)
+	_ = project.ParseSubmissions(row.Submissions)
 	_ = project.ParseMembers(row.Members)
 
 	_ = r.c.Set(ctx, cacheId, project, constants.NormalCacheDuration)
@@ -197,10 +197,10 @@ func (r *projectRepository) GetByUserID(ctx context.Context, params sqlc.GetProj
 			UserID:         convert.UUIDToString(row.UserID),
 			CreatedAt:      convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt:      convert.TimeToPtr(row.UpdatedAt),
-			SubmissionIds:  convert.ListUUIDToString(row.SubmissionIds),
 		}
 		_ = project.ParseUser(row.User)
 		_ = project.ParseCommits(row.Commits)
+		_ = project.ParseSubmissions(row.Submissions)
 		_ = project.ParseMembers(row.Members)
 
 		ids = append(ids, project.ID)
@@ -245,10 +245,10 @@ func (r *projectRepository) Search(ctx context.Context, params sqlc.SearchProjec
 			UserID:         convert.UUIDToString(row.UserID),
 			CreatedAt:      convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt:      convert.TimeToPtr(row.UpdatedAt),
-			SubmissionIds:  convert.ListUUIDToString(row.SubmissionIds),
 		}
 		_ = project.ParseUser(row.User)
 		_ = project.ParseCommits(row.Commits)
+		_ = project.ParseSubmissions(row.Submissions)
 		_ = project.ParseMembers(row.Members)
 
 		ids = append(ids, project.ID)
@@ -299,10 +299,10 @@ func (r *projectRepository) Create(ctx context.Context, params sqlc.CreateProjec
 		UserID:         convert.UUIDToString(row.UserID),
 		CreatedAt:      convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:      convert.TimeToPtr(row.UpdatedAt),
-		SubmissionIds:  convert.ListUUIDToString(row.SubmissionIds),
 	}
 	_ = project.ParseUser(row.User)
 	_ = project.ParseCommits(row.Commits)
+	_ = project.ParseSubmissions(row.Submissions)
 	_ = project.ParseMembers(row.Members)
 
 	go func() {
@@ -330,10 +330,10 @@ func (r *projectRepository) Update(ctx context.Context, params sqlc.UpdateProjec
 		UserID:         convert.UUIDToString(row.UserID),
 		CreatedAt:      convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:      convert.TimeToPtr(row.UpdatedAt),
-		SubmissionIds:  convert.ListUUIDToString(row.SubmissionIds),
 	}
 	_ = project.ParseUser(row.User)
 	_ = project.ParseCommits(row.Commits)
+	_ = project.ParseSubmissions(row.Submissions)
 	_ = project.ParseMembers(row.Members)
 
 	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", project.ID))

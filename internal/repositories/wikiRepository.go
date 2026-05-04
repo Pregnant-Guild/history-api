@@ -25,6 +25,11 @@ type WikiRepository interface {
 	Delete(ctx context.Context, id pgtype.UUID) error
 	CreateEntityWikis(ctx context.Context, params sqlc.CreateEntityWikisParams) error
 	BulkDeleteEntityWikisByEntityId(ctx context.Context, entityId pgtype.UUID) error
+	GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.WikiEntity, error)
+	DeleteByIDs(ctx context.Context, ids []pgtype.UUID) error
+	BulkDeleteEntityWikisByWikiID(ctx context.Context, wikiID pgtype.UUID) error
+	DeleteEntityWiki(ctx context.Context, entityID pgtype.UUID, wikiID pgtype.UUID) error
+	DeleteEntityWikisByProjectID(ctx context.Context, projectID pgtype.UUID) error
 	WithTx(tx pgx.Tx) WikiRepository
 }
 
@@ -85,8 +90,9 @@ func (r *wikiRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 				item := models.WikiEntity{
 					ID:        convert.UUIDToString(row.ID),
 					Title:     convert.TextToString(row.Title),
-					Content:   convert.TextToString(row.Content),
+					Content:   json.RawMessage(row.Content),
 					IsDeleted: row.IsDeleted,
+					ProjectID: convert.UUIDToString(row.ProjectID),
 					CreatedAt: convert.TimeToPtr(row.CreatedAt),
 					UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 				}
@@ -137,7 +143,7 @@ func (r *wikiRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.W
 	wiki = models.WikiEntity{
 		ID:        convert.UUIDToString(row.ID),
 		Title:     convert.TextToString(row.Title),
-		Content:   convert.TextToString(row.Content),
+		Content:   json.RawMessage(row.Content),
 		IsDeleted: row.IsDeleted,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
@@ -166,7 +172,7 @@ func (r *wikiRepository) Search(ctx context.Context, params sqlc.SearchWikisPara
 		wiki := &models.WikiEntity{
 			ID:        convert.UUIDToString(row.ID),
 			Title:     convert.TextToString(row.Title),
-			Content:   convert.TextToString(row.Content),
+			Content:   json.RawMessage(row.Content),
 			IsDeleted: row.IsDeleted,
 			CreatedAt: convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
@@ -195,15 +201,11 @@ func (r *wikiRepository) Create(ctx context.Context, params sqlc.CreateWikiParam
 	wiki := models.WikiEntity{
 		ID:        convert.UUIDToString(row.ID),
 		Title:     convert.TextToString(row.Title),
-		Content:   convert.TextToString(row.Content),
+		Content:   json.RawMessage(row.Content),
 		IsDeleted: row.IsDeleted,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-
-	go func() {
-		_ = r.c.DelByPattern(context.Background(), "wiki:search*")
-	}()
 
 	return &wiki, nil
 }
@@ -216,7 +218,7 @@ func (r *wikiRepository) Update(ctx context.Context, params sqlc.UpdateWikiParam
 	wiki := models.WikiEntity{
 		ID:        convert.UUIDToString(row.ID),
 		Title:     convert.TextToString(row.Title),
-		Content:   convert.TextToString(row.Content),
+		Content:   json.RawMessage(row.Content),
 		IsDeleted: row.IsDeleted,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
@@ -235,26 +237,84 @@ func (r *wikiRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 }
 
 func (r *wikiRepository) CreateEntityWikis(ctx context.Context, params sqlc.CreateEntityWikisParams) error {
-	err := r.q.CreateEntityWikis(ctx, params)
+	return r.q.CreateEntityWikis(ctx, params)
+}
+
+func (r *wikiRepository) DeleteEntityWikisByProjectID(ctx context.Context, projectID pgtype.UUID) error {
+	return r.q.DeleteEntityWikisByProjectID(ctx, projectID)
+}
+
+func (r *wikiRepository) BulkDeleteEntityWikisByEntityId(ctx context.Context, entityId pgtype.UUID) error {
+	_, err := r.q.BulkDeleteEntityWikisByEntityId(ctx, entityId)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *wikiRepository) BulkDeleteEntityWikisByEntityId(ctx context.Context, entityId pgtype.UUID) error {
-	wikiIDs, err := r.q.BulkDeleteEntityWikisByEntityId(ctx, entityId)
+func (r *wikiRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.WikiEntity, error) {
+	cacheKey := fmt.Sprintf("wiki:project:%s", convert.UUIDToString(projectID))
+	var cachedIDs []string
+	if err := r.c.Get(ctx, cacheKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+		return r.getByIDsWithFallback(ctx, cachedIDs)
+	}
+
+	rows, err := r.q.GetWikisByProjectId(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var wikis []*models.WikiEntity
+	var ids []string
+	wikiToCache := make(map[string]any)
+
+	for _, row := range rows {
+		wiki := &models.WikiEntity{
+			ID:        convert.UUIDToString(row.ID),
+			Title:     convert.TextToString(row.Title),
+			Content:   json.RawMessage(row.Content),
+			IsDeleted: row.IsDeleted,
+			ProjectID: convert.UUIDToString(row.ProjectID),
+			CreatedAt: convert.TimeToPtr(row.CreatedAt),
+			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
+		}
+		ids = append(ids, wiki.ID)
+		wikis = append(wikis, wiki)
+		wikiToCache[fmt.Sprintf("wiki:id:%s", wiki.ID)] = wiki
+	}
+
+	if len(wikiToCache) > 0 {
+		_ = r.c.MSet(ctx, wikiToCache, constants.NormalCacheDuration)
+	}
+	if len(ids) > 0 {
+		_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
+	}
+
+	return wikis, nil
+}
+
+func (r *wikiRepository) DeleteByIDs(ctx context.Context, ids []pgtype.UUID) error {
+	err := r.q.DeleteWikisByIDs(ctx, ids)
 	if err != nil {
 		return err
 	}
-	if len(wikiIDs) > 0 {
-		keys := make([]string, len(wikiIDs))
-		for i, id := range wikiIDs {
+	if len(ids) > 0 {
+		keys := make([]string, len(ids))
+		for i, id := range ids {
 			keys[i] = fmt.Sprintf("wiki:id:%s", convert.UUIDToString(id))
 		}
-		go func() {
-			_ = r.c.Del(context.Background(), keys...)
-		}()
+		_ = r.c.Del(ctx, keys...)
 	}
 	return nil
+}
+
+func (r *wikiRepository) BulkDeleteEntityWikisByWikiID(ctx context.Context, wikiID pgtype.UUID) error {
+	return r.q.BulkDeleteEntityWikisByWikiID(ctx, wikiID)
+}
+
+func (r *wikiRepository) DeleteEntityWiki(ctx context.Context, entityID pgtype.UUID, wikiID pgtype.UUID) error {
+	return r.q.DeleteEntityWiki(ctx, sqlc.DeleteEntityWikiParams{
+		EntityID: entityID,
+		WikiID:   wikiID,
+	})
 }
