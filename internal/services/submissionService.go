@@ -558,14 +558,13 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 	}
 
 	updatedSubmission, err := submissionRepo.Update(ctx, arg)
-
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update submission status")
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update submission status: " + err.Error())
 	}
 
 	err = tx.Commit(ctx)
 	if err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction: " + err.Error())
 	}
 
 	if status == constants.StatusTypeApproved {

@@ -7,7 +7,7 @@ const (
 	TokenExpirationDuration = 20 * time.Minute
 	NormalCacheDuration     = 15 * time.Minute
 	ListCacheDuration       = 10 * time.Minute
-	AccessTokenDuration     = 15 * time.Minute
+	AccessTokenDuration     = 30 * time.Minute
 	RefreshTokenDuration    = 7 * 24 * time.Hour
 	TokenVerifiedDuration   = 10 * time.Minute
 	PreSignedURLDuration    = 15 * time.Minute

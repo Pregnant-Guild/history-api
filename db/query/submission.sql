@@ -66,34 +66,38 @@ UPDATE submissions
 SET 
     status = COALESCE(sqlc.narg('status'), status),
     reviewed_by = COALESCE(sqlc.narg('reviewed_by'), reviewed_by),
+    reviewed_at = CASE WHEN sqlc.narg('status') IS NOT NULL THEN NOW() ELSE reviewed_at END,
     review_note = COALESCE(sqlc.narg('review_note'), review_note),
     content = COALESCE(sqlc.narg('content'), content)
-FROM projects p, users u
-LEFT JOIN user_profiles up ON u.id = up.user_id
-LEFT JOIN users ru ON submissions.reviewed_by = ru.id
-LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE submissions.id = sqlc.arg('id')
-  AND submissions.project_id = p.id
-  AND submissions.user_id = u.id
 RETURNING 
     submissions.id, submissions.project_id, submissions.commit_id, submissions.user_id, submissions.created_at, submissions.status, submissions.reviewed_by, submissions.reviewed_at, submissions.review_note, submissions.content, submissions.is_deleted,
-    p.title AS project_title, p.description AS project_description,
-    json_build_object(
-        'id', u.id,
-        'email', u.email,
-        'display_name', up.display_name,
-        'full_name', up.full_name,
-        'avatar_url', up.avatar_url
+    (SELECT title FROM projects WHERE id = submissions.project_id) AS project_title,
+    (SELECT description FROM projects WHERE id = submissions.project_id) AS project_description,
+    (
+        SELECT json_build_object(
+            'id', u.id,
+            'email', u.email,
+            'display_name', up.display_name,
+            'full_name', up.full_name,
+            'avatar_url', up.avatar_url
+        )
+        FROM users u 
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE u.id = submissions.user_id
     )::json AS user,
-    CASE WHEN submissions.reviewed_by IS NOT NULL THEN
-        json_build_object(
+    (
+        SELECT json_build_object(
             'id', ru.id,
             'email', ru.email,
             'display_name', rup.display_name,
             'full_name', rup.full_name,
             'avatar_url', rup.avatar_url
-        )::json
-    ELSE NULL::json END AS reviewer;
+        )
+        FROM users ru 
+        LEFT JOIN user_profiles rup ON ru.id = rup.user_id
+        WHERE ru.id = submissions.reviewed_by
+    )::json AS reviewer;
 
 -- name: DeleteSubmission :exec
 UPDATE submissions
