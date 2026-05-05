@@ -99,15 +99,14 @@ func (u *RagUtils) GenerateResponse(ctx context.Context, prompt string) (string,
 func stripThinking(raw string) string {
 	startTag := "<answer>"
 	endTag := "</answer>"
-	startIdx := strings.Index(raw, startTag)
-	endIdx := strings.LastIndex(raw, endTag)
 
-	if startIdx != -1 && endIdx != -1 && endIdx > startIdx {
-		return strings.TrimSpace(raw[startIdx+len(startTag) : endIdx])
-	}
-
-	if startIdx != -1 {
-		return strings.TrimSpace(raw[startIdx+len(startTag):])
+	lastStart := strings.LastIndex(raw, startTag)
+	if lastStart != -1 {
+		content := raw[lastStart+len(startTag):]
+		if endIdx := strings.Index(content, endTag); endIdx != -1 {
+			return strings.TrimSpace(content[:endIdx])
+		}
+		return strings.TrimSpace(content)
 	}
 
 	if !strings.Contains(raw, "*   ") {
