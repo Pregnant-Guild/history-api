@@ -1,8 +1,8 @@
 -- name: CreateWiki :one
 INSERT INTO wikis (
-    id, title, content, project_id
+    id, title, slug, content, project_id
 ) VALUES (
-    COALESCE(sqlc.narg('id')::uuid, uuidv7()), $1, $2, $3
+    COALESCE(sqlc.narg('id')::uuid, uuidv7()), $1, $2, $3, $4
 )
 RETURNING *;
 
@@ -15,6 +15,7 @@ WHERE id = $1 AND is_deleted = false;
 UPDATE wikis
 SET 
     title = COALESCE(sqlc.narg('title'), title),
+    slug = COALESCE(sqlc.narg('slug'), slug),
     content = COALESCE(sqlc.narg('content'), content),
     project_id = COALESCE(sqlc.narg('project_id'), project_id)
 WHERE id = sqlc.arg('id') AND is_deleted = false
@@ -84,3 +85,8 @@ WHERE wiki_id = $1;
 -- name: DeleteEntityWiki :exec
 DELETE FROM entity_wikis
 WHERE entity_id = $1 AND wiki_id = $2;
+
+-- name: GetWikiBySlug :one
+SELECT *
+FROM wikis
+WHERE slug = $1 AND is_deleted = false;

@@ -60,3 +60,8 @@ WHERE project_id = $1 AND is_deleted = false;
 UPDATE entities
 SET is_deleted = true
 WHERE id = ANY($1::uuid[]);
+
+-- name: GetEntityBySlug :one
+SELECT *
+FROM entities
+WHERE slug = $1 AND is_deleted = false;

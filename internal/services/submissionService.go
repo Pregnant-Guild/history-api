@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
@@ -95,6 +97,35 @@ func (s *submissionService) CreateSubmission(ctx context.Context, userID string,
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Commit does not belong to project")
 	}
 
+	var snapshotData request.CommitSnapshot
+	if err := json.Unmarshal(commit.SnapshotJson, &snapshotData); err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to parse commit snapshot")
+	}
+
+	for _, entity := range snapshotData.Entities {
+		if entity.Slug != nil {
+			exist, err := s.entityRepo.GetBySlug(ctx, *entity.Slug)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get entity")
+			}
+			if exist != nil {
+				return nil, fiber.NewError(fiber.StatusConflict, fmt.Sprintf("Entity %s already exists", *entity.Slug))
+			}
+		}
+	}
+
+	for _, wiki := range snapshotData.Wikis {
+		if wiki.Slug != nil {
+			exist, err := s.wikiRepo.GetBySlug(ctx, *wiki.Slug)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get wiki")
+			}
+			if exist != nil {
+				return nil, fiber.NewError(fiber.StatusConflict, fmt.Sprintf("Wiki %s already exists", *wiki.Slug))
+			}
+		}
+	}
+
 	project, err := s.projectRepo.GetByID(ctx, projectUUID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusNotFound, "Project not found")
@@ -178,12 +209,12 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 	listDeleteWikis := make([]pgtype.UUID, 0)
 	listDeleteGeometries := make([]pgtype.UUID, 0)
 	var snapshotData request.CommitSnapshot
-	if status == constants.StatusTypeApproved {
-		err = json.Unmarshal(commit.SnapshotJson, &snapshotData)
-		if err != nil {
-			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to parse commit snapshot")
-		}
+	err = json.Unmarshal(commit.SnapshotJson, &snapshotData)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to parse commit snapshot")
+	}
 
+	if status == constants.StatusTypeApproved {
 		projectUUID, err := convert.StringToUUID(commit.ProjectID)
 		if err != nil {
 			return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID")
@@ -312,7 +343,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 				})
 
 				if err != nil {
-					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update entity: "+entity.ID)
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update entity: "+err.Error())
 				}
 
 				newEntities = append(newEntities, snapshotData.Entities[i])
@@ -330,7 +361,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 				})
 
 				if err != nil {
-					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create entity: "+entity.ID)
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create entity: "+err.Error())
 				}
 
 				newEntities = append(newEntities, snapshotData.Entities[i])
@@ -390,7 +421,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 
 				_, err := geometryRepo.Update(ctx, params)
 				if err != nil {
-					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update geometry: "+geo.ID)
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update geometry: "+err.Error())
 				}
 				newGeometries = append(newGeometries, snapshotData.Geometries[i])
 
@@ -413,7 +444,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 
 				_, err := geometryRepo.Create(ctx, params)
 				if err != nil {
-					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create geometry: "+geo.ID)
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create geometry: "+err.Error())
 				}
 				newGeometries = append(newGeometries, snapshotData.Geometries[i])
 
@@ -453,11 +484,12 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 				_, err := wikiRepo.Update(ctx, sqlc.UpdateWikiParams{
 					ID:        wikiUUID,
 					Title:     convert.StringToText(wiki.Title),
+					Slug:      convert.PtrToText(wiki.Slug),
 					Content:   convert.StringToText(wiki.Doc),
 					ProjectID: projectUUID,
 				})
 				if err != nil {
-					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update wiki: "+wiki.ID)
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update wiki: "+err.Error())
 				}
 				newWikis = append(newWikis, snapshotData.Wikis[i])
 
@@ -465,11 +497,12 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 				_, err := wikiRepo.Create(ctx, sqlc.CreateWikiParams{
 					ID:        wikiUUID,
 					Title:     convert.StringToText(wiki.Title),
+					Slug:      convert.PtrToText(wiki.Slug),
 					Content:   convert.StringToText(wiki.Doc),
 					ProjectID: projectUUID,
 				})
 				if err != nil {
-					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create wiki: "+wiki.ID)
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create wiki: "+err.Error())
 				}
 				newWikis = append(newWikis, snapshotData.Wikis[i])
 

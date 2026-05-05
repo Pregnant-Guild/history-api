@@ -183,6 +183,7 @@ type Wiki struct {
 	ID        pgtype.UUID        `json:"id"`
 	ProjectID pgtype.UUID        `json:"project_id"`
 	Title     pgtype.Text        `json:"title"`
+	Slug      pgtype.Text        `json:"slug"`
 	Content   pgtype.Text        `json:"content"`
 	IsDeleted bool               `json:"is_deleted"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`

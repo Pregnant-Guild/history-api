@@ -8,6 +8,7 @@ import (
 type WikiEntity struct {
 	ID        string     `json:"id"`
 	Title     string     `json:"title"`
+	Slug      string     `json:"slug"`
 	Content   string     `json:"content"`
 	ProjectID string     `json:"project_id"`
 	IsDeleted bool       `json:"is_deleted"`
@@ -22,6 +23,7 @@ func (w *WikiEntity) ToResponse() *response.WikiResponse {
 	return &response.WikiResponse{
 		ID:        w.ID,
 		Title:     w.Title,
+		Slug:      w.Slug,
 		Content:   w.Content,
 		ProjectID: w.ProjectID,
 		IsDeleted: w.IsDeleted,

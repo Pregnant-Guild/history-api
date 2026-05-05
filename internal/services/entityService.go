@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
 	"history-api/internal/gen/sqlc"
@@ -14,6 +16,8 @@ import (
 
 type EntityService interface {
 	GetEntityByID(ctx context.Context, id string) (*response.EntityResponse, *fiber.Error)
+	GetEntityBySlug(ctx context.Context, slug string) (*response.EntityResponse, *fiber.Error)
+	IsExistEntitySlug(ctx context.Context, slug string) (bool, *fiber.Error)
 	SearchEntities(ctx context.Context, req *request.SearchEntityDto) ([]*response.EntityResponse, *fiber.Error)
 }
 
@@ -38,6 +42,29 @@ func (s *entityService) GetEntityByID(ctx context.Context, id string) (*response
 	}
 
 	return entity.ToResponse(), nil
+}
+
+func (s *entityService) GetEntityBySlug(ctx context.Context, slug string) (*response.EntityResponse, *fiber.Error) {
+	if slug == "" {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Slug is required")
+	}
+	entity, err := s.entityRepo.GetBySlug(ctx, slug)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusNotFound, "Entity not found")
+	}
+
+	return entity.ToResponse(), nil
+}
+
+func (s *entityService) IsExistEntitySlug(ctx context.Context, slug string) (bool, *fiber.Error) {
+	if slug == "" {
+		return false, fiber.NewError(fiber.StatusBadRequest, "Slug is required")
+	}
+	entity, err := s.entityRepo.GetBySlug(ctx, slug)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return false, fiber.NewError(fiber.StatusInternalServerError, "Failed to check slug existence")
+	}
+	return entity != nil, nil
 }
 
 func (s *entityService) SearchEntities(ctx context.Context, req *request.SearchEntityDto) ([]*response.EntityResponse, *fiber.Error) {

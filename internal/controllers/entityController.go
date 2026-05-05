@@ -46,6 +46,60 @@ func (h *EntityController) GetEntityById(c fiber.Ctx) error {
 	})
 }
 
+// GetEntityBySlug handles fetching a single entity by slug.
+// @Summary      Get entity by slug
+// @Description  Get detailed information about a specific entity by its unique slug
+// @Tags         Entities
+// @Accept       json
+// @Produce      json
+// @Param        slug   path      string  true  "Entity Slug"
+// @Success      200  {object}  response.CommonResponse
+// @Failure      404  {object}  response.CommonResponse
+// @Router       /entities/slug/{slug} [get]
+func (h *EntityController) GetEntityBySlug(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	slug := c.Params("slug")
+	res, err := h.service.GetEntityBySlug(ctx, slug)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}
+
+// IsExistEntitySlug checks if an entity slug already exists.
+// @Summary      Check entity slug existence
+// @Description  Check if a given slug already exists for entities
+// @Tags         Entities
+// @Accept       json
+// @Produce      json
+// @Param        slug       query     string  true   "Slug to check"
+// @Success      200  {object}  response.CommonResponse
+// @Failure      400  {object}  response.CommonResponse
+// @Router       /entities/slug/exists [get]
+func (h *EntityController) IsExistEntitySlug(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	slug := c.Query("slug")
+	exists, err := h.service.IsExistEntitySlug(ctx, slug)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   map[string]bool{"exists": exists},
+	})
+}
+
 // SearchEntities handles searching for entities.
 // @Summary      Search entities
 // @Description  Search entities with cursor pagination
@@ -81,3 +135,4 @@ func (h *EntityController) SearchEntities(c fiber.Ctx) error {
 		Data:   res,
 	})
 }
+

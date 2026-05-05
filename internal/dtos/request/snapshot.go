@@ -41,8 +41,8 @@ type EntitySnapshot struct {
 	ID            string   `json:"id" validate:"required,uuidv7"`
 	Source        string   `json:"source,omitempty" validate:"omitempty,oneof=inline ref"`
 	Operation     string   `json:"operation,omitempty" validate:"omitempty,oneof=create update delete reference"`
-	Name          string   `json:"name,omitempty"`
-	Slug          *string  `json:"slug,omitempty"`
+	Name          string   `json:"name" validate:"required"`
+	Slug          *string  `json:"slug" validate:"omitempty,slug"`
 	Description   string   `json:"description,omitempty"`
 	Status        *int     `json:"status,omitempty" validate:"omitempty,oneof=0 1"`
 	TimeStart     *float64 `json:"time_start,omitempty"`
@@ -79,12 +79,13 @@ type GeometryEntitySnapshot struct {
 }
 
 type WikiSnapshot struct {
-	ID        string          `json:"id" validate:"required,uuidv7"`
-	Source    string          `json:"source,omitempty" validate:"omitempty,oneof=inline ref"`
-	Operation string          `json:"operation,omitempty" validate:"omitempty,oneof=create update delete reference"`
-	Title     string          `json:"title" validate:"required"`
-	Doc       string          `json:"doc,omitempty"`
-	UpdatedAt string          `json:"updated_at,omitempty"`
+	ID        string  `json:"id" validate:"required,uuidv7"`
+	Source    string  `json:"source,omitempty" validate:"omitempty,oneof=inline ref"`
+	Operation string  `json:"operation,omitempty" validate:"omitempty,oneof=create update delete reference"`
+	Title     string  `json:"title" validate:"required"`
+	Slug      *string `json:"slug" validate:"omitempty,slug"`
+	Doc       string  `json:"doc,omitempty" validate:"omitempty"`
+	UpdatedAt string  `json:"updated_at,omitempty"`
 }
 
 type EntityWikiLinkSnapshot struct {

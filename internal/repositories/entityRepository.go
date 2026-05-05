@@ -19,6 +19,7 @@ import (
 type EntityRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.EntityEntity, error)
 	GetByIDs(ctx context.Context, ids []string) ([]*models.EntityEntity, error)
+	GetBySlug(ctx context.Context, slug string) (*models.EntityEntity, error)
 	Search(ctx context.Context, params sqlc.SearchEntitiesParams) ([]*models.EntityEntity, error)
 	Create(ctx context.Context, params sqlc.CreateEntityParams) (*models.EntityEntity, error)
 	Update(ctx context.Context, params sqlc.UpdateEntityParams) (*models.EntityEntity, error)
@@ -83,17 +84,17 @@ func (r *entityRepository) getByIDsWithFallback(ctx context.Context, ids []strin
 		if err == nil {
 			for _, row := range dbRows {
 				item := models.EntityEntity{
-					ID:           convert.UUIDToString(row.ID),
-					Name:         row.Name,
-					Slug:         convert.TextToString(row.Slug),
-					Description:  convert.TextToString(row.Description),
-					ProjectID:    convert.UUIDToString(row.ProjectID),
-					Status:       convert.Int2ToInt16Ptr(row.Status),
-					TimeStart:    convert.Int4ToPtr(row.TimeStart),
-					TimeEnd:      convert.Int4ToPtr(row.TimeEnd),
-					IsDeleted:    row.IsDeleted,
-					CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-					UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+					ID:          convert.UUIDToString(row.ID),
+					Name:        row.Name,
+					Slug:        convert.TextToString(row.Slug),
+					Description: convert.TextToString(row.Description),
+					ProjectID:   convert.UUIDToString(row.ProjectID),
+					Status:      convert.Int2ToInt16Ptr(row.Status),
+					TimeStart:   convert.Int4ToPtr(row.TimeStart),
+					TimeEnd:     convert.Int4ToPtr(row.TimeEnd),
+					IsDeleted:   row.IsDeleted,
+					CreatedAt:   convert.TimeToPtr(row.CreatedAt),
+					UpdatedAt:   convert.TimeToPtr(row.UpdatedAt),
 				}
 				dbMap[item.ID] = &item
 			}
@@ -140,17 +141,17 @@ func (r *entityRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models
 	}
 
 	entity = models.EntityEntity{
-		ID:           convert.UUIDToString(row.ID),
-		Name:         row.Name,
-		Slug:         convert.TextToString(row.Slug),
-		Description:  convert.TextToString(row.Description),
-		ProjectID:    convert.UUIDToString(row.ProjectID),
-		Status:       convert.Int2ToInt16Ptr(row.Status),
-		TimeStart:    convert.Int4ToPtr(row.TimeStart),
-		TimeEnd:      convert.Int4ToPtr(row.TimeEnd),
-		IsDeleted:    row.IsDeleted,
-		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+		ID:          convert.UUIDToString(row.ID),
+		Name:        row.Name,
+		Slug:        convert.TextToString(row.Slug),
+		Description: convert.TextToString(row.Description),
+		ProjectID:   convert.UUIDToString(row.ProjectID),
+		Status:      convert.Int2ToInt16Ptr(row.Status),
+		TimeStart:   convert.Int4ToPtr(row.TimeStart),
+		TimeEnd:     convert.Int4ToPtr(row.TimeEnd),
+		IsDeleted:   row.IsDeleted,
+		CreatedAt:   convert.TimeToPtr(row.CreatedAt),
+		UpdatedAt:   convert.TimeToPtr(row.UpdatedAt),
 	}
 	_ = r.c.Set(ctx, cacheId, entity, constants.NormalCacheDuration)
 
@@ -174,17 +175,17 @@ func (r *entityRepository) Search(ctx context.Context, params sqlc.SearchEntitie
 
 	for _, row := range rows {
 		entity := &models.EntityEntity{
-			ID:           convert.UUIDToString(row.ID),
-			Name:         row.Name,
-			Slug:         convert.TextToString(row.Slug),
-			Description:  convert.TextToString(row.Description),
-			ProjectID:    convert.UUIDToString(row.ProjectID),
-			Status:       convert.Int2ToInt16Ptr(row.Status),
-			TimeStart:    convert.Int4ToPtr(row.TimeStart),
-			TimeEnd:      convert.Int4ToPtr(row.TimeEnd),
-			IsDeleted:    row.IsDeleted,
-			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-			UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+			ID:          convert.UUIDToString(row.ID),
+			Name:        row.Name,
+			Slug:        convert.TextToString(row.Slug),
+			Description: convert.TextToString(row.Description),
+			ProjectID:   convert.UUIDToString(row.ProjectID),
+			Status:      convert.Int2ToInt16Ptr(row.Status),
+			TimeStart:   convert.Int4ToPtr(row.TimeStart),
+			TimeEnd:     convert.Int4ToPtr(row.TimeEnd),
+			IsDeleted:   row.IsDeleted,
+			CreatedAt:   convert.TimeToPtr(row.CreatedAt),
+			UpdatedAt:   convert.TimeToPtr(row.UpdatedAt),
 		}
 		ids = append(ids, entity.ID)
 		entities = append(entities, entity)
@@ -209,17 +210,17 @@ func (r *entityRepository) Create(ctx context.Context, params sqlc.CreateEntityP
 	}
 
 	entity := models.EntityEntity{
-		ID:           convert.UUIDToString(row.ID),
-		Name:         row.Name,
-		Slug:         convert.TextToString(row.Slug),
-		Description:  convert.TextToString(row.Description),
-		ProjectID:    convert.UUIDToString(row.ProjectID),
-		Status:       convert.Int2ToInt16Ptr(row.Status),
-		TimeStart:    convert.Int4ToPtr(row.TimeStart),
-		TimeEnd:      convert.Int4ToPtr(row.TimeEnd),
-		IsDeleted:    row.IsDeleted,
-		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+		ID:          convert.UUIDToString(row.ID),
+		Name:        row.Name,
+		Slug:        convert.TextToString(row.Slug),
+		Description: convert.TextToString(row.Description),
+		ProjectID:   convert.UUIDToString(row.ProjectID),
+		Status:      convert.Int2ToInt16Ptr(row.Status),
+		TimeStart:   convert.Int4ToPtr(row.TimeStart),
+		TimeEnd:     convert.Int4ToPtr(row.TimeEnd),
+		IsDeleted:   row.IsDeleted,
+		CreatedAt:   convert.TimeToPtr(row.CreatedAt),
+		UpdatedAt:   convert.TimeToPtr(row.UpdatedAt),
 	}
 
 	return &entity, nil
@@ -231,19 +232,20 @@ func (r *entityRepository) Update(ctx context.Context, params sqlc.UpdateEntityP
 		return nil, err
 	}
 	entity := models.EntityEntity{
-		ID:           convert.UUIDToString(row.ID),
-		Name:         row.Name,
-		Slug:         convert.TextToString(row.Slug),
-		Description:  convert.TextToString(row.Description),
-		ProjectID:    convert.UUIDToString(row.ProjectID),
-		Status:       convert.Int2ToInt16Ptr(row.Status),
-		TimeStart:    convert.Int4ToPtr(row.TimeStart),
-		TimeEnd:      convert.Int4ToPtr(row.TimeEnd),
-		IsDeleted:    row.IsDeleted,
-		CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-		UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+		ID:          convert.UUIDToString(row.ID),
+		Name:        row.Name,
+		Slug:        convert.TextToString(row.Slug),
+		Description: convert.TextToString(row.Description),
+		ProjectID:   convert.UUIDToString(row.ProjectID),
+		Status:      convert.Int2ToInt16Ptr(row.Status),
+		TimeStart:   convert.Int4ToPtr(row.TimeStart),
+		TimeEnd:     convert.Int4ToPtr(row.TimeEnd),
+		IsDeleted:   row.IsDeleted,
+		CreatedAt:   convert.TimeToPtr(row.CreatedAt),
+		UpdatedAt:   convert.TimeToPtr(row.UpdatedAt),
 	}
 	_ = r.c.Del(ctx, fmt.Sprintf("entity:id:%s", entity.ID))
+	_ = r.c.Del(ctx, fmt.Sprintf("entity:slug:%s", entity.Slug))
 	return &entity, nil
 }
 
@@ -274,17 +276,17 @@ func (r *entityRepository) GetByProjectID(ctx context.Context, projectID pgtype.
 
 	for _, row := range rows {
 		entity := &models.EntityEntity{
-			ID:           convert.UUIDToString(row.ID),
-			Name:         row.Name,
-			Slug:         convert.TextToString(row.Slug),
-			Description:  convert.TextToString(row.Description),
-			ProjectID:    convert.UUIDToString(row.ProjectID),
-			Status:       convert.Int2ToInt16Ptr(row.Status),
-			TimeStart:    convert.Int4ToPtr(row.TimeStart),
-			TimeEnd:      convert.Int4ToPtr(row.TimeEnd),
-			IsDeleted:    row.IsDeleted,
-			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-			UpdatedAt:    convert.TimeToPtr(row.UpdatedAt),
+			ID:          convert.UUIDToString(row.ID),
+			Name:        row.Name,
+			Slug:        convert.TextToString(row.Slug),
+			Description: convert.TextToString(row.Description),
+			ProjectID:   convert.UUIDToString(row.ProjectID),
+			Status:      convert.Int2ToInt16Ptr(row.Status),
+			TimeStart:   convert.Int4ToPtr(row.TimeStart),
+			TimeEnd:     convert.Int4ToPtr(row.TimeEnd),
+			IsDeleted:   row.IsDeleted,
+			CreatedAt:   convert.TimeToPtr(row.CreatedAt),
+			UpdatedAt:   convert.TimeToPtr(row.UpdatedAt),
 		}
 		ids = append(ids, entity.ID)
 		entities = append(entities, entity)
@@ -314,4 +316,36 @@ func (r *entityRepository) DeleteByIDs(ctx context.Context, ids []pgtype.UUID) e
 		_ = r.c.Del(ctx, keys...)
 	}
 	return nil
+}
+
+func (r *entityRepository) GetBySlug(ctx context.Context, slug string) (*models.EntityEntity, error) {
+	cacheKey := fmt.Sprintf("entity:slug:%s", slug)
+	var entity models.EntityEntity
+	err := r.c.Get(ctx, cacheKey, &entity)
+	if err == nil {
+		_ = r.c.Set(ctx, cacheKey, entity, constants.NormalCacheDuration)
+		return &entity, nil
+	}
+
+	row, err := r.q.GetEntityBySlug(ctx, convert.StringToText(slug))
+	if err != nil {
+		return nil, err
+	}
+
+	entity = models.EntityEntity{
+		ID:          convert.UUIDToString(row.ID),
+		Name:        row.Name,
+		Slug:        convert.TextToString(row.Slug),
+		Description: convert.TextToString(row.Description),
+		ProjectID:   convert.UUIDToString(row.ProjectID),
+		Status:      convert.Int2ToInt16Ptr(row.Status),
+		TimeStart:   convert.Int4ToPtr(row.TimeStart),
+		TimeEnd:     convert.Int4ToPtr(row.TimeEnd),
+		IsDeleted:   row.IsDeleted,
+		CreatedAt:   convert.TimeToPtr(row.CreatedAt),
+		UpdatedAt:   convert.TimeToPtr(row.UpdatedAt),
+	}
+	_ = r.c.Set(ctx, cacheKey, entity, constants.NormalCacheDuration)
+
+	return &entity, nil
 }

@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS entities (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    slug TEXT,
+    slug TEXT UNIQUE,
     description TEXT,
     status SMALLINT,
     time_start INT,
@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS wikis (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     title TEXT,
+    slug TEXT UNIQUE,
     content TEXT,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
@@ -113,8 +114,6 @@ CREATE TABLE IF NOT EXISTS entity_wikis (
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     PRIMARY KEY (entity_id, wiki_id)
 );
-
-CREATE INDEX idx_entity_wikis_project_id ON entity_wikis(project_id);
 
 CREATE TABLE IF NOT EXISTS geometries (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
@@ -136,8 +135,6 @@ CREATE TABLE IF NOT EXISTS entity_geometries (
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     PRIMARY KEY (entity_id, geometry_id)
 );
-
-CREATE INDEX idx_entity_geometries_project_id ON entity_geometries(project_id);
 
 CREATE TABLE IF NOT EXISTS commits (
     id UUID PRIMARY KEY DEFAULT uuidv7(),

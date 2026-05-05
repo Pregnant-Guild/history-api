@@ -68,15 +68,16 @@ func (q *Queries) CreateEntityWikis(ctx context.Context, arg CreateEntityWikisPa
 
 const createWiki = `-- name: CreateWiki :one
 INSERT INTO wikis (
-    id, title, content, project_id
+    id, title, slug, content, project_id
 ) VALUES (
-    COALESCE($4::uuid, uuidv7()), $1, $2, $3
+    COALESCE($5::uuid, uuidv7()), $1, $2, $3, $4
 )
-RETURNING id, project_id, title, content, is_deleted, created_at, updated_at
+RETURNING id, project_id, title, slug, content, is_deleted, created_at, updated_at
 `
 
 type CreateWikiParams struct {
 	Title     pgtype.Text `json:"title"`
+	Slug      pgtype.Text `json:"slug"`
 	Content   pgtype.Text `json:"content"`
 	ProjectID pgtype.UUID `json:"project_id"`
 	ID        pgtype.UUID `json:"id"`
@@ -85,6 +86,7 @@ type CreateWikiParams struct {
 func (q *Queries) CreateWiki(ctx context.Context, arg CreateWikiParams) (Wiki, error) {
 	row := q.db.QueryRow(ctx, createWiki,
 		arg.Title,
+		arg.Slug,
 		arg.Content,
 		arg.ProjectID,
 		arg.ID,
@@ -94,6 +96,7 @@ func (q *Queries) CreateWiki(ctx context.Context, arg CreateWikiParams) (Wiki, e
 		&i.ID,
 		&i.ProjectID,
 		&i.Title,
+		&i.Slug,
 		&i.Content,
 		&i.IsDeleted,
 		&i.CreatedAt,
@@ -151,7 +154,7 @@ func (q *Queries) DeleteWikisByIDs(ctx context.Context, dollar_1 []pgtype.UUID) 
 }
 
 const getWikiById = `-- name: GetWikiById :one
-SELECT id, project_id, title, content, is_deleted, created_at, updated_at
+SELECT id, project_id, title, slug, content, is_deleted, created_at, updated_at
 FROM wikis
 WHERE id = $1 AND is_deleted = false
 `
@@ -163,6 +166,29 @@ func (q *Queries) GetWikiById(ctx context.Context, id pgtype.UUID) (Wiki, error)
 		&i.ID,
 		&i.ProjectID,
 		&i.Title,
+		&i.Slug,
+		&i.Content,
+		&i.IsDeleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getWikiBySlug = `-- name: GetWikiBySlug :one
+SELECT id, project_id, title, slug, content, is_deleted, created_at, updated_at
+FROM wikis
+WHERE slug = $1 AND is_deleted = false
+`
+
+func (q *Queries) GetWikiBySlug(ctx context.Context, slug pgtype.Text) (Wiki, error) {
+	row := q.db.QueryRow(ctx, getWikiBySlug, slug)
+	var i Wiki
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Slug,
 		&i.Content,
 		&i.IsDeleted,
 		&i.CreatedAt,
@@ -172,7 +198,7 @@ func (q *Queries) GetWikiById(ctx context.Context, id pgtype.UUID) (Wiki, error)
 }
 
 const getWikisByIDs = `-- name: GetWikisByIDs :many
-SELECT id, project_id, title, content, is_deleted, created_at, updated_at FROM wikis WHERE id = ANY($1::uuid[]) AND is_deleted = false
+SELECT id, project_id, title, slug, content, is_deleted, created_at, updated_at FROM wikis WHERE id = ANY($1::uuid[]) AND is_deleted = false
 `
 
 func (q *Queries) GetWikisByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Wiki, error) {
@@ -188,6 +214,7 @@ func (q *Queries) GetWikisByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]
 			&i.ID,
 			&i.ProjectID,
 			&i.Title,
+			&i.Slug,
 			&i.Content,
 			&i.IsDeleted,
 			&i.CreatedAt,
@@ -204,7 +231,7 @@ func (q *Queries) GetWikisByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]
 }
 
 const getWikisByProjectId = `-- name: GetWikisByProjectId :many
-SELECT id, project_id, title, content, is_deleted, created_at, updated_at
+SELECT id, project_id, title, slug, content, is_deleted, created_at, updated_at
 FROM wikis
 WHERE project_id = $1 AND is_deleted = false
 `
@@ -222,6 +249,7 @@ func (q *Queries) GetWikisByProjectId(ctx context.Context, projectID pgtype.UUID
 			&i.ID,
 			&i.ProjectID,
 			&i.Title,
+			&i.Slug,
 			&i.Content,
 			&i.IsDeleted,
 			&i.CreatedAt,
@@ -238,7 +266,7 @@ func (q *Queries) GetWikisByProjectId(ctx context.Context, projectID pgtype.UUID
 }
 
 const searchWikis = `-- name: SearchWikis :many
-SELECT w.id, w.project_id, w.title, w.content, w.is_deleted, w.created_at, w.updated_at
+SELECT w.id, w.project_id, w.title, w.slug, w.content, w.is_deleted, w.created_at, w.updated_at
 FROM wikis w
 WHERE w.is_deleted = false
   AND ($1::uuid IS NULL OR w.project_id = $1::uuid)
@@ -285,6 +313,7 @@ func (q *Queries) SearchWikis(ctx context.Context, arg SearchWikisParams) ([]Wik
 			&i.ID,
 			&i.ProjectID,
 			&i.Title,
+			&i.Slug,
 			&i.Content,
 			&i.IsDeleted,
 			&i.CreatedAt,
@@ -304,14 +333,16 @@ const updateWiki = `-- name: UpdateWiki :one
 UPDATE wikis
 SET 
     title = COALESCE($1, title),
-    content = COALESCE($2, content),
-    project_id = COALESCE($3, project_id)
-WHERE id = $4 AND is_deleted = false
-RETURNING id, project_id, title, content, is_deleted, created_at, updated_at
+    slug = COALESCE($2, slug),
+    content = COALESCE($3, content),
+    project_id = COALESCE($4, project_id)
+WHERE id = $5 AND is_deleted = false
+RETURNING id, project_id, title, slug, content, is_deleted, created_at, updated_at
 `
 
 type UpdateWikiParams struct {
 	Title     pgtype.Text `json:"title"`
+	Slug      pgtype.Text `json:"slug"`
 	Content   pgtype.Text `json:"content"`
 	ProjectID pgtype.UUID `json:"project_id"`
 	ID        pgtype.UUID `json:"id"`
@@ -320,6 +351,7 @@ type UpdateWikiParams struct {
 func (q *Queries) UpdateWiki(ctx context.Context, arg UpdateWikiParams) (Wiki, error) {
 	row := q.db.QueryRow(ctx, updateWiki,
 		arg.Title,
+		arg.Slug,
 		arg.Content,
 		arg.ProjectID,
 		arg.ID,
@@ -329,6 +361,7 @@ func (q *Queries) UpdateWiki(ctx context.Context, arg UpdateWikiParams) (Wiki, e
 		&i.ID,
 		&i.ProjectID,
 		&i.Title,
+		&i.Slug,
 		&i.Content,
 		&i.IsDeleted,
 		&i.CreatedAt,

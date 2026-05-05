@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS entities (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    slug TEXT,
+    slug TEXT UNIQUE,
     description TEXT,
     status SMALLINT,
     time_start INT,
@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS entities (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE UNIQUE INDEX idx_entities_slug_not_deleted
+ON entities(slug)
+WHERE is_deleted = false;
 
 CREATE INDEX idx_entities_name_search
 ON entities USING GIN (name gin_trgm_ops);

@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 
+	"history-api/pkg/constants"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -52,6 +54,14 @@ func init() {
 			return false
 		}
 		return u.Version() == 7
+	})
+
+	validate.RegisterValidation("slug", func(fl validator.FieldLevel) bool {
+		val := fl.Field().String()
+		if val == "" {
+			return true
+		}
+		return constants.SLUG_REGEX.MatchString(val)
 	})
 }
 

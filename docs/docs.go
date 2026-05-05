@@ -403,7 +403,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Ask a history question based on project context or global knowledge using RAG",
@@ -509,6 +509,82 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/entities/slug/exists": {
+            "get": {
+                "description": "Check if a given slug already exists for entities",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Entities"
+                ],
+                "summary": "Check entity slug existence",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Slug to check",
+                        "name": "slug",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/entities/slug/{slug}": {
+            "get": {
+                "description": "Get detailed information about a specific entity by its unique slug",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Entities"
+                ],
+                "summary": "Get entity by slug",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Entity Slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
                         }
@@ -3519,6 +3595,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/wikis/slug/exists": {
+            "get": {
+                "description": "Check if a given slug already exists for wikis",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wikis"
+                ],
+                "summary": "Check wiki slug existence",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Slug to check",
+                        "name": "slug",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/wikis/slug/{slug}": {
+            "get": {
+                "description": "Get detailed information about a specific wiki by its unique slug",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wikis"
+                ],
+                "summary": "Get wiki by slug",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Wiki Slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/wikis/{id}": {
             "get": {
                 "description": "Get detailed information about a specific wiki",
@@ -3847,7 +3999,8 @@ const docTemplate = `{
         "history-api_internal_dtos_request.EntitySnapshot": {
             "type": "object",
             "required": [
-                "id"
+                "id",
+                "name"
             ],
             "properties": {
                 "base_hash": {
@@ -4359,6 +4512,9 @@ const docTemplate = `{
                         "delete",
                         "reference"
                     ]
+                },
+                "slug": {
+                    "type": "string"
                 },
                 "source": {
                     "type": "string",

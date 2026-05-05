@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
 	"history-api/internal/gen/sqlc"
@@ -14,6 +16,8 @@ import (
 
 type WikiService interface {
 	GetWikiByID(ctx context.Context, id string) (*response.WikiResponse, *fiber.Error)
+	GetWikiBySlug(ctx context.Context, slug string) (*response.WikiResponse, *fiber.Error)
+	IsExistWikiSlug(ctx context.Context, slug string) (bool, *fiber.Error)
 	SearchWikis(ctx context.Context, req *request.SearchWikiDto) ([]*response.WikiResponse, *fiber.Error)
 }
 
@@ -38,6 +42,29 @@ func (s *wikiService) GetWikiByID(ctx context.Context, id string) (*response.Wik
 	}
 
 	return wiki.ToResponse(), nil
+}
+
+func (s *wikiService) GetWikiBySlug(ctx context.Context, slug string) (*response.WikiResponse, *fiber.Error) {
+	if slug == "" {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Slug is required")
+	}
+	wiki, err := s.wikiRepo.GetBySlug(ctx, slug)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusNotFound, "Wiki not found")
+	}
+
+	return wiki.ToResponse(), nil
+}
+
+func (s *wikiService) IsExistWikiSlug(ctx context.Context, slug string) (bool, *fiber.Error) {
+	if slug == "" {
+		return false, fiber.NewError(fiber.StatusBadRequest, "Slug is required")
+	}
+	wiki, err := s.wikiRepo.GetBySlug(ctx, slug)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return false, fiber.NewError(fiber.StatusInternalServerError, "Failed to check slug existence")
+	}
+	return wiki != nil, nil
 }
 
 func (s *wikiService) SearchWikis(ctx context.Context, req *request.SearchWikiDto) ([]*response.WikiResponse, *fiber.Error) {

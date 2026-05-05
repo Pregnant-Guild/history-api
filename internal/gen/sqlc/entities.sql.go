@@ -181,6 +181,31 @@ func (q *Queries) GetEntityById(ctx context.Context, id pgtype.UUID) (Entity, er
 	return i, err
 }
 
+const getEntityBySlug = `-- name: GetEntityBySlug :one
+SELECT id, project_id, name, slug, description, status, time_start, time_end, is_deleted, created_at, updated_at
+FROM entities
+WHERE slug = $1 AND is_deleted = false
+`
+
+func (q *Queries) GetEntityBySlug(ctx context.Context, slug pgtype.Text) (Entity, error) {
+	row := q.db.QueryRow(ctx, getEntityBySlug, slug)
+	var i Entity
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Slug,
+		&i.Description,
+		&i.Status,
+		&i.TimeStart,
+		&i.TimeEnd,
+		&i.IsDeleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const searchEntities = `-- name: SearchEntities :many
 SELECT id, project_id, name, slug, description, status, time_start, time_end, is_deleted, created_at, updated_at
 FROM entities

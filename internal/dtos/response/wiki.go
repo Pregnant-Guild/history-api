@@ -7,6 +7,7 @@ import (
 type WikiResponse struct {
 	ID        string     `json:"id"`
 	Title     string     `json:"title,omitempty"`
+	Slug      string     `json:"slug,omitempty"`
 	Content   string     `json:"content,omitempty"`
 	ProjectID string     `json:"project_id"`
 	IsDeleted bool       `json:"is_deleted,omitempty"`

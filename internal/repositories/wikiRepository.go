@@ -19,6 +19,7 @@ import (
 type WikiRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.WikiEntity, error)
 	GetByIDs(ctx context.Context, ids []string) ([]*models.WikiEntity, error)
+	GetBySlug(ctx context.Context, slug string) (*models.WikiEntity, error)
 	Search(ctx context.Context, params sqlc.SearchWikisParams) ([]*models.WikiEntity, error)
 	Create(ctx context.Context, params sqlc.CreateWikiParams) (*models.WikiEntity, error)
 	Update(ctx context.Context, params sqlc.UpdateWikiParams) (*models.WikiEntity, error)
@@ -90,6 +91,7 @@ func (r *wikiRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 				item := models.WikiEntity{
 					ID:        convert.UUIDToString(row.ID),
 					Title:     convert.TextToString(row.Title),
+					Slug:      convert.TextToString(row.Slug),
 					Content:   convert.TextToString(row.Content),
 					IsDeleted: row.IsDeleted,
 					ProjectID: convert.UUIDToString(row.ProjectID),
@@ -143,8 +145,10 @@ func (r *wikiRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.W
 	wiki = models.WikiEntity{
 		ID:        convert.UUIDToString(row.ID),
 		Title:     convert.TextToString(row.Title),
+		Slug:      convert.TextToString(row.Slug),
 		Content:   convert.TextToString(row.Content),
 		IsDeleted: row.IsDeleted,
+		ProjectID: convert.UUIDToString(row.ProjectID),
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
@@ -172,8 +176,10 @@ func (r *wikiRepository) Search(ctx context.Context, params sqlc.SearchWikisPara
 		wiki := &models.WikiEntity{
 			ID:        convert.UUIDToString(row.ID),
 			Title:     convert.TextToString(row.Title),
+			Slug:      convert.TextToString(row.Slug),
 			Content:   convert.TextToString(row.Content),
 			IsDeleted: row.IsDeleted,
+			ProjectID: convert.UUIDToString(row.ProjectID),
 			CreatedAt: convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 		}
@@ -201,8 +207,10 @@ func (r *wikiRepository) Create(ctx context.Context, params sqlc.CreateWikiParam
 	wiki := models.WikiEntity{
 		ID:        convert.UUIDToString(row.ID),
 		Title:     convert.TextToString(row.Title),
+		Slug:      convert.TextToString(row.Slug),
 		Content:   convert.TextToString(row.Content),
 		IsDeleted: row.IsDeleted,
+		ProjectID: convert.UUIDToString(row.ProjectID),
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
@@ -218,12 +226,15 @@ func (r *wikiRepository) Update(ctx context.Context, params sqlc.UpdateWikiParam
 	wiki := models.WikiEntity{
 		ID:        convert.UUIDToString(row.ID),
 		Title:     convert.TextToString(row.Title),
+		Slug:      convert.TextToString(row.Slug),
 		Content:   convert.TextToString(row.Content),
 		IsDeleted: row.IsDeleted,
+		ProjectID: convert.UUIDToString(row.ProjectID),
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
 	_ = r.c.Del(ctx, fmt.Sprintf("wiki:id:%s", wiki.ID))
+	_ = r.c.Del(ctx, fmt.Sprintf("wiki:slug:%s", wiki.Slug))
 	return &wiki, nil
 }
 
@@ -272,6 +283,7 @@ func (r *wikiRepository) GetByProjectID(ctx context.Context, projectID pgtype.UU
 		wiki := &models.WikiEntity{
 			ID:        convert.UUIDToString(row.ID),
 			Title:     convert.TextToString(row.Title),
+			Slug:      convert.TextToString(row.Slug),
 			Content:   convert.TextToString(row.Content),
 			IsDeleted: row.IsDeleted,
 			ProjectID: convert.UUIDToString(row.ProjectID),
@@ -317,4 +329,33 @@ func (r *wikiRepository) DeleteEntityWiki(ctx context.Context, entityID pgtype.U
 		EntityID: entityID,
 		WikiID:   wikiID,
 	})
+}
+
+func (r *wikiRepository) GetBySlug(ctx context.Context, slug string) (*models.WikiEntity, error) {
+	cacheKey := fmt.Sprintf("wiki:slug:%s", slug)
+	var wiki models.WikiEntity
+	err := r.c.Get(ctx, cacheKey, &wiki)
+	if err == nil {
+		_ = r.c.Set(ctx, cacheKey, wiki, constants.NormalCacheDuration)
+		return &wiki, nil
+	}
+
+	row, err := r.q.GetWikiBySlug(ctx, convert.StringToText(slug))
+	if err != nil {
+		return nil, err
+	}
+
+	wiki = models.WikiEntity{
+		ID:        convert.UUIDToString(row.ID),
+		Title:     convert.TextToString(row.Title),
+		Slug:      convert.TextToString(row.Slug),
+		Content:   convert.TextToString(row.Content),
+		IsDeleted: row.IsDeleted,
+		ProjectID: convert.UUIDToString(row.ProjectID),
+		CreatedAt: convert.TimeToPtr(row.CreatedAt),
+		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
+	}
+	_ = r.c.Set(ctx, cacheKey, wiki, constants.NormalCacheDuration)
+
+	return &wiki, nil
 }

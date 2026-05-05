@@ -232,6 +232,7 @@ definitions:
         type: number
     required:
     - id
+    - name
     type: object
   history-api_internal_dtos_request.EntityWikiLinkSnapshot:
     properties:
@@ -549,6 +550,8 @@ definitions:
         - update
         - delete
         - reference
+        type: string
+      slug:
         type: string
       source:
         enum:
@@ -899,7 +902,7 @@ paths:
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Ask the AI chatbot
       tags:
       - Chatbot
@@ -961,6 +964,57 @@ paths:
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
       summary: Get entity by ID
+      tags:
+      - Entities
+  /entities/slug/{slug}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific entity by its unique
+        slug
+      parameters:
+      - description: Entity Slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get entity by slug
+      tags:
+      - Entities
+  /entities/slug/exists:
+    get:
+      consumes:
+      - application/json
+      description: Check if a given slug already exists for entities
+      parameters:
+      - description: Slug to check
+        in: query
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Check entity slug existence
       tags:
       - Entities
   /geometries:
@@ -2900,6 +2954,56 @@ paths:
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
       summary: Get wiki by ID
+      tags:
+      - Wikis
+  /wikis/slug/{slug}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific wiki by its unique slug
+      parameters:
+      - description: Wiki Slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get wiki by slug
+      tags:
+      - Wikis
+  /wikis/slug/exists:
+    get:
+      consumes:
+      - application/json
+      description: Check if a given slug already exists for wikis
+      parameters:
+      - description: Slug to check
+        in: query
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Check wiki slug existence
       tags:
       - Wikis
 securityDefinitions:

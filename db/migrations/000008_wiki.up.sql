@@ -4,12 +4,16 @@ CREATE TABLE IF NOT EXISTS wikis (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     title TEXT,
+    slug TEXT,
     content TEXT,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE UNIQUE INDEX idx_wikis_slug_not_deleted
+ON wikis(slug)
+WHERE is_deleted = false;
 
 CREATE TABLE IF NOT EXISTS entity_wikis (
     entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,

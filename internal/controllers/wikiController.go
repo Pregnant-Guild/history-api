@@ -46,6 +46,60 @@ func (h *WikiController) GetWikiById(c fiber.Ctx) error {
 	})
 }
 
+// GetWikiBySlug handles fetching a single wiki by slug.
+// @Summary      Get wiki by slug
+// @Description  Get detailed information about a specific wiki by its unique slug
+// @Tags         Wikis
+// @Accept       json
+// @Produce      json
+// @Param        slug   path      string  true  "Wiki Slug"
+// @Success      200  {object}  response.CommonResponse
+// @Failure      404  {object}  response.CommonResponse
+// @Router       /wikis/slug/{slug} [get]
+func (h *WikiController) GetWikiBySlug(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	slug := c.Params("slug")
+	res, err := h.service.GetWikiBySlug(ctx, slug)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}
+
+// IsExistWikiSlug checks if a wiki slug already exists.
+// @Summary      Check wiki slug existence
+// @Description  Check if a given slug already exists for wikis
+// @Tags         Wikis
+// @Accept       json
+// @Produce      json
+// @Param        slug       query     string  true   "Slug to check"
+// @Success      200  {object}  response.CommonResponse
+// @Failure      400  {object}  response.CommonResponse
+// @Router       /wikis/slug/exists [get]
+func (h *WikiController) IsExistWikiSlug(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	slug := c.Query("slug")
+	exists, err := h.service.IsExistWikiSlug(ctx, slug)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   map[string]bool{"exists": exists},
+	})
+}
+
 // SearchWikis handles searching for wikis.
 // @Summary      Search wikis
 // @Description  Search wikis with cursor pagination
@@ -81,3 +135,4 @@ func (h *WikiController) SearchWikis(c fiber.Ctx) error {
 		Data:   res,
 	})
 }
+
