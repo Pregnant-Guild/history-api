@@ -9,3 +9,11 @@ type SearchGeometryDto struct {
 	EntityID  *string  `json:"entity_id" query:"entity_id" validate:"omitempty,uuid"`
 	ProjectID *string  `json:"project_id" query:"project_id" validate:"omitempty,uuid"`
 }
+
+type SearchGeometriesByEntityNameDto struct {
+	// Entity name keyword for searching. FE will render the result list by entity name.
+	Name string `json:"name" query:"name" validate:"required,max=255"`
+	// Cursor is entity UUID (id < cursor).
+	Cursor string `json:"cursor" query:"cursor" validate:"omitempty,uuid"`
+	Limit  int    `json:"limit" query:"limit" validate:"omitempty,min=1,max=100"`
+}

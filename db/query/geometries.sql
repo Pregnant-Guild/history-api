@@ -80,6 +80,37 @@ WHERE g.is_deleted = false
   )
 ORDER BY g.id DESC;
 
+-- name: SearchGeometriesByEntityName :many
+WITH matched_entities AS (
+    SELECT
+        e.id,
+        e.name,
+        e.description
+    FROM entities e
+    WHERE e.is_deleted = false
+      AND (sqlc.narg('name')::text IS NULL OR e.name ILIKE '%' || sqlc.narg('name')::text || '%')
+      AND (sqlc.narg('cursor_id')::uuid IS NULL OR e.id < sqlc.narg('cursor_id')::uuid)
+    ORDER BY e.id DESC
+    LIMIT sqlc.arg('limit_count')
+)
+SELECT
+    me.id AS entity_id,
+    me.name AS entity_name,
+    me.description AS entity_description,
+    g.id AS geometry_id,
+    g.geo_type,
+    g.draw_geometry,
+    g.binding,
+    g.time_start,
+    g.time_end
+FROM matched_entities me
+LEFT JOIN entity_geometries eg
+    ON eg.entity_id = me.id
+LEFT JOIN geometries g
+    ON g.id = eg.geometry_id
+   AND g.is_deleted = false
+ORDER BY me.id DESC, g.id DESC;
+
 -- name: BulkDeleteEntityGeometriesByEntityId :many
 DELETE FROM entity_geometries
 WHERE entity_id = $1

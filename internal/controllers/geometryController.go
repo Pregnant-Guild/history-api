@@ -81,3 +81,40 @@ func (h *GeometryController) SearchGeometries(c fiber.Ctx) error {
 		Data:   res,
 	})
 }
+
+// SearchGeometriesByEntityName handles searching entities by name and returning geometries linked to those entities.
+// Cursor pagination is based on entity ID (uuid).
+// @Summary      Search geometries by entity name
+// @Description  Search entities by name (cursor pagination) and return their linked geometries
+// @Tags         Geometries
+// @Accept       json
+// @Produce      json
+// @Param query query request.SearchGeometriesByEntityNameDto false "Search Query"
+// @Success      200  {object}  response.CommonResponse
+// @Failure      500  {object}  response.CommonResponse
+// @Router       /geometries/entity [get]
+func (h *GeometryController) SearchGeometriesByEntityName(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dto := &request.SearchGeometriesByEntityNameDto{}
+	if err := validator.ValidateQueryDto(c, dto); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
+			Status: false,
+			Errors: err,
+		})
+	}
+
+	res, err := h.service.SearchGeometriesByEntityName(ctx, dto)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}

@@ -21,6 +21,7 @@ type GeometryRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.GeometryEntity, error)
 	GetByIDs(ctx context.Context, ids []string) ([]*models.GeometryEntity, error)
 	Search(ctx context.Context, params sqlc.SearchGeometriesParams) ([]*models.GeometryEntity, error)
+	SearchByEntityName(ctx context.Context, name string, cursorID *pgtype.UUID, limit int32) ([]EntityGeometriesSearchRow, error)
 	Create(ctx context.Context, params sqlc.CreateGeometryParams) (*models.GeometryEntity, error)
 	Update(ctx context.Context, params sqlc.UpdateGeometryParams) (*models.GeometryEntity, error)
 	Delete(ctx context.Context, id pgtype.UUID) error
@@ -37,12 +38,14 @@ type GeometryRepository interface {
 type geometryRepository struct {
 	q *sqlc.Queries
 	c cache.Cache
+	db sqlc.DBTX
 }
 
 func NewGeometryRepository(db sqlc.DBTX, c cache.Cache) GeometryRepository {
 	return &geometryRepository{
 		q: sqlc.New(db),
 		c: c,
+		db: db,
 	}
 }
 
@@ -50,7 +53,22 @@ func (r *geometryRepository) WithTx(tx pgx.Tx) GeometryRepository {
 	return &geometryRepository{
 		q: r.q.WithTx(tx),
 		c: r.c,
+		db: tx,
 	}
+}
+
+// EntityGeometriesSearchRow is a "flattened" row shape for searching geometries by entity name.
+// FE will display entity list by entity_name, while still having geometries in the same response.
+type EntityGeometriesSearchRow struct {
+	EntityID          string          `json:"entity_id"`
+	EntityName        string          `json:"name"`
+	EntityDescription string          `json:"description"`
+	GeometryID        string          `json:"id"`
+	GeoType           int16           `json:"geo_type"`
+	DrawGeometry      json.RawMessage `json:"draw_geometry"`
+	Binding           json.RawMessage `json:"binding,omitempty"`
+	TimeStart         *int32          `json:"time_start,omitempty"`
+	TimeEnd           *int32          `json:"time_end,omitempty"`
 }
 
 func (r *geometryRepository) generateQueryKey(prefix string, params any) string {
@@ -376,4 +394,123 @@ func (r *geometryRepository) DeleteEntityGeometry(ctx context.Context, entityID 
 		EntityID:   entityID,
 		GeometryID: geometryID,
 	})
+}
+
+func (r *geometryRepository) SearchByEntityName(
+	ctx context.Context,
+	name string,
+	cursorID *pgtype.UUID,
+	limit int32,
+) ([]EntityGeometriesSearchRow, error) {
+	// Cursor is entity_id (not geometry_id) so FE can render entities as the primary list.
+	const q = `
+WITH matched_entities AS (
+    SELECT
+        e.id,
+        e.name,
+        e.description
+    FROM entities e
+    WHERE e.is_deleted = false
+      AND ($1::text = '' OR e.name ILIKE '%' || $1::text || '%')
+      AND ($2::uuid IS NULL OR e.id < $2::uuid)
+    ORDER BY e.id DESC
+    LIMIT $3
+)
+SELECT
+    me.id AS entity_id,
+    me.name AS entity_name,
+    COALESCE(me.description, '') AS entity_description,
+    g.id AS geometry_id,
+    g.geo_type,
+    g.draw_geometry,
+    g.binding,
+    g.time_start,
+    g.time_end
+FROM matched_entities me
+LEFT JOIN entity_geometries eg
+    ON eg.entity_id = me.id
+LEFT JOIN geometries g
+    ON g.id = eg.geometry_id
+   AND g.is_deleted = false
+ORDER BY me.id DESC, g.id DESC
+`
+
+	var cursor pgtype.UUID
+	if cursorID != nil {
+		cursor = *cursorID
+	} else {
+		cursor = pgtype.UUID{Valid: false}
+	}
+
+	rows, err := r.db.Query(ctx, q, name, cursor, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]EntityGeometriesSearchRow, 0)
+	for rows.Next() {
+		var entityID pgtype.UUID
+		var entityName pgtype.Text
+		var entityDesc pgtype.Text
+		var geoID pgtype.UUID
+		var geoType pgtype.Int2
+		var draw json.RawMessage
+		var binding json.RawMessage
+		var timeStart pgtype.Int4
+		var timeEnd pgtype.Int4
+
+		if err := rows.Scan(
+			&entityID,
+			&entityName,
+			&entityDesc,
+			&geoID,
+			&geoType,
+			&draw,
+			&binding,
+			&timeStart,
+			&timeEnd,
+		); err != nil {
+			return nil, err
+		}
+
+		var ts *int32
+		if timeStart.Valid {
+			v := timeStart.Int32
+			ts = &v
+		}
+		var te *int32
+		if timeEnd.Valid {
+			v := timeEnd.Int32
+			te = &v
+		}
+
+		row := EntityGeometriesSearchRow{
+			EntityID:          convert.UUIDToString(entityID),
+			EntityName:        entityName.String,
+			EntityDescription: entityDesc.String,
+			GeometryID:        convert.UUIDToString(geoID),
+			GeoType:           geoType.Int16,
+			DrawGeometry:      draw,
+			Binding:           binding,
+			TimeStart:         ts,
+			TimeEnd:           te,
+		}
+
+		// Entity with no geometry will have NULL geometry_id.
+		if !geoID.Valid {
+			row.GeometryID = ""
+			row.GeoType = 0
+			row.DrawGeometry = nil
+			row.Binding = nil
+			row.TimeStart = nil
+			row.TimeEnd = nil
+		}
+
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }

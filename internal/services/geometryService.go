@@ -16,6 +16,7 @@ import (
 type GeometryService interface {
 	GetGeometryByID(ctx context.Context, id string) (*response.GeometryResponse, *fiber.Error)
 	SearchGeometries(ctx context.Context, req *request.SearchGeometryDto) ([]*response.GeometryResponse, *fiber.Error)
+	SearchGeometriesByEntityName(ctx context.Context, req *request.SearchGeometriesByEntityNameDto) (*response.SearchGeometriesByEntityNameResponse, *fiber.Error)
 }
 
 type geometryService struct {
@@ -74,4 +75,75 @@ func (s *geometryService) SearchGeometries(ctx context.Context, req *request.Sea
 	}
 
 	return models.GeometriesEntityToResponse(geometries), nil
+}
+
+func (s *geometryService) SearchGeometriesByEntityName(
+	ctx context.Context,
+	req *request.SearchGeometriesByEntityNameDto,
+) (*response.SearchGeometriesByEntityNameResponse, *fiber.Error) {
+	limit := int32(req.Limit)
+	if limit <= 0 {
+		limit = 20
+	}
+
+	var cursorID *pgtype.UUID
+	if req.Cursor != "" {
+		id, err := convert.StringToUUID(req.Cursor)
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid cursor format")
+		}
+		cursorID = &id
+	}
+
+	rows, err := s.geometryRepo.SearchByEntityName(ctx, req.Name, cursorID, limit)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search geometries by entity name")
+	}
+
+	byEntity := make(map[string]*response.EntityGeometriesSearchItem)
+	order := make([]string, 0)
+
+	for _, row := range rows {
+		item := byEntity[row.EntityID]
+		if item == nil {
+			item = &response.EntityGeometriesSearchItem{
+				EntityID:    row.EntityID,
+				Name:        row.EntityName,
+				Description: row.EntityDescription,
+				Geometries:  make([]*response.EntityGeometrySearchGeo, 0),
+			}
+			byEntity[row.EntityID] = item
+			order = append(order, row.EntityID)
+		}
+
+		// LEFT JOIN: entity might have no geometry.
+		if row.GeometryID == "" || len(row.DrawGeometry) == 0 {
+			continue
+		}
+
+		item.Geometries = append(item.Geometries, &response.EntityGeometrySearchGeo{
+			ID:           row.GeometryID,
+			GeoType:      row.GeoType,
+			DrawGeometry: row.DrawGeometry,
+			Binding:      row.Binding,
+			TimeStart:    row.TimeStart,
+			TimeEnd:      row.TimeEnd,
+		})
+	}
+
+	items := make([]*response.EntityGeometriesSearchItem, 0, len(order))
+	for _, entityID := range order {
+		items = append(items, byEntity[entityID])
+	}
+
+	nextCursor := ""
+	if len(order) > 0 {
+		// Use last entity id in the current page as the cursor for the next page (id < cursor).
+		nextCursor = order[len(order)-1]
+	}
+
+	return &response.SearchGeometriesByEntityNameResponse{
+		Items:      items,
+		NextCursor: nextCursor,
+	}, nil
 }
