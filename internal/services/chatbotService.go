@@ -38,14 +38,27 @@ func (s *chatbotService) Chat(ctx context.Context, projectID *string, question s
 		contextStr += fmt.Sprintf("[Document %d]: %s\n", i+1, res.Content)
 	}
 
-	prompt := fmt.Sprintf(`You are a helpful history assistant. Answer the question based ONLY on the provided context.
-If the answer is not in the context, say "I don't have enough historical context to answer that."
+	var prompt string
+	if contextStr == "" {
+		prompt = fmt.Sprintf(`You are a friendly history assistant chatbot. The user said: "%s"
+
+Rules:
+- If it is a greeting (like "hello", "hi", "xin chào"), respond with a friendly greeting and briefly introduce yourself as a history assistant.
+- If it is a history question, say that you don't have relevant documents to answer and suggest they ask about topics available in the system.
+- Do NOT show your reasoning or thinking process. Output ONLY your final response.`, question)
+	} else {
+		prompt = fmt.Sprintf(`You are a helpful history assistant. Answer the question using ONLY the provided context.
+
+Rules:
+- If the answer is not in the context, say "I don't have enough historical context to answer that."
+- Do NOT show your reasoning, thinking process, or analysis. Output ONLY your final answer.
+- Be concise and direct.
 
 Context:
 %s
 
-Question: %s
-Answer:`, contextStr, question)
+Question: %s`, contextStr, question)
+	}
 
 	return s.ragUtils.GenerateResponse(ctx, prompt)
 }

@@ -34,7 +34,7 @@ func NewChatbotController(chatbotService services.ChatbotService) *ChatbotContro
 // @Failure      500 {object} response.CommonResponse "Internal server error"
 // @Router       /chatbot/chat [post]
 func (cx *ChatbotController) Chat(c fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	dto := &request.ChatbotDto{}

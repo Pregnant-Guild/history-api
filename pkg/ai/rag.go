@@ -6,6 +6,7 @@ import (
 	"history-api/pkg/config"
 	"html"
 	"regexp"
+	"strings"
 
 	"github.com/tmc/langchaingo/embeddings"
 	"github.com/tmc/langchaingo/llms"
@@ -24,9 +25,20 @@ func NewRagUtils() (*RagUtils, error) {
 		return nil, err
 	}
 
+	googleModal, err := config.GetConfig("GOOGLE_AI_MODEL")
+	if err != nil {
+		googleModal = "gemma-4-26b-a4b-it"
+	}
+
+	googleEmbeddingModel, err := config.GetConfig("GOOGLE_AI_EMBEDDING_MODEL")
+	if err != nil {
+		googleEmbeddingModel = "gemini-embedding-001"
+	}
+
 	llm, err := googleai.New(context.Background(),
 		googleai.WithAPIKey(googleAIApiKey),
-		googleai.WithDefaultEmbeddingModel("gemini-embedding-001"),
+		googleai.WithDefaultModel(googleModal),
+		googleai.WithDefaultEmbeddingModel(googleEmbeddingModel),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init google ai: %w", err)
@@ -77,5 +89,42 @@ func (u *RagUtils) EmbedQuery(ctx context.Context, query string) ([]float32, err
 }
 
 func (u *RagUtils) GenerateResponse(ctx context.Context, prompt string) (string, error) {
-	return llms.GenerateFromSinglePrompt(ctx, u.llm, prompt)
+	raw, err := llms.GenerateFromSinglePrompt(ctx, u.llm, prompt)
+	if err != nil {
+		return "", err
+	}
+	return stripThinking(raw), nil
+}
+
+func stripThinking(raw string) string {
+	if !strings.Contains(raw, "*   ") {
+		return strings.TrimSpace(raw)
+	}
+
+	lines := strings.Split(raw, "\n")
+
+	answerStart := len(lines)
+	for i := len(lines) - 1; i >= 0; i-- {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" || strings.HasPrefix(trimmed, "*") || strings.HasPrefix(trimmed, "-   ") {
+			break
+		}
+		answerStart = i
+	}
+	if answerStart < len(lines) {
+		answer := strings.TrimSpace(strings.Join(lines[answerStart:], "\n"))
+		if answer != "" {
+			return answer
+		}
+	}
+
+	lastLine := lines[len(lines)-1]
+	if idx := strings.LastIndex(lastLine, `"`); idx >= 0 && idx < len(lastLine)-1 {
+		answer := strings.TrimSpace(lastLine[idx+1:])
+		if answer != "" {
+			return answer
+		}
+	}
+
+	return strings.TrimSpace(raw)
 }
