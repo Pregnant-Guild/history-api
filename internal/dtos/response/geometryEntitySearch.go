@@ -2,8 +2,7 @@ package response
 
 import "encoding/json"
 
-// SearchGeometriesByEntityNameResponse groups geometries by matched entities.
-// Cursor pagination is based on entity_id (descending).
+
 type SearchGeometriesByEntityNameResponse struct {
 	Items      []*EntityGeometriesSearchItem `json:"items"`
 	NextCursor string                       `json:"next_cursor,omitempty"`

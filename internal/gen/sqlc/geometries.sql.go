@@ -191,6 +191,74 @@ func (q *Queries) DeleteGeometry(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const getEntityGeometriesByPairs = `-- name: GetEntityGeometriesByPairs :many
+SELECT
+    e.id AS entity_id,
+    e.name AS entity_name,
+    e.description AS entity_description,
+    g.id AS geometry_id,
+    g.geo_type,
+    g.draw_geometry,
+    g.binding,
+    g.time_start,
+    g.time_end
+FROM (
+    SELECT unnest($1::uuid[]) as eid, unnest($2::uuid[]) as gid
+) as pairs
+JOIN entities e ON e.id = pairs.eid
+JOIN entity_geometries eg ON eg.entity_id = e.id AND eg.geometry_id = pairs.gid
+JOIN geometries g ON g.id = pairs.gid
+WHERE e.is_deleted = false
+AND g.is_deleted = false
+`
+
+type GetEntityGeometriesByPairsParams struct {
+	EntityIds   []pgtype.UUID `json:"entity_ids"`
+	GeometryIds []pgtype.UUID `json:"geometry_ids"`
+}
+
+type GetEntityGeometriesByPairsRow struct {
+	EntityID          pgtype.UUID     `json:"entity_id"`
+	EntityName        string          `json:"entity_name"`
+	EntityDescription pgtype.Text     `json:"entity_description"`
+	GeometryID        pgtype.UUID     `json:"geometry_id"`
+	GeoType           int16           `json:"geo_type"`
+	DrawGeometry      json.RawMessage `json:"draw_geometry"`
+	Binding           []byte          `json:"binding"`
+	TimeStart         pgtype.Int4     `json:"time_start"`
+	TimeEnd           pgtype.Int4     `json:"time_end"`
+}
+
+func (q *Queries) GetEntityGeometriesByPairs(ctx context.Context, arg GetEntityGeometriesByPairsParams) ([]GetEntityGeometriesByPairsRow, error) {
+	rows, err := q.db.Query(ctx, getEntityGeometriesByPairs, arg.EntityIds, arg.GeometryIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetEntityGeometriesByPairsRow{}
+	for rows.Next() {
+		var i GetEntityGeometriesByPairsRow
+		if err := rows.Scan(
+			&i.EntityID,
+			&i.EntityName,
+			&i.EntityDescription,
+			&i.GeometryID,
+			&i.GeoType,
+			&i.DrawGeometry,
+			&i.Binding,
+			&i.TimeStart,
+			&i.TimeEnd,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getGeometriesByIDs = `-- name: GetGeometriesByIDs :many
 SELECT 
     id, geo_type, draw_geometry, binding, time_start, time_end, project_id,
@@ -465,6 +533,86 @@ func (q *Queries) SearchGeometries(ctx context.Context, arg SearchGeometriesPara
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchGeometriesByEntityName = `-- name: SearchGeometriesByEntityName :many
+WITH matched_entities AS (
+    SELECT
+        e.id,
+        e.name,
+        e.description
+    FROM entities e
+    WHERE e.is_deleted = false
+      AND ($1::text IS NULL OR e.name ILIKE '%' || $1::text || '%')
+      AND ($2::uuid IS NULL OR e.id < $2::uuid)
+    ORDER BY e.id DESC
+    LIMIT $3
+)
+SELECT
+    me.id AS entity_id,
+    me.name AS entity_name,
+    me.description AS entity_description,
+    g.id AS geometry_id,
+    g.geo_type,
+    g.draw_geometry,
+    g.binding,
+    g.time_start,
+    g.time_end
+FROM matched_entities me
+LEFT JOIN entity_geometries eg
+    ON eg.entity_id = me.id
+LEFT JOIN geometries g
+    ON g.id = eg.geometry_id
+   AND g.is_deleted = false
+ORDER BY me.id DESC, g.id DESC
+`
+
+type SearchGeometriesByEntityNameParams struct {
+	Name       pgtype.Text `json:"name"`
+	CursorID   pgtype.UUID `json:"cursor_id"`
+	LimitCount int32       `json:"limit_count"`
+}
+
+type SearchGeometriesByEntityNameRow struct {
+	EntityID          pgtype.UUID `json:"entity_id"`
+	EntityName        string      `json:"entity_name"`
+	EntityDescription pgtype.Text `json:"entity_description"`
+	GeometryID        pgtype.UUID `json:"geometry_id"`
+	GeoType           pgtype.Int2 `json:"geo_type"`
+	DrawGeometry      []byte      `json:"draw_geometry"`
+	Binding           []byte      `json:"binding"`
+	TimeStart         pgtype.Int4 `json:"time_start"`
+	TimeEnd           pgtype.Int4 `json:"time_end"`
+}
+
+func (q *Queries) SearchGeometriesByEntityName(ctx context.Context, arg SearchGeometriesByEntityNameParams) ([]SearchGeometriesByEntityNameRow, error) {
+	rows, err := q.db.Query(ctx, searchGeometriesByEntityName, arg.Name, arg.CursorID, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchGeometriesByEntityNameRow{}
+	for rows.Next() {
+		var i SearchGeometriesByEntityNameRow
+		if err := rows.Scan(
+			&i.EntityID,
+			&i.EntityName,
+			&i.EntityDescription,
+			&i.GeometryID,
+			&i.GeoType,
+			&i.DrawGeometry,
+			&i.Binding,
+			&i.TimeStart,
+			&i.TimeEnd,
 		); err != nil {
 			return nil, err
 		}

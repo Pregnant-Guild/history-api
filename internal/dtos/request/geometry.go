@@ -11,9 +11,7 @@ type SearchGeometryDto struct {
 }
 
 type SearchGeometriesByEntityNameDto struct {
-	// Entity name keyword for searching. FE will render the result list by entity name.
 	Name string `json:"name" query:"name" validate:"required,max=255"`
-	// Cursor is entity UUID (id < cursor).
 	Cursor string `json:"cursor" query:"cursor" validate:"omitempty,uuid"`
 	Limit  int    `json:"limit" query:"limit" validate:"omitempty,min=1,max=100"`
 }

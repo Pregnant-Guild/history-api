@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -21,7 +22,7 @@ type GeometryRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.GeometryEntity, error)
 	GetByIDs(ctx context.Context, ids []string) ([]*models.GeometryEntity, error)
 	Search(ctx context.Context, params sqlc.SearchGeometriesParams) ([]*models.GeometryEntity, error)
-	SearchByEntityName(ctx context.Context, name string, cursorID *pgtype.UUID, limit int32) ([]EntityGeometriesSearchRow, error)
+	SearchByEntityName(ctx context.Context, params sqlc.SearchGeometriesByEntityNameParams) ([]*models.EntityGeometriesSearchEntity, error)
 	Create(ctx context.Context, params sqlc.CreateGeometryParams) (*models.GeometryEntity, error)
 	Update(ctx context.Context, params sqlc.UpdateGeometryParams) (*models.GeometryEntity, error)
 	Delete(ctx context.Context, id pgtype.UUID) error
@@ -36,39 +37,25 @@ type GeometryRepository interface {
 }
 
 type geometryRepository struct {
-	q *sqlc.Queries
-	c cache.Cache
+	q  *sqlc.Queries
+	c  cache.Cache
 	db sqlc.DBTX
 }
 
 func NewGeometryRepository(db sqlc.DBTX, c cache.Cache) GeometryRepository {
 	return &geometryRepository{
-		q: sqlc.New(db),
-		c: c,
+		q:  sqlc.New(db),
+		c:  c,
 		db: db,
 	}
 }
 
 func (r *geometryRepository) WithTx(tx pgx.Tx) GeometryRepository {
 	return &geometryRepository{
-		q: r.q.WithTx(tx),
-		c: r.c,
+		q:  r.q.WithTx(tx),
+		c:  r.c,
 		db: tx,
 	}
-}
-
-// EntityGeometriesSearchRow is a "flattened" row shape for searching geometries by entity name.
-// FE will display entity list by entity_name, while still having geometries in the same response.
-type EntityGeometriesSearchRow struct {
-	EntityID          string          `json:"entity_id"`
-	EntityName        string          `json:"name"`
-	EntityDescription string          `json:"description"`
-	GeometryID        string          `json:"id"`
-	GeoType           int16           `json:"geo_type"`
-	DrawGeometry      json.RawMessage `json:"draw_geometry"`
-	Binding           json.RawMessage `json:"binding,omitempty"`
-	TimeStart         *int32          `json:"time_start,omitempty"`
-	TimeEnd           *int32          `json:"time_end,omitempty"`
 }
 
 func (r *geometryRepository) generateQueryKey(prefix string, params any) string {
@@ -396,121 +383,124 @@ func (r *geometryRepository) DeleteEntityGeometry(ctx context.Context, entityID 
 	})
 }
 
-func (r *geometryRepository) SearchByEntityName(
-	ctx context.Context,
-	name string,
-	cursorID *pgtype.UUID,
-	limit int32,
-) ([]EntityGeometriesSearchRow, error) {
-	// Cursor is entity_id (not geometry_id) so FE can render entities as the primary list.
-	const q = `
-WITH matched_entities AS (
-    SELECT
-        e.id,
-        e.name,
-        e.description
-    FROM entities e
-    WHERE e.is_deleted = false
-      AND ($1::text = '' OR e.name ILIKE '%' || $1::text || '%')
-      AND ($2::uuid IS NULL OR e.id < $2::uuid)
-    ORDER BY e.id DESC
-    LIMIT $3
-)
-SELECT
-    me.id AS entity_id,
-    me.name AS entity_name,
-    COALESCE(me.description, '') AS entity_description,
-    g.id AS geometry_id,
-    g.geo_type,
-    g.draw_geometry,
-    g.binding,
-    g.time_start,
-    g.time_end
-FROM matched_entities me
-LEFT JOIN entity_geometries eg
-    ON eg.entity_id = me.id
-LEFT JOIN geometries g
-    ON g.id = eg.geometry_id
-   AND g.is_deleted = false
-ORDER BY me.id DESC, g.id DESC
-`
+func (r *geometryRepository) getSearchByIDsWithFallback(ctx context.Context, pairs []string) ([]*models.EntityGeometriesSearchEntity, error) {
+	if len(pairs) == 0 {
+		return []*models.EntityGeometriesSearchEntity{}, nil
+	}
+	keys := make([]string, len(pairs))
+	for i, pair := range pairs {
+		keys[i] = fmt.Sprintf("geometry:search:item:%s", pair)
+	}
+	raws := r.c.MGet(ctx, keys...)
 
-	var cursor pgtype.UUID
-	if cursorID != nil {
-		cursor = *cursorID
-	} else {
-		cursor = pgtype.UUID{Valid: false}
+	var results []*models.EntityGeometriesSearchEntity
+	missingToCache := make(map[string]any)
+
+	var missingEntityIds []pgtype.UUID
+	var missingGeometryIds []pgtype.UUID
+
+	for i, b := range raws {
+		if len(b) == 0 {
+			parts := strings.Split(pairs[i], ":")
+			if len(parts) == 2 {
+				eID := pgtype.UUID{}
+				gID := pgtype.UUID{}
+				if err := eID.Scan(parts[0]); err == nil {
+					if err := gID.Scan(parts[1]); err == nil {
+						missingEntityIds = append(missingEntityIds, eID)
+						missingGeometryIds = append(missingGeometryIds, gID)
+					}
+				}
+			}
+		}
 	}
 
-	rows, err := r.db.Query(ctx, q, name, cursor, limit)
+	dbMap := make(map[string]*models.EntityGeometriesSearchEntity)
+	if len(missingEntityIds) > 0 {
+		dbRows, err := r.q.GetEntityGeometriesByPairs(ctx, sqlc.GetEntityGeometriesByPairsParams{
+			EntityIds:   missingEntityIds,
+			GeometryIds: missingGeometryIds,
+		})
+		if err == nil {
+			for _, row := range dbRows {
+				item := &models.EntityGeometriesSearchEntity{
+					EntityID:          convert.UUIDToString(row.EntityID),
+					EntityName:        row.EntityName,
+					EntityDescription: convert.TextToString(row.EntityDescription),
+					GeometryID:        convert.UUIDToString(row.GeometryID),
+					GeoType:           row.GeoType,
+					DrawGeometry:      row.DrawGeometry,
+					Binding:           row.Binding,
+					TimeStart:         convert.Int4ToPtr(row.TimeStart),
+					TimeEnd:           convert.Int4ToPtr(row.TimeEnd),
+				}
+				key := fmt.Sprintf("%s:%s", item.EntityID, item.GeometryID)
+				dbMap[key] = item
+			}
+		}
+	}
+
+	for i, b := range raws {
+		if len(b) > 0 {
+			var u models.EntityGeometriesSearchEntity
+			if err := json.Unmarshal(b, &u); err == nil {
+				results = append(results, &u)
+			}
+		} else {
+			if item, ok := dbMap[pairs[i]]; ok {
+				results = append(results, item)
+				missingToCache[keys[i]] = item
+			}
+		}
+	}
+
+	if len(missingToCache) > 0 {
+		_ = r.c.MSet(ctx, missingToCache, constants.NormalCacheDuration)
+	}
+
+	return results, nil
+}
+
+func (r *geometryRepository) SearchByEntityName(ctx context.Context, params sqlc.SearchGeometriesByEntityNameParams) ([]*models.EntityGeometriesSearchEntity, error) {
+
+	queryKey := r.generateQueryKey("geometry:search:entity", params)
+	var cachedPairs []string
+	if err := r.c.Get(ctx, queryKey, &cachedPairs); err == nil && len(cachedPairs) > 0 {
+		return r.getSearchByIDsWithFallback(ctx, cachedPairs)
+	}
+
+	rows, err := r.q.SearchGeometriesByEntityName(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	var geometries []*models.EntityGeometriesSearchEntity
+	var pairs []string
+	geometryToCache := make(map[string]any)
 
-	out := make([]EntityGeometriesSearchRow, 0)
-	for rows.Next() {
-		var entityID pgtype.UUID
-		var entityName pgtype.Text
-		var entityDesc pgtype.Text
-		var geoID pgtype.UUID
-		var geoType pgtype.Int2
-		var draw json.RawMessage
-		var binding json.RawMessage
-		var timeStart pgtype.Int4
-		var timeEnd pgtype.Int4
-
-		if err := rows.Scan(
-			&entityID,
-			&entityName,
-			&entityDesc,
-			&geoID,
-			&geoType,
-			&draw,
-			&binding,
-			&timeStart,
-			&timeEnd,
-		); err != nil {
-			return nil, err
+	for _, row := range rows {
+		item := &models.EntityGeometriesSearchEntity{
+			EntityID:          convert.UUIDToString(row.EntityID),
+			EntityName:        row.EntityName,
+			EntityDescription: convert.TextToString(row.EntityDescription),
+			GeometryID:        convert.UUIDToString(row.GeometryID),
+			GeoType:           convert.Int2ToInt16(row.GeoType),
+			DrawGeometry:      row.DrawGeometry,
+			Binding:           row.Binding,
+			TimeStart:         convert.Int4ToPtr(row.TimeStart),
+			TimeEnd:           convert.Int4ToPtr(row.TimeEnd),
 		}
-
-		var ts *int32
-		if timeStart.Valid {
-			v := timeStart.Int32
-			ts = &v
-		}
-		var te *int32
-		if timeEnd.Valid {
-			v := timeEnd.Int32
-			te = &v
-		}
-
-		row := EntityGeometriesSearchRow{
-			EntityID:          convert.UUIDToString(entityID),
-			EntityName:        entityName.String,
-			EntityDescription: entityDesc.String,
-			GeometryID:        convert.UUIDToString(geoID),
-			GeoType:           geoType.Int16,
-			DrawGeometry:      draw,
-			Binding:           binding,
-			TimeStart:         ts,
-			TimeEnd:           te,
-		}
-
-		// Entity with no geometry will have NULL geometry_id.
-		if !geoID.Valid {
-			row.GeometryID = ""
-			row.GeoType = 0
-			row.DrawGeometry = nil
-			row.Binding = nil
-			row.TimeStart = nil
-			row.TimeEnd = nil
-		}
-
-		out = append(out, row)
+		pair := fmt.Sprintf("%s:%s", item.EntityID, item.GeometryID)
+		geometries = append(geometries, item)
+		pairs = append(pairs, pair)
+		geometryToCache[fmt.Sprintf("geometry:search:item:%s", pair)] = item
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
+
+	if len(geometryToCache) > 0 {
+		_ = r.c.MSet(ctx, geometryToCache, constants.NormalCacheDuration)
 	}
-	return out, nil
+	if len(pairs) > 0 {
+		_ = r.c.Set(ctx, queryKey, pairs, constants.ListCacheDuration)
+	}
+
+	return geometries, nil
 }

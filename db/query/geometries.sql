@@ -161,3 +161,23 @@ WHERE geometry_id = $1;
 -- name: DeleteEntityGeometry :exec
 DELETE FROM entity_geometries
 WHERE entity_id = $1 AND geometry_id = $2;
+
+-- name: GetEntityGeometriesByPairs :many
+SELECT
+    e.id AS entity_id,
+    e.name AS entity_name,
+    e.description AS entity_description,
+    g.id AS geometry_id,
+    g.geo_type,
+    g.draw_geometry,
+    g.binding,
+    g.time_start,
+    g.time_end
+FROM (
+    SELECT unnest(@entity_ids::uuid[]) as eid, unnest(@geometry_ids::uuid[]) as gid
+) as pairs
+JOIN entities e ON e.id = pairs.eid
+JOIN entity_geometries eg ON eg.entity_id = e.id AND eg.geometry_id = pairs.gid
+JOIN geometries g ON g.id = pairs.gid
+WHERE e.is_deleted = false
+AND g.is_deleted = false;

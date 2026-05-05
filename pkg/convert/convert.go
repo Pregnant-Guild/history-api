@@ -143,6 +143,13 @@ func Int2ToInt16Ptr(v pgtype.Int2) *int16 {
 	return &int16Val
 }
 
+func Int2ToInt16(v pgtype.Int2) int16 {
+	if v.Valid {
+		return v.Int16
+	}
+	return 0
+}
+
 func PtrFloat64ToInt4(v *float64) pgtype.Int4 {
 	if v == nil {
 		return pgtype.Int4{Valid: false}

@@ -86,16 +86,20 @@ func (s *geometryService) SearchGeometriesByEntityName(
 		limit = 20
 	}
 
-	var cursorID *pgtype.UUID
+	var cursorID pgtype.UUID
 	if req.Cursor != "" {
 		id, err := convert.StringToUUID(req.Cursor)
 		if err != nil {
 			return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid cursor format")
 		}
-		cursorID = &id
+		cursorID = id
 	}
 
-	rows, err := s.geometryRepo.SearchByEntityName(ctx, req.Name, cursorID, limit)
+	rows, err := s.geometryRepo.SearchByEntityName(ctx, sqlc.SearchGeometriesByEntityNameParams{
+		Name:       convert.StringToText(req.Name),
+		CursorID:   cursorID,
+		LimitCount: limit,
+	})
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search geometries by entity name")
 	}
@@ -116,7 +120,6 @@ func (s *geometryService) SearchGeometriesByEntityName(
 			order = append(order, row.EntityID)
 		}
 
-		// LEFT JOIN: entity might have no geometry.
 		if row.GeometryID == "" || len(row.DrawGeometry) == 0 {
 			continue
 		}
@@ -138,7 +141,6 @@ func (s *geometryService) SearchGeometriesByEntityName(
 
 	nextCursor := ""
 	if len(order) > 0 {
-		// Use last entity id in the current page as the cursor for the next page (id < cursor).
 		nextCursor = order[len(order)-1]
 	}
 
