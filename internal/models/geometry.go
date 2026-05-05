@@ -3,13 +3,12 @@ package models
 import (
 	"encoding/json"
 	"history-api/internal/dtos/response"
-	"history-api/pkg/constants"
 	"time"
 )
 
 type GeometryEntity struct {
 	ID           string            `json:"id"`
-	GeoType      constants.GeoType `json:"geo_type"`
+	GeoType      int16             `json:"geo_type"`
 	DrawGeometry json.RawMessage   `json:"draw_geometry"`
 	Binding      json.RawMessage   `json:"binding"`
 	TimeStart    int32             `json:"time_start"`
@@ -27,7 +26,7 @@ func (g *GeometryEntity) ToResponse() *response.GeometryResponse {
 	}
 	return &response.GeometryResponse{
 		ID:           g.ID,
-		GeoType:      g.GeoType.String(),
+		GeoType:      g.GeoType,
 		DrawGeometry: g.DrawGeometry,
 		Binding:      g.Binding,
 		TimeStart:    g.TimeStart,

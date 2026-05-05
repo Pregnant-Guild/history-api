@@ -90,7 +90,7 @@ func (r *geometryRepository) getByIDsWithFallback(ctx context.Context, ids []str
 			for _, row := range dbRows {
 				item := models.GeometryEntity{
 					ID:           convert.UUIDToString(row.ID),
-					GeoType:      constants.ParseGeoType(row.GeoType),
+					GeoType:      row.GeoType,
 					DrawGeometry: row.DrawGeometry,
 					Binding:      row.Binding,
 					TimeStart:    convert.Int4ToInt32(row.TimeStart),
@@ -152,7 +152,7 @@ func (r *geometryRepository) GetByID(ctx context.Context, id pgtype.UUID) (*mode
 
 	geometry = models.GeometryEntity{
 		ID:           convert.UUIDToString(row.ID),
-		GeoType:      constants.ParseGeoType(row.GeoType),
+		GeoType:      row.GeoType,
 		DrawGeometry: row.DrawGeometry,
 		Binding:      row.Binding,
 		TimeStart:    convert.Int4ToInt32(row.TimeStart),
@@ -191,7 +191,7 @@ func (r *geometryRepository) Search(ctx context.Context, params sqlc.SearchGeome
 	for _, row := range rows {
 		geometry := &models.GeometryEntity{
 			ID:           convert.UUIDToString(row.ID),
-			GeoType:      constants.ParseGeoType(row.GeoType),
+			GeoType:      row.GeoType,
 			DrawGeometry: row.DrawGeometry,
 			Binding:      row.Binding,
 			TimeStart:    convert.Int4ToInt32(row.TimeStart),
@@ -230,7 +230,7 @@ func (r *geometryRepository) Create(ctx context.Context, params sqlc.CreateGeome
 
 	geometry := models.GeometryEntity{
 		ID:           convert.UUIDToString(row.ID),
-		GeoType:      constants.ParseGeoType(row.GeoType),
+		GeoType:      row.GeoType,
 		DrawGeometry: row.DrawGeometry,
 		Binding:      row.Binding,
 		TimeStart:    convert.Int4ToInt32(row.TimeStart),
@@ -257,7 +257,7 @@ func (r *geometryRepository) Update(ctx context.Context, params sqlc.UpdateGeome
 	}
 	geometry := models.GeometryEntity{
 		ID:           convert.UUIDToString(row.ID),
-		GeoType:      constants.ParseGeoType(row.GeoType),
+		GeoType:      row.GeoType,
 		DrawGeometry: row.DrawGeometry,
 		Binding:      row.Binding,
 		TimeStart:    convert.Int4ToInt32(row.TimeStart),
@@ -321,7 +321,7 @@ func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtyp
 	for _, row := range rows {
 		geometry := &models.GeometryEntity{
 			ID:           convert.UUIDToString(row.ID),
-			GeoType:      constants.ParseGeoType(row.GeoType),
+			GeoType:      row.GeoType,
 			DrawGeometry: row.DrawGeometry,
 			Binding:      row.Binding,
 			TimeStart:    convert.Int4ToInt32(row.TimeStart),

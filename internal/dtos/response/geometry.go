@@ -14,7 +14,7 @@ type Bbox struct {
 
 type GeometryResponse struct {
 	ID           string          `json:"id"`
-	GeoType      string          `json:"geo_type"`
+	GeoType      int16           `json:"geo_type"`
 	DrawGeometry json.RawMessage `json:"draw_geometry"`
 	Binding      json.RawMessage `json:"binding,omitempty"`
 	TimeStart    int32           `json:"time_start,omitempty"`

@@ -15,6 +15,7 @@ import (
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
+	"strconv"
 	"slices"
 
 	"github.com/gofiber/fiber/v3"
@@ -399,11 +400,17 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 			}
 
 			binding, _ := json.Marshal(geo.Binding)
+			geoTypeCode := int16(0)
+			if geo.Type != "" {
+				if n, err := strconv.ParseInt(geo.Type, 10, 16); err == nil {
+					geoTypeCode = int16(n)
+				}
+			}
 
 			if _, ok := persistCurrentItemIDs[geo.ID]; ok {
 				params := sqlc.UpdateGeometryParams{
 					ID:           geometryUUID,
-					GeoType:      pgtype.Int2{Int16: constants.ParseGeoTypeText(geo.Type).Int16(), Valid: true},
+					GeoType:      pgtype.Int2{Int16: geoTypeCode, Valid: true},
 					DrawGeometry: geo.DrawGeometry,
 					Binding:      binding,
 					TimeStart:    convert.PtrFloat64ToInt4(geo.TimeStart),
@@ -428,7 +435,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 			} else if geo.Source == "inline" {
 				params := sqlc.CreateGeometryParams{
 					ID:           geometryUUID,
-					GeoType:      constants.ParseGeoTypeText(geo.Type).Int16(),
+					GeoType:      geoTypeCode,
 					DrawGeometry: geo.DrawGeometry,
 					Binding:      binding,
 					TimeStart:    convert.PtrFloat64ToInt4(geo.TimeStart),
