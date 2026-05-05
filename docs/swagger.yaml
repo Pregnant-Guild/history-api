@@ -1095,6 +1095,40 @@ paths:
       summary: Get geometry by ID
       tags:
       - Geometries
+  /geometries/entity:
+    get:
+      consumes:
+      - application/json
+      description: Search entities by name (cursor pagination) and return their linked
+        geometries
+      parameters:
+      - in: query
+        name: cursor
+        type: string
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - in: query
+        maxLength: 255
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Search geometries by entity name
+      tags:
+      - Geometries
   /historian/application:
     get:
       consumes:
