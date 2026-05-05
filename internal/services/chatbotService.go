@@ -43,15 +43,16 @@ func (s *chatbotService) Chat(ctx context.Context, projectID *string, question s
 		prompt = fmt.Sprintf(`You are a friendly history assistant chatbot. The user said: "%s"
 
 Rules:
-- If it is a greeting (like "hello", "hi", "xin chào"), respond with a friendly greeting and briefly introduce yourself as a history assistant.
-- If it is a history question, say that you don't have relevant documents to answer and suggest they ask about topics available in the system.
-- Do NOT show your reasoning or thinking process. Output ONLY your final response.`, question)
+- If it is a greeting (like "hello", "hi", "xin chào"), respond with a friendly greeting and briefly introduce yourself.
+- If it is a history question, say that you don't have relevant documents to answer.
+- You MUST wrap your final response inside <answer> tags. Example: <answer>Hello!</answer>
+- Do NOT show your reasoning outside or inside the tags if possible, but the final answer MUST be in <answer> tags.`, question)
 	} else {
 		prompt = fmt.Sprintf(`You are a helpful history assistant. Answer the question using ONLY the provided context.
 
 Rules:
 - If the answer is not in the context, say "I don't have enough historical context to answer that."
-- Do NOT show your reasoning, thinking process, or analysis. Output ONLY your final answer.
+- You MUST wrap your final response inside <answer> tags. Example: <answer>The capital is...</answer>
 - Be concise and direct.
 
 Context:

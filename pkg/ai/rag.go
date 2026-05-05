@@ -97,12 +97,24 @@ func (u *RagUtils) GenerateResponse(ctx context.Context, prompt string) (string,
 }
 
 func stripThinking(raw string) string {
+	startTag := "<answer>"
+	endTag := "</answer>"
+	startIdx := strings.Index(raw, startTag)
+	endIdx := strings.LastIndex(raw, endTag)
+
+	if startIdx != -1 && endIdx != -1 && endIdx > startIdx {
+		return strings.TrimSpace(raw[startIdx+len(startTag) : endIdx])
+	}
+
+	if startIdx != -1 {
+		return strings.TrimSpace(raw[startIdx+len(startTag):])
+	}
+
 	if !strings.Contains(raw, "*   ") {
 		return strings.TrimSpace(raw)
 	}
 
 	lines := strings.Split(raw, "\n")
-
 	answerStart := len(lines)
 	for i := len(lines) - 1; i >= 0; i-- {
 		trimmed := strings.TrimSpace(lines[i])
