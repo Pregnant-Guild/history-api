@@ -317,7 +317,9 @@ func (r *submissionRepository) Delete(ctx context.Context, id pgtype.UUID) error
 
 	_ = r.c.Del(ctx, fmt.Sprintf("submission:id:%s", convert.UUIDToString(id)))
 	go func() {
-		_ = r.c.DelByPattern(context.Background(), "submission:count*")
+		bgCtx := context.Background()
+		_ = r.c.DelByPattern(bgCtx, "submission:search*")
+		_ = r.c.DelByPattern(bgCtx, "submission:count*")
 	}()
 	return nil
 }

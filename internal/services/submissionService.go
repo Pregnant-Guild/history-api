@@ -825,5 +825,7 @@ func (s *submissionService) DeleteSubmission(ctx context.Context, userID string,
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to delete submission")
 	}
 
+	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", submission.ProjectID))
+
 	return nil
 }
