@@ -7,6 +7,7 @@ const (
 	TaskTypeNotifyHistorianReview TaskType = "NOTIFY_HISTORIAN_REVIEW"
 	TaskTypeDeleteMedia           TaskType = "DELETE_MEDIA"
 	TaskTypeBulkDeleteMedia       TaskType = "BULK_DELETE_MEDIA"
+	TaskTypeRagIndexSubmission    TaskType = "RAG_INDEX_SUBMISSION"
 )
 
 func (t TaskType) String() string {

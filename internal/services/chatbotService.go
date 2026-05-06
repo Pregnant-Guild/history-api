@@ -2,28 +2,41 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"history-api/internal/repositories"
 	"history-api/pkg/ai"
+	"history-api/pkg/constants"
 )
 
 type ChatbotService interface {
-	Chat(ctx context.Context, projectID *string, question string) (string, error)
+	Chat(ctx context.Context, userID string, projectID *string, question string) (string, error)
 }
 
 type chatbotService struct {
-	repo     repositories.RagRepository
-	ragUtils *ai.RagUtils
+	repo      repositories.RagRepository
+	usageRepo repositories.UsageRepository
+	ragUtils  *ai.RagUtils
 }
 
-func NewChatbotService(repo repositories.RagRepository, ragUtils *ai.RagUtils) ChatbotService {
+func NewChatbotService(repo repositories.RagRepository, usageRepo repositories.UsageRepository, ragUtils *ai.RagUtils) ChatbotService {
 	return &chatbotService{
-		repo:     repo,
-		ragUtils: ragUtils,
+		repo:      repo,
+		usageRepo: usageRepo,
+		ragUtils:  ragUtils,
 	}
 }
 
-func (s *chatbotService) Chat(ctx context.Context, projectID *string, question string) (string, error) {
+func (s *chatbotService) Chat(ctx context.Context, userID string, projectID *string, question string) (string, error) {
+	usage, err := s.usageRepo.GetAIUsage(ctx, userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to check usage: %w", err)
+	}
+
+	if usage >= constants.MaxDailyAIUsage {
+		return "", errors.New("you have reached your daily limit of 10 questions. Please come back tomorrow")
+	}
+
 	qVector, err := s.ragUtils.EmbedQuery(ctx, question)
 	if err != nil {
 		return "", fmt.Errorf("failed to embed question: %w", err)
@@ -61,5 +74,13 @@ Context:
 Question: %s`, contextStr, question)
 	}
 
-	return s.ragUtils.GenerateResponse(ctx, prompt)
+	response, err := s.ragUtils.GenerateResponse(ctx, prompt)
+	if err != nil {
+		return "", err
+	}
+
+	// 3. Tăng số lần sử dụng sau khi gọi AI thành công
+	_, _ = s.usageRepo.IncrementAIUsage(ctx, userID)
+
+	return response, nil
 }

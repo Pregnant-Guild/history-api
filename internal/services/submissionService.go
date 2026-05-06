@@ -15,12 +15,13 @@ import (
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
-	"strconv"
 	"slices"
+	"strconv"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -166,7 +167,6 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 	entityRepo := s.entityRepo.WithTx(tx)
 	geometryRepo := s.geometryRepo.WithTx(tx)
 	wikiRepo := s.wikiRepo.WithTx(tx)
-	ragRepo := s.ragRepo.WithTx(tx)
 
 	submissionUUID, err := convert.StringToUUID(submissionID)
 	if err != nil {
@@ -625,33 +625,31 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 			}
 		}
 
-		_ = ragRepo.DeleteBySourceIDs(ctx, "wiki", wikiDeleteIDs)
-		_ = ragRepo.DeleteBySourceIDs(ctx, "entity", entityDeleteIDs)
-
-		for _, wiki := range snapshotData.Wikis {
-			if wiki.Source == "inline" {
-				cleanText := s.ragUtils.StripHTML(wiki.Title + "\n" + wiki.Doc)
-				chunks, vectors, err := s.ragUtils.PrepareChunks(ctx, cleanText)
-				if err == nil {
-					_ = ragRepo.DeleteBySourceIDs(ctx, "wiki", []string{wiki.ID})
-					for i, chunk := range chunks {
-						_ = ragRepo.SaveChunk(ctx, "wiki", wiki.ID, commit.ProjectID, i, chunk, vectors[i])
-					}
-				}
-			}
+		ragTask := models.RagIndexTask{
+			ProjectID:       commit.ProjectID,
+			DeleteWikiIDs:   wikiDeleteIDs,
+			DeleteEntityIDs: entityDeleteIDs,
 		}
 
+		for _, wiki := range snapshotData.Wikis {
+			ragTask.Wikis = append(ragTask.Wikis, &models.RagWikiItem{
+				ID:     wiki.ID,
+				Title:  wiki.Title,
+				Doc:    wiki.Doc,
+				Source: wiki.Source,
+			})
+		}
 		for _, entity := range snapshotData.Entities {
-			if entity.Source == "inline" {
-				cleanText := s.ragUtils.StripHTML(entity.Name + "\n" + entity.Description)
-				chunks, vectors, err := s.ragUtils.PrepareChunks(ctx, cleanText)
-				if err == nil {
-					_ = ragRepo.DeleteBySourceIDs(ctx, "entity", []string{entity.ID})
-					for i, chunk := range chunks {
-						_ = ragRepo.SaveChunk(ctx, "entity", entity.ID, commit.ProjectID, i, chunk, vectors[i])
-					}
-				}
-			}
+			ragTask.Entities = append(ragTask.Entities, &models.RagEntityItem{
+				ID:          entity.ID,
+				Name:        entity.Name,
+				Description: entity.Description,
+				Source:      entity.Source,
+			})
+		}
+
+		if err := s.c.PublishTask(ctx, constants.StreamRagName, constants.TaskTypeRagIndexSubmission, ragTask); err != nil {
+			log.Error().Err(err).Str("project_id", commit.ProjectID).Msg("Failed to publish RAG index task")
 		}
 	}
 
@@ -677,6 +675,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 			bgCtx := context.Background()
 			_ = s.c.DelByPattern(bgCtx, "entity:search*")
 			_ = s.c.DelByPattern(bgCtx, "geometry:search*")
+			_ = s.c.DelByPattern(bgCtx, "geometry:search:entity*")
 			_ = s.c.DelByPattern(bgCtx, "wiki:search*")
 		}()
 	}

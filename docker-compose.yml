@@ -109,6 +109,21 @@ services:
     command: ["./storage-worker"]
     networks:
       - history-api-project
+
+  history_rag_worker:
+    build: .
+    container_name: history_rag_worker
+    restart: unless-stopped
+    depends_on:
+      history_db:
+        condition: service_healthy
+      history_cache:
+        condition: service_started
+    env_file:
+      - ./assets/resources/.env
+    command: ["./rag-worker"]
+    networks:
+      - history-api-project
       
 volumes:
   history_db_data:

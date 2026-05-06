@@ -95,6 +95,7 @@ func (s *FiberServer) SetupServer(
 	submissionRepo := repositories.NewSubmissionRepository(poolPg, redis)
 
 	raguRepo := repositories.NewRagRepository(poolPg, redis)
+	usageRepo := repositories.NewUsageRepository(redis)
 
 	// service setup
 	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis, poolPg)
@@ -114,7 +115,7 @@ func (s *FiberServer) SetupServer(
 		userRepo, wikiRepo, geometryRepo, entityRepo,
 		raguRepo, raguUtils, poolPg, redis,
 	)
-	chatbotService := services.NewChatbotService(raguRepo, raguUtils)
+	chatbotService := services.NewChatbotService(raguRepo, usageRepo, raguUtils)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)

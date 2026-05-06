@@ -78,7 +78,7 @@ func (s *submissionController) CreateSubmission(c fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /submissions/{id}/status [patch]
 func (s *submissionController) UpdateSubmissionStatus(c fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 	id := c.Params("id")
 	uid := c.Locals("uid").(string)
