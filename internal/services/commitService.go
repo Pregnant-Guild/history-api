@@ -3,11 +3,13 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/internal/repositories"
+	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
 
@@ -26,17 +28,20 @@ type commitService struct {
 	db          *pgxpool.Pool
 	commitRepo  repositories.CommitRepository
 	projectRepo repositories.ProjectRepository
+	c           cache.Cache
 }
 
 func NewCommitService(
 	db *pgxpool.Pool,
 	commitRepo repositories.CommitRepository,
 	projectRepo repositories.ProjectRepository,
+	c cache.Cache,
 ) CommitService {
 	return &commitService{
 		db:          db,
 		commitRepo:  commitRepo,
 		projectRepo: projectRepo,
+		c:           c,
 	}
 }
 
@@ -129,6 +134,8 @@ func (s *commitService) CreateCommit(ctx context.Context, userID string, project
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
 	}
 
+	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", projectID))
+
 	return commit.ToResponse(), nil
 }
 
@@ -163,6 +170,8 @@ func (s *commitService) RestoreCommit(ctx context.Context, userID string, projec
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to restore commit")
 	}
+
+	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", projectID))
 	return nil
 }
 

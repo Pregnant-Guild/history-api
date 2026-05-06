@@ -109,7 +109,7 @@ func (s *FiberServer) SetupServer(
 	geometryService := services.NewGeometryService(geometryRepo)
 	wikiService := services.NewWikiService(wikiRepo)
 	projectService := services.NewProjectService(projectRepo)
-	commitService := services.NewCommitService(poolPg, commitRepo, projectRepo)
+	commitService := services.NewCommitService(poolPg, commitRepo, projectRepo, redis)
 	submissionService := services.NewSubmissionService(
 		submissionRepo, projectRepo, commitRepo,
 		userRepo, wikiRepo, geometryRepo, entityRepo,
