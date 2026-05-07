@@ -6,6 +6,7 @@ import (
 	"history-api/internal/repositories"
 	"history-api/pkg/cache"
 	"history-api/pkg/config"
+	"history-api/pkg/database"
 	"history-api/pkg/storage"
 	"os"
 	"os/exec"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron/v2"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 )
 
@@ -68,29 +68,36 @@ func runBackup(ctx context.Context, s3 storage.Storage, dbURI string) {
 }
 
 func main() {
-	config.LoadEnv()
-
-	dbURI, err := config.GetConfig("DATABASE_URI")
+	err := config.LoadEnv()
 	if err != nil {
-		log.Fatal().Err(err).Msg("DATABASE_URI not set")
+		log.Error().Msg(err.Error())
+		panic(err)
+	}
+	connectionURI, err := config.GetConfig("PGX_CONNECTION_URI")
+	if err != nil {
+		log.Error().Msg(err.Error())
+		panic(err)
 	}
 
-	dbPool, err := pgxpool.New(context.Background(), dbURI)
+	poolPg, err := database.NewPostgresqlDB()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to DB")
+		log.Error().Msg(err.Error())
+		panic(err)
 	}
-	defer dbPool.Close()
+	defer poolPg.Close()
 
 	redis, err := cache.NewRedisClient()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to Redis")
+		log.Error().Msg(err.Error())
+		panic(err)
 	}
 
-	statisticRepo := repositories.NewStatisticRepository(dbPool, redis)
+	statisticRepo := repositories.NewStatisticRepository(poolPg, redis)
 
 	s3Store, err := storage.NewS3Storage()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to init S3 storage")
+		log.Error().Msg(err.Error())
+		panic(err)
 	}
 
 	log.Info().Msg("Cron worker started")
@@ -118,7 +125,7 @@ func main() {
 	_, err = s.NewJob(
 		gocron.WeeklyJob(1, gocron.NewWeekdays(time.Sunday), gocron.NewAtTimes(gocron.NewAtTime(1, 0, 0))),
 		gocron.NewTask(func() {
-			runBackup(context.Background(), s3Store, dbURI)
+			runBackup(context.Background(), s3Store, connectionURI)
 		}),
 	)
 	if err != nil {
