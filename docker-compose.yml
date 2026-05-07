@@ -124,7 +124,22 @@ services:
     command: ["./rag-worker"]
     networks:
       - history-api-project
-      
+
+  history_cron_worker:
+    build: .
+    container_name: history_cron_worker
+    restart: unless-stopped
+    depends_on:
+      history_db:
+        condition: service_healthy
+      history_cache:
+        condition: service_started
+    env_file:
+      - ./assets/resources/.env
+    command: ["./cron-worker"]
+    networks:
+      - history-api-project
+
 volumes:
   history_db_data:
   history_cache_data:
