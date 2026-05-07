@@ -398,6 +398,17 @@ definitions:
     required:
     - token_id
     type: object
+  history-api_internal_dtos_request.ResetPasswordDto:
+    properties:
+      is_send_email:
+        type: boolean
+      new_password:
+        maxLength: 64
+        minLength: 8
+        type: string
+    required:
+    - new_password
+    type: object
   history-api_internal_dtos_request.RestoreCommitDto:
     properties:
       commit_id:
@@ -595,6 +606,51 @@ definitions:
       total_pages:
         type: integer
       total_records:
+        type: integer
+    type: object
+  history-api_internal_dtos_response.StatisticResponse:
+    properties:
+      created_at:
+        type: string
+      date:
+        type: string
+      id:
+        type: string
+      new_commits:
+        type: integer
+      new_entities:
+        type: integer
+      new_geometries:
+        type: integer
+      new_medias:
+        type: integer
+      new_projects:
+        type: integer
+      new_storage_bytes:
+        type: integer
+      new_submissions:
+        type: integer
+      new_users:
+        type: integer
+      new_wikis:
+        type: integer
+      total_commits:
+        type: integer
+      total_entities:
+        type: integer
+      total_geometries:
+        type: integer
+      total_medias:
+        type: integer
+      total_projects:
+        type: integer
+      total_storage_bytes:
+        type: integer
+      total_submissions:
+        type: integer
+      total_users:
+        type: integer
+      total_wikis:
         type: integer
     type: object
   history-api_pkg_constants.TokenType:
@@ -2093,6 +2149,41 @@ paths:
       summary: Update member role
       tags:
       - Projects
+  /projects/commits/{commitId}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific commit by its ID
+      parameters:
+      - description: Commit ID
+        in: path
+        name: commitId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Get commit by ID
+      tags:
+      - Commits
   /raster-tiles/{z}/{x}/{y}:
     get:
       description: Fetch vector or raster map tile data by Z, X, Y coordinates
@@ -2197,6 +2288,103 @@ paths:
       summary: Get role by ID
       tags:
       - Roles
+  /statistics:
+    get:
+      consumes:
+      - application/json
+      description: Fetch daily system statistics with optional date range filtering
+      parameters:
+      - description: Start date in YYYY-MM-DD format
+        in: query
+        name: start_date
+        type: string
+      - description: End date in YYYY-MM-DD format
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/history-api_internal_dtos_response.StatisticResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Search system statistics
+      tags:
+      - Statistics
+  /statistics/{date}:
+    get:
+      consumes:
+      - application/json
+      description: Fetch system statistics for a specific date
+      parameters:
+      - description: Date in YYYY-MM-DD format
+        in: path
+        name: date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/history-api_internal_dtos_response.StatisticResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Get system statistics by date
+      tags:
+      - Statistics
   /submissions:
     get:
       consumes:
@@ -2615,6 +2803,42 @@ paths:
       summary: Get user by ID
       tags:
       - Users
+    put:
+      consumes:
+      - application/json
+      description: Update the profile details of any user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update Profile request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.UpdateProfileDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user profile (Admin/Mod only)
+      tags:
+      - Users
   /users/{id}/application:
     get:
       consumes:
@@ -2663,6 +2887,43 @@ paths:
           schema:
             $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
       summary: Get user's media by user ID
+      tags:
+      - Users
+  /users/{id}/password:
+    patch:
+      consumes:
+      - application/json
+      description: Reset the password for any user without requiring the old password
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Reset Password request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/history-api_internal_dtos_request.ResetPasswordDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Reset user password (Admin/Mod only)
       tags:
       - Users
   /users/{id}/project:

@@ -1661,6 +1661,61 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/commits/{commitId}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve a specific commit by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Commits"
+                ],
+                "summary": "Get commit by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Commit ID",
+                        "name": "commitId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{id}": {
             "get": {
                 "security": [
@@ -2437,6 +2492,166 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch daily system statistics with optional date range filtering",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Statistics"
+                ],
+                "summary": "Search system statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date in YYYY-MM-DD format",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date in YYYY-MM-DD format",
+                        "name": "end_date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/history-api_internal_dtos_response.StatisticResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/statistics/{date}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch system statistics for a specific date",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Statistics"
+                ],
+                "summary": "Get system statistics by date",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Date in YYYY-MM-DD format",
+                        "name": "date",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/history-api_internal_dtos_response.StatisticResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
                         }
@@ -3311,6 +3526,62 @@ const docTemplate = `{
                     }
                 }
             },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the profile details of any user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Update user profile (Admin/Mod only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Profile request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.UpdateProfileDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "security": [
                     {
@@ -3416,6 +3687,64 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/password": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Reset the password for any user without requiring the old password",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Reset user password (Admin/Mod only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reset Password request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_request.ResetPasswordDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
                         }
@@ -4343,6 +4672,22 @@ const docTemplate = `{
                 }
             }
         },
+        "history-api_internal_dtos_request.ResetPasswordDto": {
+            "type": "object",
+            "required": [
+                "new_password"
+            ],
+            "properties": {
+                "is_send_email": {
+                    "type": "boolean"
+                },
+                "new_password": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 8
+                }
+            }
+        },
         "history-api_internal_dtos_request.RestoreCommitDto": {
             "type": "object",
             "required": [
@@ -4623,6 +4968,74 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "total_records": {
+                    "type": "integer"
+                }
+            }
+        },
+        "history-api_internal_dtos_response.StatisticResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "new_commits": {
+                    "type": "integer"
+                },
+                "new_entities": {
+                    "type": "integer"
+                },
+                "new_geometries": {
+                    "type": "integer"
+                },
+                "new_medias": {
+                    "type": "integer"
+                },
+                "new_projects": {
+                    "type": "integer"
+                },
+                "new_storage_bytes": {
+                    "type": "integer"
+                },
+                "new_submissions": {
+                    "type": "integer"
+                },
+                "new_users": {
+                    "type": "integer"
+                },
+                "new_wikis": {
+                    "type": "integer"
+                },
+                "total_commits": {
+                    "type": "integer"
+                },
+                "total_entities": {
+                    "type": "integer"
+                },
+                "total_geometries": {
+                    "type": "integer"
+                },
+                "total_medias": {
+                    "type": "integer"
+                },
+                "total_projects": {
+                    "type": "integer"
+                },
+                "total_storage_bytes": {
+                    "type": "integer"
+                },
+                "total_submissions": {
+                    "type": "integer"
+                },
+                "total_users": {
+                    "type": "integer"
+                },
+                "total_wikis": {
                     "type": "integer"
                 }
             }
