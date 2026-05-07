@@ -40,7 +40,6 @@ func processRagTask(ctx context.Context, ragRepo repositories.RagRepository, rag
 		}
 	}
 
-	// 2. Index wikis with delay + retry
 	for _, wiki := range task.Wikis {
 		if wiki.Source != "inline" {
 			continue
@@ -83,7 +82,6 @@ func processRagTask(ctx context.Context, ragRepo repositories.RagRepository, rag
 			continue
 		}
 
-		// Delete existing chunks then save new ones
 		_ = ragRepo.DeleteBySourceIDs(ctx, "wiki", []string{wiki.ID})
 		for i, chunk := range chunks {
 			if saveErr := ragRepo.SaveChunk(ctx, "wiki", wiki.ID, task.ProjectID, i, chunk, vectors[i]); saveErr != nil {
@@ -92,12 +90,9 @@ func processRagTask(ctx context.Context, ragRepo repositories.RagRepository, rag
 		}
 
 		log.Info().Str("worker", workerName).Str("wiki_id", wiki.ID).Int("chunks", len(chunks)).Msg("Wiki indexed successfully")
-
-		// Delay between items to avoid rate limit
 		time.Sleep(itemDelay)
 	}
 
-	// 3. Index entities with delay + retry
 	for _, entity := range task.Entities {
 		if entity.Source != "inline" {
 			continue
@@ -140,7 +135,6 @@ func processRagTask(ctx context.Context, ragRepo repositories.RagRepository, rag
 			continue
 		}
 
-		// Delete existing chunks then save new ones
 		_ = ragRepo.DeleteBySourceIDs(ctx, "entity", []string{entity.ID})
 		for i, chunk := range chunks {
 			if saveErr := ragRepo.SaveChunk(ctx, "entity", entity.ID, task.ProjectID, i, chunk, vectors[i]); saveErr != nil {

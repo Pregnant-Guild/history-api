@@ -61,7 +61,6 @@ func (r *tileRepository) GetTile(ctx context.Context, z, x, y int) ([]byte, stri
 		return nil, "", false, fmt.Errorf("invalid tile coordinates")
 	}
 
-	// cache key
 	cacheId := fmt.Sprintf("tile:%d:%d:%d", z, x, y)
 
 	var cached []byte

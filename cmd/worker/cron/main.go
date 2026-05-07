@@ -35,7 +35,6 @@ func runBackup(ctx context.Context, s3 storage.Storage, dbURI string) {
 	fileName := fmt.Sprintf("db_backup_%s.sql", time.Now().Format("2006-01-02_15-04-05"))
 	filePath := filepath.Join(tmpDir, fileName)
 
-	// Run pg_dump
 	cmd := exec.Command("pg_dump", dbURI, "-F", "c", "-f", filePath)
 	if err := cmd.Run(); err != nil {
 		log.Error().Err(err).Msg("Failed to execute pg_dump. Make sure pg_dump is installed.")

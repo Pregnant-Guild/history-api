@@ -224,7 +224,6 @@ func (r *statisticRepository) Upsert(ctx context.Context, date time.Time) (*mode
 
 	entity := mapToEntity(row)
 
-	// Clear search cache and the specific date cache
 	go func() {
 		bgCtx := context.Background()
 		_ = r.c.DelByPattern(bgCtx, "statistic:search*")

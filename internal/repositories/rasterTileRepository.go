@@ -61,7 +61,6 @@ func (r *rasterTileRepository) GetTile(ctx context.Context, z, x, y int) ([]byte
 		return nil, "", fmt.Errorf("invalid tile coordinates")
 	}
 
-	// cache key
 	cacheId := fmt.Sprintf("rasterTile:%d:%d:%d", z, x, y)
 
 	var cached []byte

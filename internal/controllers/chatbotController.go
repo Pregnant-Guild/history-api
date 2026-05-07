@@ -49,7 +49,6 @@ func (cx *ChatbotController) Chat(c fiber.Ctx) error {
 
 	answer, err := cx.chatbotService.Chat(ctx, claims.UId, dto.ProjectID, dto.Question)
 	if err != nil {
-		// Trả về lỗi 429 (Too Many Requests) nếu hết lượt dùng
 		if err.Error() == "you have reached your daily limit of 10 questions. Please come back tomorrow" {
 			return c.Status(fiber.StatusTooManyRequests).JSON(response.CommonResponse{
 				Status:  false,

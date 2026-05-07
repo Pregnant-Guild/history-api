@@ -78,8 +78,6 @@ Question: %s`, contextStr, question)
 	if err != nil {
 		return "", err
 	}
-
-	// 3. Tăng số lần sử dụng sau khi gọi AI thành công
 	_, _ = s.usageRepo.IncrementAIUsage(ctx, userID)
 
 	return response, nil
