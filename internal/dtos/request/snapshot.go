@@ -9,7 +9,6 @@ type CommitSnapshot struct {
 	Wikis                   []*WikiSnapshot           `json:"wikis,omitempty" validate:"omitempty,dive"`
 	GeometryEntity          []*GeometryEntitySnapshot `json:"geometry_entity,omitempty" validate:"omitempty,dive"`
 	EntityWiki              []*EntityWikiLinkSnapshot `json:"entity_wiki,omitempty" validate:"omitempty,dive"`
-	EntityWikis             []*EntityWikiLinkSnapshot `json:"entity_wikis,omitempty" validate:"omitempty,dive"`
 }
 
 type FeatureCollection struct {
@@ -41,8 +40,8 @@ type EntitySnapshot struct {
 	ID            string   `json:"id" validate:"required,uuidv7"`
 	Source        string   `json:"source,omitempty" validate:"omitempty,oneof=inline ref"`
 	Operation     string   `json:"operation,omitempty" validate:"omitempty,oneof=create update delete reference"`
-	Name          string   `json:"name" validate:"required"`
-	Slug          *string  `json:"slug" validate:"omitempty,slug"`
+	Name          string   `json:"name,omitempty" validate:"omitempty"`
+	Slug          *string  `json:"slug,omitempty" validate:"omitempty,slug"`
 	Description   string   `json:"description,omitempty"`
 	Status        *int     `json:"status,omitempty" validate:"omitempty,oneof=0 1"`
 	TimeStart     *float64 `json:"time_start,omitempty"`
@@ -55,7 +54,7 @@ type GeometrySnapshot struct {
 	ID            string          `json:"id" validate:"required,uuidv7"`
 	Source        string          `json:"source,omitempty" validate:"omitempty,oneof=inline ref"`
 	Operation     string          `json:"operation,omitempty" validate:"omitempty,oneof=create update delete reference"`
-	Type          string          `json:"type" validate:"required"`
+	Type          string          `json:"type,omitempty" validate:"omitempty"`
 	DrawGeometry  json.RawMessage `json:"draw_geometry,omitempty"`
 	Binding       []string        `json:"binding,omitempty"`
 	TimeStart     *float64        `json:"time_start,omitempty"`
@@ -75,6 +74,7 @@ type BBox struct {
 type GeometryEntitySnapshot struct {
 	GeometryID    string `json:"geometry_id" validate:"required,uuidv7"`
 	EntityID      string `json:"entity_id" validate:"required,uuidv7"`
+	Operation     string `json:"operation,omitempty" validate:"omitempty,oneof=reference delete binding"`
 	BaseLinksHash string `json:"base_links_hash,omitempty"`
 }
 
@@ -91,6 +91,6 @@ type WikiSnapshot struct {
 type EntityWikiLinkSnapshot struct {
 	EntityID  string `json:"entity_id" validate:"required,uuidv7"`
 	WikiID    string `json:"wiki_id" validate:"required,uuidv7"`
-	Operation string `json:"operation,omitempty" validate:"omitempty,oneof=reference delete"`
+	Operation string `json:"operation,omitempty" validate:"omitempty,oneof=reference delete binding"`
 	IsDeleted *int   `json:"is_deleted,omitempty" validate:"omitempty,oneof=0 1"`
 }
