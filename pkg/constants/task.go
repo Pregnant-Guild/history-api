@@ -8,6 +8,7 @@ const (
 	TaskTypeDeleteMedia           TaskType = "DELETE_MEDIA"
 	TaskTypeBulkDeleteMedia       TaskType = "BULK_DELETE_MEDIA"
 	TaskTypeRagIndexSubmission    TaskType = "RAG_INDEX_SUBMISSION"
+	TaskTypeAdminUserAction       TaskType = "ADMIN_USER_ACTION"
 )
 
 func (t TaskType) String() string {

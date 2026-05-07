@@ -34,6 +34,7 @@ type UserService interface {
 	RestoreUser(ctx context.Context, userId string) (*response.UserResponse, *fiber.Error)
 	GetUserByID(ctx context.Context, userId string) (*response.UserResponse, *fiber.Error)
 	SearchUser(ctx context.Context, dto *request.SearchUserDto) (*response.PaginatedResponse, *fiber.Error)
+	AdminResetPassword(ctx context.Context, userId string, dto *request.ResetPasswordDto) *fiber.Error
 }
 
 type userService struct {
@@ -121,7 +122,13 @@ func (u *userService) CreateUser(ctx context.Context, dto *request.CreateUserDto
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
 	}
-	
+
+	_ = u.c.PublishTask(ctx, constants.StreamEmailName, constants.TaskTypeAdminUserAction, models.AdminUserActionPayload{
+		Email:    dto.Email,
+		Password: dto.Password,
+		Action:   "create",
+	})
+
 	finalUser, err := u.userRepo.GetByID(ctx, userUUID)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch created user")
@@ -186,6 +193,63 @@ func (u *userService) ChangePassword(ctx context.Context, userId string, dto *re
 	if err := tx.Commit(ctx); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
 	}
+	return nil
+}
+
+func (u *userService) AdminResetPassword(ctx context.Context, userId string, dto *request.ResetPasswordDto) *fiber.Error {
+	tx, err := u.db.Begin(ctx)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to start transaction")
+	}
+	defer tx.Rollback(ctx)
+
+	uRepo := u.userRepo.WithTx(tx)
+
+	pgID, err := convert.StringToUUID(userId)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
+	}
+	user, err := u.userRepo.GetByID(ctx, pgID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "Failed to fetch user")
+	}
+	if user == nil {
+		return fiber.NewError(fiber.StatusNotFound, "User not found")
+	}
+
+	hashPassword, err := bcrypt.GenerateFromPassword([]byte(dto.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to hash new password")
+	}
+
+	err = uRepo.UpdatePassword(ctx, sqlc.UpdateUserPasswordParams{
+		ID:           pgID,
+		PasswordHash: pgtype.Text{String: string(hashPassword), Valid: true},
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to update password")
+	}
+
+	err = uRepo.UpdateTokenVersion(ctx, sqlc.UpdateTokenVersionParams{
+		ID:           pgID,
+		TokenVersion: user.TokenVersion + 1,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to update token version")
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
+	}
+
+	if dto.IsSendEmail {
+		_ = u.c.PublishTask(ctx, constants.StreamEmailName, constants.TaskTypeAdminUserAction, models.AdminUserActionPayload{
+			Email:    user.Email,
+			Password: dto.NewPassword,
+			Action:   "reset",
+		})
+	}
+
 	return nil
 }
 

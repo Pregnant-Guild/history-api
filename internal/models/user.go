@@ -88,3 +88,9 @@ func UsersEntityToResponse(users []*UserEntity) []*response.UserResponse {
 	}
 	return out
 }
+
+type AdminUserActionPayload struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Action   string `json:"action"`
+}

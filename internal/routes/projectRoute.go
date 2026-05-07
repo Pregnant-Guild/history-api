@@ -16,6 +16,12 @@ func ProjectRoutes(
 	userRepo repositories.UserRepository,
 ) {
 	route := app.Group("/projects")
+	
+	route.Get(
+		"/commits/:commitId",
+		middlewares.JwtAccess(userRepo),
+		commitController.GetCommitByID,
+	)
 
 	route.Post(
 		"/:id/commits",
@@ -34,6 +40,7 @@ func ProjectRoutes(
 		middlewares.JwtAccess(userRepo),
 		commitController.GetProjectCommits,
 	)
+
 
 	route.Post(
 		"/:id/members",

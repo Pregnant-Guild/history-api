@@ -22,6 +22,7 @@ type CommitService interface {
 	CreateCommit(ctx context.Context, userID string, projectID string, dto *request.CreateCommitDto) (*response.CommitResponse, *fiber.Error)
 	RestoreCommit(ctx context.Context, userID string, projectID string, dto *request.RestoreCommitDto) *fiber.Error
 	GetProjectCommits(ctx context.Context, projectID string) ([]*response.CommitResponse, *fiber.Error)
+	GetCommitByID(ctx context.Context, commitID string) (*response.CommitResponse, *fiber.Error)
 }
 
 type commitService struct {
@@ -187,4 +188,18 @@ func (s *commitService) GetProjectCommits(ctx context.Context, projectID string)
 	}
 
 	return models.CommitsEntityToResponse(commits), nil
+}
+
+func (s *commitService) GetCommitByID(ctx context.Context, commitID string) (*response.CommitResponse, *fiber.Error) {
+	commitUUID, err := convert.StringToUUID(commitID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid commit ID")
+	}
+
+	commit, err := s.commitRepo.GetByID(ctx, commitUUID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusNotFound, "Commit not found")
+	}
+
+	return commit.ToResponse(), nil
 }

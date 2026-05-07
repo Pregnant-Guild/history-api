@@ -45,3 +45,8 @@ type CreateUserDto struct {
 	DisplayName string   `json:"display_name" validate:"required,min=2,max=50"`
 	Roles       []string `json:"role_ids" validate:"required,min=1,dive,required,uuid"`
 }
+
+type ResetPasswordDto struct {
+	NewPassword string `json:"new_password" validate:"required,min=8,max=64"`
+	IsSendEmail bool   `json:"is_send_email"`
+}

@@ -96,6 +96,7 @@ func (s *FiberServer) SetupServer(
 
 	raguRepo := repositories.NewRagRepository(poolPg, redis)
 	usageRepo := repositories.NewUsageRepository(redis)
+	statisticRepo := repositories.NewStatisticRepository(poolPg, redis)
 
 	// service setup
 	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis, poolPg)
@@ -116,6 +117,7 @@ func (s *FiberServer) SetupServer(
 		raguRepo, raguUtils, poolPg, redis,
 	)
 	chatbotService := services.NewChatbotService(raguRepo, usageRepo, raguUtils)
+	statisticService := services.NewStatisticService(statisticRepo)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)
@@ -132,6 +134,7 @@ func (s *FiberServer) SetupServer(
 	commitController := controllers.NewCommitController(commitService)
 	submissionController := controllers.NewSubmissionController(submissionService)
 	chatbotController := controllers.NewChatbotController(chatbotService)
+	statisticController := controllers.NewStatisticController(statisticService)
 
 	// route setup
 	routes.AuthRoutes(s.App, authController, userRepo)
@@ -147,5 +150,6 @@ func (s *FiberServer) SetupServer(
 	routes.ProjectRoutes(s.App, projectController, commitController, userRepo)
 	routes.SubmissionRoutes(s.App, submissionController, userRepo)
 	routes.ChatbotRoutes(s.App, chatbotController, userRepo)
+	routes.StatisticRoutes(s.App, statisticController, userRepo)
 	routes.NotFoundRoute(s.App)
 }

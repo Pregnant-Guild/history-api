@@ -136,3 +136,35 @@ func (h *CommitController) GetProjectCommits(c fiber.Ctx) error {
 		Data:   res,
 	})
 }
+
+// GetCommitByID godoc
+// @Summary Get commit by ID
+// @Description Retrieve a specific commit by its ID
+// @Tags Commits
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param commitId path string true "Commit ID"
+// @Success 200 {object} response.CommonResponse
+// @Failure 400 {object} response.CommonResponse
+// @Failure 404 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /projects/commits/{commitId} [get]
+func (h *CommitController) GetCommitByID(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	commitID := c.Params("commitId")
+	res, err := h.service.GetCommitByID(ctx, commitID)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}

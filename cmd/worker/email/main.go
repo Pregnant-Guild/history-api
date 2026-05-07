@@ -87,6 +87,26 @@ func runSingleWorker(ctx context.Context, rdb *redis.Client, consumerID int) {
 						continue
 					}
 				}
+				
+				if taskType == constants.TaskTypeAdminUserAction.String() {
+					var data models.AdminUserActionPayload
+					if err := json.Unmarshal([]byte(payloadStr), &data); err != nil {
+						log.Error().Err(err).Msg("Failed to unmarshal payload")
+						continue
+					}
+
+					log.Info().
+						Str("worker", consumerName).
+						Str("email", data.Email).
+						Str("action", data.Action).
+						Msg("Processing admin user action email task")
+
+					errSend := email.SendAdminUserActionMail(&data)
+					if errSend != nil {
+						log.Error().Err(errSend).Str("email", data.Email).Msg("Failed to send email")
+						continue
+					}
+				}
 
 				rdb.XAck(ctx, constants.StreamEmailName, constants.GroupEmailName, message.ID)
 				log.Info().Str("msg_id", message.ID).Msg("Task acknowledged")

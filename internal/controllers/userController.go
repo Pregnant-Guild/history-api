@@ -526,3 +526,80 @@ func (h *UserController) GetProjectByUserID(c fiber.Ctx) error {
 		Data:   res,
 	})
 }
+
+// AdminUpdateProfile godoc
+// @Summary Update user profile (Admin/Mod only)
+// @Description Update the profile details of any user
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param request body request.UpdateProfileDto true "Update Profile request"
+// @Success 200 {object} response.CommonResponse
+// @Failure 400 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /users/{id} [put]
+func (h *UserController) AdminUpdateProfile(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	userId := c.Params("id")
+	dto := &request.UpdateProfileDto{}
+	if err := validator.ValidateBodyDto(c, dto); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
+			Status: false,
+			Errors: err,
+		})
+	}
+
+	res, err := h.service.UpdateProfile(ctx, userId, dto)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}
+
+// AdminResetPassword godoc
+// @Summary Reset user password (Admin/Mod only)
+// @Description Reset the password for any user without requiring the old password
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param request body request.ResetPasswordDto true "Reset Password request"
+// @Success 200 {object} response.CommonResponse
+// @Failure 400 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /users/{id}/password [patch]
+func (h *UserController) AdminResetPassword(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	userId := c.Params("id")
+	dto := &request.ResetPasswordDto{}
+	if err := validator.ValidateBodyDto(c, dto); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
+			Status: false,
+			Errors: err,
+		})
+	}
+	err := h.service.AdminResetPassword(ctx, userId, dto)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status:  true,
+		Message: "Password reset successfully",
+	})
+}

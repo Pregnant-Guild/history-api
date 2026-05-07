@@ -104,3 +104,23 @@ func SendHistorianReviewMail(dto *models.UserVerificationStorageEntity) error {
 		"APP_URL": feUrl,
 	})
 }
+
+func SendAdminUserActionMail(payload *models.AdminUserActionPayload) error {
+	var subject string
+	templatePath := "resources/admin_user_action.html"
+
+	switch payload.Action {
+	case "create":
+		subject = "Your account has been created"
+	case "reset":
+		subject = "Your password has been reset"
+	default:
+		return fmt.Errorf("invalid action: %s", payload.Action)
+	}
+
+	return SendMail(payload.Email, subject, templatePath, map[string]string{
+		"EMAIL":    payload.Email,
+		"PASSWORD": payload.Password,
+		"ACTION":   payload.Action,
+	})
+}
