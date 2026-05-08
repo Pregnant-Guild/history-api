@@ -13,4 +13,5 @@ func ChatbotRoutes(app *fiber.App, controller *controllers.ChatbotController, us
 
 	route.Use(middlewares.JwtAccess(userRepo))
 	route.Post("/chat", controller.Chat)
+	route.Get("/history", controller.GetHistory)
 }

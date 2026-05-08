@@ -462,6 +462,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/chatbot/history": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get chatbot history for the current user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chatbot"
+                ],
+                "summary": "Get chatbot history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cursor ID for pagination",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit number of items returned, default 10",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/history-api_internal_dtos_response.GetChatbotHistoryResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/entities": {
             "get": {
                 "description": "Search entities with cursor pagination",
@@ -4208,12 +4274,6 @@ const docTemplate = `{
                         "$ref": "#/definitions/history-api_internal_dtos_request.EntityWikiLinkSnapshot"
                     }
                 },
-                "entity_wikis": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/history-api_internal_dtos_request.EntityWikiLinkSnapshot"
-                    }
-                },
                 "geometries": {
                     "type": "array",
                     "items": {
@@ -4378,8 +4438,7 @@ const docTemplate = `{
         "history-api_internal_dtos_request.EntitySnapshot": {
             "type": "object",
             "required": [
-                "id",
-                "name"
+                "id"
             ],
             "properties": {
                 "base_hash": {
@@ -4452,7 +4511,8 @@ const docTemplate = `{
                     "type": "string",
                     "enum": [
                         "reference",
-                        "delete"
+                        "delete",
+                        "binding"
                     ]
                 },
                 "wiki_id": {
@@ -4586,14 +4646,21 @@ const docTemplate = `{
                 },
                 "geometry_id": {
                     "type": "string"
+                },
+                "operation": {
+                    "type": "string",
+                    "enum": [
+                        "reference",
+                        "delete",
+                        "binding"
+                    ]
                 }
             }
         },
         "history-api_internal_dtos_request.GeometrySnapshot": {
             "type": "object",
             "required": [
-                "id",
-                "type"
+                "id"
             ],
             "properties": {
                 "base_hash": {
@@ -4926,6 +4993,26 @@ const docTemplate = `{
                 }
             }
         },
+        "history-api_internal_dtos_response.ChatbotHistoryDto": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "history-api_internal_dtos_response.CommonResponse": {
             "type": "object",
             "properties": {
@@ -4936,6 +5023,20 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "boolean"
+                }
+            }
+        },
+        "history-api_internal_dtos_response.GetChatbotHistoryResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/history-api_internal_dtos_response.ChatbotHistoryDto"
+                    }
+                },
+                "pre_cursor": {
+                    "type": "string"
                 }
             }
         },

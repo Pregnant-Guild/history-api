@@ -11,6 +11,14 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+type ChatbotHistory struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Question  string             `json:"question"`
+	Answer    string             `json:"answer"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Commit struct {
 	ID           pgtype.UUID        `json:"id"`
 	ProjectID    pgtype.UUID        `json:"project_id"`
@@ -20,6 +28,16 @@ type Commit struct {
 	EditSummary  pgtype.Text        `json:"edit_summary"`
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type Conversation struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	ModID     pgtype.UUID        `json:"mod_id"`
+	Status    int16              `json:"status"`
+	ClosedAt  pgtype.Timestamptz `json:"closed_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Entity struct {
@@ -72,6 +90,14 @@ type Media struct {
 	FileMetadata []byte             `json:"file_metadata"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Message struct {
+	ID             pgtype.UUID        `json:"id"`
+	ConversationID pgtype.UUID        `json:"conversation_id"`
+	SenderID       pgtype.UUID        `json:"sender_id"`
+	Content        string             `json:"content"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type Project struct {

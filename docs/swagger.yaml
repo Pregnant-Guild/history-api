@@ -80,10 +80,6 @@ definitions:
         items:
           $ref: '#/definitions/history-api_internal_dtos_request.EntityWikiLinkSnapshot'
         type: array
-      entity_wikis:
-        items:
-          $ref: '#/definitions/history-api_internal_dtos_request.EntityWikiLinkSnapshot'
-        type: array
       geometries:
         items:
           $ref: '#/definitions/history-api_internal_dtos_request.GeometrySnapshot'
@@ -232,7 +228,6 @@ definitions:
         type: number
     required:
     - id
-    - name
     type: object
   history-api_internal_dtos_request.EntityWikiLinkSnapshot:
     properties:
@@ -247,6 +242,7 @@ definitions:
         enum:
         - reference
         - delete
+        - binding
         type: string
       wiki_id:
         type: string
@@ -338,6 +334,12 @@ definitions:
         type: string
       geometry_id:
         type: string
+      operation:
+        enum:
+        - reference
+        - delete
+        - binding
+        type: string
     required:
     - entity_id
     - geometry_id
@@ -380,7 +382,6 @@ definitions:
         type: string
     required:
     - id
-    - type
     type: object
   history-api_internal_dtos_request.MediaBulkDeleteDto:
     properties:
@@ -577,6 +578,19 @@ definitions:
     - id
     - title
     type: object
+  history-api_internal_dtos_response.ChatbotHistoryDto:
+    properties:
+      answer:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      question:
+        type: string
+      user_id:
+        type: string
+    type: object
   history-api_internal_dtos_response.CommonResponse:
     properties:
       data: {}
@@ -585,6 +599,15 @@ definitions:
         type: string
       status:
         type: boolean
+    type: object
+  history-api_internal_dtos_response.GetChatbotHistoryResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/history-api_internal_dtos_response.ChatbotHistoryDto'
+        type: array
+      pre_cursor:
+        type: string
     type: object
   history-api_internal_dtos_response.PaginatedResponse:
     properties:
@@ -960,6 +983,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Ask the AI chatbot
+      tags:
+      - Chatbot
+  /chatbot/history:
+    get:
+      consumes:
+      - application/json
+      description: Get chatbot history for the current user
+      parameters:
+      - description: Cursor ID for pagination
+        in: query
+        name: cursor
+        type: string
+      - description: Limit number of items returned, default 10
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful response
+          schema:
+            allOf:
+            - $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/history-api_internal_dtos_response.GetChatbotHistoryResponse'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Get chatbot history
       tags:
       - Chatbot
   /entities:
