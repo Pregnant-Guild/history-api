@@ -460,15 +460,19 @@ WHERE g.is_deleted = false
   )
   AND (
     $6::int IS NULL OR
-    int4range(g.time_start, g.time_end, '[]') @> $6::int
+    int4range(g.time_start, g.time_end, '[]') && int4range(
+        $6::int - COALESCE($7::int, 0),
+        $6::int + COALESCE($7::int, 0),
+        '[]'
+    )
   )
   AND (
-    $7::uuid IS NULL OR
+    $8::uuid IS NULL OR
     EXISTS (
         SELECT 1 
         FROM entity_geometries eg 
         WHERE eg.geometry_id = g.id 
-          AND eg.entity_id = $7::uuid
+          AND eg.entity_id = $8::uuid
     )
   )
 ORDER BY g.id DESC
@@ -481,6 +485,7 @@ type SearchGeometriesParams struct {
 	SearchMaxLng pgtype.Float8 `json:"search_max_lng"`
 	SearchMaxLat pgtype.Float8 `json:"search_max_lat"`
 	TimePoint    pgtype.Int4   `json:"time_point"`
+	TimeRange    pgtype.Int4   `json:"time_range"`
 	EntityID     pgtype.UUID   `json:"entity_id"`
 }
 
@@ -509,6 +514,7 @@ func (q *Queries) SearchGeometries(ctx context.Context, arg SearchGeometriesPara
 		arg.SearchMaxLng,
 		arg.SearchMaxLat,
 		arg.TimePoint,
+		arg.TimeRange,
 		arg.EntityID,
 	)
 	if err != nil {

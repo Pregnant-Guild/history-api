@@ -61,6 +61,10 @@ func (s *geometryService) SearchGeometries(ctx context.Context, req *request.Sea
 		params.TimePoint = pgtype.Int4{Int32: *req.TimePoint, Valid: true}
 	}
 
+	if req.TimeRange != nil {
+		params.TimeRange = pgtype.Int4{Int32: *req.TimeRange, Valid: true}
+	}
+
 	if req.EntityID != nil {
 		entityId, err := convert.StringToUUID(*req.EntityID)
 		if err != nil {

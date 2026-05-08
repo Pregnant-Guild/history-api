@@ -1174,6 +1174,9 @@ paths:
       - in: query
         name: time
         type: integer
+      - in: query
+        name: time_range
+        type: integer
       produces:
       - application/json
       responses:

@@ -756,6 +756,11 @@ const docTemplate = `{
                         "type": "integer",
                         "name": "time",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "name": "time_range",
+                        "in": "query"
                     }
                 ],
                 "responses": {

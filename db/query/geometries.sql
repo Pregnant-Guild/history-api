@@ -67,7 +67,11 @@ WHERE g.is_deleted = false
   )
   AND (
     sqlc.narg('time_point')::int IS NULL OR
-    int4range(g.time_start, g.time_end, '[]') @> sqlc.narg('time_point')::int
+    int4range(g.time_start, g.time_end, '[]') && int4range(
+        sqlc.narg('time_point')::int - COALESCE(sqlc.narg('time_range')::int, 0),
+        sqlc.narg('time_point')::int + COALESCE(sqlc.narg('time_range')::int, 0),
+        '[]'
+    )
   )
   AND (
     sqlc.narg('entity_id')::uuid IS NULL OR
