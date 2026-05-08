@@ -135,7 +135,7 @@ func (s *commitService) CreateCommit(ctx context.Context, userID string, project
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
 	}
 
-	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", projectID))
+	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", projectID), fmt.Sprintf("commit:project:%s", projectID))
 
 	return commit.ToResponse(), nil
 }

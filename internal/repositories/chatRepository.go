@@ -246,7 +246,6 @@ func (r *chatRepository) CreateConversation(ctx context.Context, params sqlc.Cre
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Set(ctx, fmt.Sprintf("conversation:id:%s", entity.ID), entity, constants.NormalCacheDuration)
 	return entity, nil
 }
 
@@ -264,7 +263,7 @@ func (r *chatRepository) UpdateConversationStatus(ctx context.Context, params sq
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Set(ctx, fmt.Sprintf("conversation:id:%s", entity.ID), entity, constants.NormalCacheDuration)
+	_ = r.c.Del(ctx, fmt.Sprintf("conversation:id:%s", entity.ID))
 	return entity, nil
 }
 
@@ -280,7 +279,7 @@ func (r *chatRepository) CreateMessage(ctx context.Context, params sqlc.CreateMe
 		Content:        row.Content,
 		CreatedAt:      convert.TimeToPtr(row.CreatedAt),
 	}
-	_ = r.c.Set(ctx, fmt.Sprintf("message:id:%s", entity.ID), entity, constants.NormalCacheDuration)
+
 	return entity, nil
 }
 
@@ -328,6 +327,7 @@ func (r *chatRepository) CreateChatbotHistory(ctx context.Context, params sqlc.C
 	if err != nil {
 		return nil, err
 	}
+
 	entity := &models.ChatbotHistoryEntity{
 		ID:        convert.UUIDToString(row.ID),
 		UserID:    convert.UUIDToString(row.UserID),
@@ -335,12 +335,24 @@ func (r *chatRepository) CreateChatbotHistory(ctx context.Context, params sqlc.C
 		Answer:    row.Answer,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 	}
-	_ = r.c.Set(ctx, fmt.Sprintf("chatbot_history:id:%s", entity.ID), entity, constants.NormalCacheDuration)
+
+	go func() {
+		userId := convert.UUIDToString(params.UserID)
+		if userId != "" {
+			_ = r.c.DelByPattern(context.Background(), fmt.Sprintf("chatbot_history:userId:%s:*", userId))
+		}
+	}()
+
 	return entity, nil
 }
 
 func (r *chatRepository) GetChatbotHistory(ctx context.Context, params sqlc.GetChatbotHistoryParams) ([]*models.ChatbotHistoryEntity, error) {
-	queryKey := r.generateQueryKey("chatbot_history:user", params)
+	queryKey := fmt.Sprintf(
+		"chatbot_history:userId:%s:limit:%d:cursor:%s",
+		convert.UUIDToString(params.UserID),
+		params.Limit,
+		convert.UUIDToString(params.CursorID),
+	)
 	var cachedIDs []string
 	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
 		return r.getChatbotHistoriesByIDsWithFallback(ctx, cachedIDs)
