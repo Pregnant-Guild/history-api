@@ -46,9 +46,9 @@ func (cx *ChatbotController) Chat(c fiber.Ctx) error {
 		})
 	}
 
-	claims := c.Locals("user").(*response.JWTClaims)
+	uid := c.Locals("uid").(string)
 
-	answer, err := cx.chatbotService.Chat(ctx, claims.UId, dto.ProjectID, dto.Question)
+	answer, err := cx.chatbotService.Chat(ctx, uid, dto.ProjectID, dto.Question)
 	if err != nil {
 		if err.Error() == "you have reached your daily limit of 10 questions. Please come back tomorrow" {
 			return c.Status(fiber.StatusTooManyRequests).JSON(response.CommonResponse{
