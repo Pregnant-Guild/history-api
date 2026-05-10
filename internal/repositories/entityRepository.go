@@ -20,6 +20,7 @@ type EntityRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.EntityEntity, error)
 	GetByIDs(ctx context.Context, ids []string) ([]*models.EntityEntity, error)
 	GetBySlug(ctx context.Context, slug string) (*models.EntityEntity, error)
+	GetBySlugs(ctx context.Context, slugs []string) ([]*models.EntityEntity, error)
 	Search(ctx context.Context, params sqlc.SearchEntitiesParams) ([]*models.EntityEntity, error)
 	Create(ctx context.Context, params sqlc.CreateEntityParams) (*models.EntityEntity, error)
 	Update(ctx context.Context, params sqlc.UpdateEntityParams) (*models.EntityEntity, error)
@@ -348,4 +349,68 @@ func (r *entityRepository) GetBySlug(ctx context.Context, slug string) (*models.
 	_ = r.c.Set(ctx, cacheKey, entity, constants.NormalCacheDuration)
 
 	return &entity, nil
+}
+
+func (r *entityRepository) GetBySlugs(ctx context.Context, slugs []string) ([]*models.EntityEntity, error) {
+	if len(slugs) == 0 {
+		return []*models.EntityEntity{}, nil
+	}
+	keys := make([]string, len(slugs))
+	for i, slug := range slugs {
+		keys[i] = fmt.Sprintf("entity:slug:%s", slug)
+	}
+	raws := r.c.MGet(ctx, keys...)
+
+	var entities []*models.EntityEntity
+	missingToCache := make(map[string]any)
+	var missingSlugs []string
+
+	for i, b := range raws {
+		if len(b) == 0 {
+			missingSlugs = append(missingSlugs, slugs[i])
+		}
+	}
+
+	dbMap := make(map[string]*models.EntityEntity)
+	if len(missingSlugs) > 0 {
+		dbRows, err := r.q.GetEntitiesBySlugs(ctx, missingSlugs)
+		if err == nil {
+			for _, row := range dbRows {
+				item := models.EntityEntity{
+					ID:          convert.UUIDToString(row.ID),
+					Name:        row.Name,
+					Slug:        convert.TextToString(row.Slug),
+					Description: convert.TextToString(row.Description),
+					ProjectID:   convert.UUIDToString(row.ProjectID),
+					Status:      convert.Int2ToInt16Ptr(row.Status),
+					TimeStart:   convert.Int4ToPtr(row.TimeStart),
+					TimeEnd:     convert.Int4ToPtr(row.TimeEnd),
+					IsDeleted:   row.IsDeleted,
+					CreatedAt:   convert.TimeToPtr(row.CreatedAt),
+					UpdatedAt:   convert.TimeToPtr(row.UpdatedAt),
+				}
+				dbMap[item.Slug] = &item
+			}
+		}
+	}
+
+	for i, b := range raws {
+		if len(b) > 0 {
+			var u models.EntityEntity
+			if err := json.Unmarshal(b, &u); err == nil {
+				entities = append(entities, &u)
+			}
+		} else {
+			if item, ok := dbMap[slugs[i]]; ok {
+				entities = append(entities, item)
+				missingToCache[keys[i]] = item
+			}
+		}
+	}
+
+	if len(missingToCache) > 0 {
+		_ = r.c.MSet(ctx, missingToCache, constants.NormalCacheDuration)
+	}
+
+	return entities, nil
 }

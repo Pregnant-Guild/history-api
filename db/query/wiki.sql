@@ -90,3 +90,6 @@ WHERE entity_id = $1 AND wiki_id = $2;
 SELECT *
 FROM wikis
 WHERE slug = $1 AND is_deleted = false;
+
+-- name: GetWikisBySlugs :many
+SELECT * FROM wikis WHERE slug = ANY($1::text[]) AND is_deleted = false;

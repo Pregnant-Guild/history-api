@@ -65,3 +65,6 @@ WHERE id = ANY($1::uuid[]);
 SELECT *
 FROM entities
 WHERE slug = $1 AND is_deleted = false;
+
+-- name: GetEntitiesBySlugs :many
+SELECT * FROM entities WHERE slug = ANY($1::text[]) AND is_deleted = false;

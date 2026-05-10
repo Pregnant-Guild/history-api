@@ -20,6 +20,7 @@ type WikiRepository interface {
 	GetByID(ctx context.Context, id pgtype.UUID) (*models.WikiEntity, error)
 	GetByIDs(ctx context.Context, ids []string) ([]*models.WikiEntity, error)
 	GetBySlug(ctx context.Context, slug string) (*models.WikiEntity, error)
+	GetBySlugs(ctx context.Context, slugs []string) ([]*models.WikiEntity, error)
 	Search(ctx context.Context, params sqlc.SearchWikisParams) ([]*models.WikiEntity, error)
 	Create(ctx context.Context, params sqlc.CreateWikiParams) (*models.WikiEntity, error)
 	Update(ctx context.Context, params sqlc.UpdateWikiParams) (*models.WikiEntity, error)
@@ -358,4 +359,65 @@ func (r *wikiRepository) GetBySlug(ctx context.Context, slug string) (*models.Wi
 	_ = r.c.Set(ctx, cacheKey, wiki, constants.NormalCacheDuration)
 
 	return &wiki, nil
+}
+
+func (r *wikiRepository) GetBySlugs(ctx context.Context, slugs []string) ([]*models.WikiEntity, error) {
+	if len(slugs) == 0 {
+		return []*models.WikiEntity{}, nil
+	}
+	keys := make([]string, len(slugs))
+	for i, slug := range slugs {
+		keys[i] = fmt.Sprintf("wiki:slug:%s", slug)
+	}
+	raws := r.c.MGet(ctx, keys...)
+
+	var wikis []*models.WikiEntity
+	missingToCache := make(map[string]any)
+	var missingSlugs []string
+
+	for i, b := range raws {
+		if len(b) == 0 {
+			missingSlugs = append(missingSlugs, slugs[i])
+		}
+	}
+
+	dbMap := make(map[string]*models.WikiEntity)
+	if len(missingSlugs) > 0 {
+		dbRows, err := r.q.GetWikisBySlugs(ctx, missingSlugs)
+		if err == nil {
+			for _, row := range dbRows {
+				item := models.WikiEntity{
+					ID:        convert.UUIDToString(row.ID),
+					Title:     convert.TextToString(row.Title),
+					Slug:      convert.TextToString(row.Slug),
+					Content:   convert.TextToString(row.Content),
+					IsDeleted: row.IsDeleted,
+					ProjectID: convert.UUIDToString(row.ProjectID),
+					CreatedAt: convert.TimeToPtr(row.CreatedAt),
+					UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
+				}
+				dbMap[item.Slug] = &item
+			}
+		}
+	}
+
+	for i, b := range raws {
+		if len(b) > 0 {
+			var u models.WikiEntity
+			if err := json.Unmarshal(b, &u); err == nil {
+				wikis = append(wikis, &u)
+			}
+		} else {
+			if item, ok := dbMap[slugs[i]]; ok {
+				wikis = append(wikis, item)
+				missingToCache[keys[i]] = item
+			}
+		}
+	}
+
+	if len(missingToCache) > 0 {
+		_ = r.c.MSet(ctx, missingToCache, constants.NormalCacheDuration)
+	}
+
+	return wikis, nil
 }

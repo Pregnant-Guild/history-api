@@ -156,6 +156,42 @@ func (q *Queries) GetEntitiesByProjectId(ctx context.Context, projectID pgtype.U
 	return items, nil
 }
 
+const getEntitiesBySlugs = `-- name: GetEntitiesBySlugs :many
+SELECT id, project_id, name, slug, description, status, time_start, time_end, is_deleted, created_at, updated_at FROM entities WHERE slug = ANY($1::text[]) AND is_deleted = false
+`
+
+func (q *Queries) GetEntitiesBySlugs(ctx context.Context, dollar_1 []string) ([]Entity, error) {
+	rows, err := q.db.Query(ctx, getEntitiesBySlugs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Entity{}
+	for rows.Next() {
+		var i Entity
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Slug,
+			&i.Description,
+			&i.Status,
+			&i.TimeStart,
+			&i.TimeEnd,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getEntityById = `-- name: GetEntityById :one
 SELECT id, project_id, name, slug, description, status, time_start, time_end, is_deleted, created_at, updated_at
 FROM entities

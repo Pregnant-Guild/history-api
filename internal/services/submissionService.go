@@ -2,9 +2,7 @@ package services
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
@@ -104,26 +102,48 @@ func (s *submissionService) CreateSubmission(ctx context.Context, userID string,
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to parse commit snapshot")
 	}
 
+	var entitySlugs []string
+	entitySlugToID := make(map[string]string)
 	for _, entity := range snapshotData.Entities {
-		if entity.Slug != nil {
-			exist, err := s.entityRepo.GetBySlug(ctx, *entity.Slug)
-			if err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get entity")
-			}
-			if exist != nil {
-				return nil, fiber.NewError(fiber.StatusConflict, fmt.Sprintf("Entity %s already exists", *entity.Slug))
+		if entity.Source == "inline" && entity.Slug != nil {
+			entitySlugs = append(entitySlugs, *entity.Slug)
+			entitySlugToID[*entity.Slug] = entity.ID
+		}
+	}
+
+	if len(entitySlugs) > 0 {
+		existEntities, err := s.entityRepo.GetBySlugs(ctx, entitySlugs)
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get entities")
+		}
+		for _, exist := range existEntities {
+			if snapID, ok := entitySlugToID[exist.Slug]; ok {
+				if exist.ID != snapID {
+					return nil, fiber.NewError(fiber.StatusConflict, fmt.Sprintf("Entity %s already exists", exist.Slug))
+				}
 			}
 		}
 	}
 
+	var wikiSlugs []string
+	wikiSlugToID := make(map[string]string)
 	for _, wiki := range snapshotData.Wikis {
-		if wiki.Slug != nil {
-			exist, err := s.wikiRepo.GetBySlug(ctx, *wiki.Slug)
-			if err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get wiki")
-			}
-			if exist != nil {
-				return nil, fiber.NewError(fiber.StatusConflict, fmt.Sprintf("Wiki %s already exists", *wiki.Slug))
+		if wiki.Source == "inline" && wiki.Slug != nil {
+			wikiSlugs = append(wikiSlugs, *wiki.Slug)
+			wikiSlugToID[*wiki.Slug] = wiki.ID
+		}
+	}
+
+	if len(wikiSlugs) > 0 {
+		existWikis, err := s.wikiRepo.GetBySlugs(ctx, wikiSlugs)
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get wikis")
+		}
+		for _, exist := range existWikis {
+			if snapID, ok := wikiSlugToID[exist.Slug]; ok {
+				if exist.ID != snapID {
+					return nil, fiber.NewError(fiber.StatusConflict, fmt.Sprintf("Wiki %s already exists", exist.Slug))
+				}
 			}
 		}
 	}
