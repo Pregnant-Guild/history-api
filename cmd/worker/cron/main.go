@@ -105,14 +105,14 @@ func main() {
 	// Run initially on startup
 	runStatistics(context.Background(), statisticRepo)
 
-	s, err := gocron.NewScheduler()
+	s, err := gocron.NewScheduler(gocron.WithLocation(time.Local))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create scheduler")
 	}
 
-	// Run statistics every day at midnight (00:00)
+	// Run statistics every day at 01:00 AM
 	_, err = s.NewJob(
-		gocron.DailyJob(1, gocron.NewAtTimes(gocron.NewAtTime(0, 0, 0))),
+		gocron.DailyJob(1, gocron.NewAtTimes(gocron.NewAtTime(1, 0, 0))),
 		gocron.NewTask(func() {
 			runStatistics(context.Background(), statisticRepo)
 		}),
