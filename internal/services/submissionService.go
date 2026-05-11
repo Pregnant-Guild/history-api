@@ -512,12 +512,29 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 					ID:        wikiUUID,
 					Title:     convert.StringToText(wiki.Title),
 					Slug:      convert.PtrToText(wiki.Slug),
-					Content:   convert.StringToText(wiki.Doc),
 					ProjectID: projectUUID,
 				})
 				if err != nil {
 					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update wiki: "+err.Error())
 				}
+
+				count, err := s.wikiRepo.GetContentCountByWikiID(ctx, wikiUUID)
+				if err != nil {
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get wiki content count: "+err.Error())
+				}
+				versionTitle := fmt.Sprintf("Version %d", count+1)
+
+				_, err = wikiRepo.CreateContent(ctx, sqlc.CreateWikiContentParams{
+					WikiID:  wikiUUID,
+					Title:   versionTitle,
+					Content: convert.StringToText(wiki.Doc),
+				})
+				if err != nil {
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create wiki content: "+err.Error())
+				}
+
+				_ = s.c.Del(ctx, fmt.Sprintf("wiki:id:%s", wikiUUID.String()), fmt.Sprintf("wiki:slug:%s", *wiki.Slug))
+
 				newWikis = append(newWikis, snapshotData.Wikis[i])
 
 			} else if wiki.Source == "inline" {
@@ -525,12 +542,23 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 					ID:        wikiUUID,
 					Title:     convert.StringToText(wiki.Title),
 					Slug:      convert.PtrToText(wiki.Slug),
-					Content:   convert.StringToText(wiki.Doc),
 					ProjectID: projectUUID,
 				})
 				if err != nil {
 					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create wiki: "+err.Error())
 				}
+
+				_, err = wikiRepo.CreateContent(ctx, sqlc.CreateWikiContentParams{
+					WikiID:  wikiUUID,
+					Title:   "Version 1",
+					Content: convert.StringToText(wiki.Doc),
+				})
+				if err != nil {
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create wiki content: "+err.Error())
+				}
+
+				_ = s.c.Del(ctx, fmt.Sprintf("wiki:id:%s", wikiUUID.String()), fmt.Sprintf("wiki:slug:%s", *wiki.Slug))
+
 				newWikis = append(newWikis, snapshotData.Wikis[i])
 
 			} else if wiki.Source == "ref" {

@@ -5,7 +5,6 @@ CREATE TABLE IF NOT EXISTS wikis (
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     title TEXT,
     slug TEXT,
-    content TEXT,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()

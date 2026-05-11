@@ -1,8 +1,8 @@
 -- name: CreateWiki :one
 INSERT INTO wikis (
-    id, title, slug, content, project_id
+    id, title, slug, project_id
 ) VALUES (
-    COALESCE(sqlc.narg('id')::uuid, uuidv7()), $1, $2, $3, $4
+    COALESCE(sqlc.narg('id')::uuid, uuidv7()), $1, $2, $3
 )
 RETURNING *;
 
@@ -16,7 +16,6 @@ UPDATE wikis
 SET 
     title = COALESCE(sqlc.narg('title'), title),
     slug = COALESCE(sqlc.narg('slug'), slug),
-    content = COALESCE(sqlc.narg('content'), content),
     project_id = COALESCE(sqlc.narg('project_id'), project_id)
 WHERE id = sqlc.arg('id') AND is_deleted = false
 RETURNING *;
@@ -93,3 +92,38 @@ WHERE slug = $1 AND is_deleted = false;
 
 -- name: GetWikisBySlugs :many
 SELECT * FROM wikis WHERE slug = ANY($1::text[]) AND is_deleted = false;
+
+-- name: CreateWikiContent :one
+INSERT INTO wiki_content (
+    id, wiki_id, title, content
+) VALUES (
+    COALESCE(sqlc.narg('id')::uuid, uuidv7()), $1, $2, $3
+)
+RETURNING *;
+
+-- name: GetWikiContentCount :one
+SELECT COUNT(*)
+FROM wiki_content
+WHERE wiki_id = $1;
+
+-- name: GetWikiContentById :one
+SELECT *
+FROM wiki_content
+WHERE id = $1 AND is_deleted = false;
+
+-- name: GetWikiContentByIDs :many
+SELECT *
+FROM wiki_content
+WHERE id = ANY($1::uuid[]) AND is_deleted = false;
+
+-- name: GetWikiContentByWikiID :many
+SELECT id, title, created_at
+FROM wiki_content
+WHERE wiki_id = $1 AND is_deleted = false
+ORDER BY created_at DESC;
+
+-- name: GetWikiContentByWikiIDs :many
+SELECT id, wiki_id, title, created_at
+FROM wiki_content
+WHERE wiki_id = ANY($1::uuid[]) AND is_deleted = false
+ORDER BY created_at DESC;

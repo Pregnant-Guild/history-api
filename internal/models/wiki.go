@@ -5,30 +5,46 @@ import (
 	"time"
 )
 
-type WikiEntity struct {
+type WikiContentSample struct {
 	ID        string     `json:"id"`
 	Title     string     `json:"title"`
-	Slug      string     `json:"slug"`
-	Content   string     `json:"content"`
-	ProjectID string     `json:"project_id"`
-	IsDeleted bool       `json:"is_deleted"`
 	CreatedAt *time.Time `json:"created_at"`
-	UpdatedAt *time.Time `json:"updated_at"`
+}
+
+type WikiEntity struct {
+	ID            string              `json:"id"`
+	Title         string              `json:"title"`
+	Slug          string              `json:"slug"`
+	ContentSample []WikiContentSample `json:"content_sample"`
+	ProjectID     string              `json:"project_id"`
+	IsDeleted     bool                `json:"is_deleted"`
+	CreatedAt     *time.Time          `json:"created_at"`
+	UpdatedAt     *time.Time          `json:"updated_at"`
 }
 
 func (w *WikiEntity) ToResponse() *response.WikiResponse {
 	if w == nil {
 		return nil
 	}
+	
+	var contentSample []response.WikiContentSample
+	for _, c := range w.ContentSample {
+		contentSample = append(contentSample, response.WikiContentSample{
+			ID:        c.ID,
+			Title:     c.Title,
+			CreatedAt: c.CreatedAt,
+		})
+	}
+
 	return &response.WikiResponse{
-		ID:        w.ID,
-		Title:     w.Title,
-		Slug:      w.Slug,
-		Content:   w.Content,
-		ProjectID: w.ProjectID,
-		IsDeleted: w.IsDeleted,
-		CreatedAt: w.CreatedAt,
-		UpdatedAt: w.UpdatedAt,
+		ID:            w.ID,
+		Title:         w.Title,
+		Slug:          w.Slug,
+		ContentSample: contentSample,
+		ProjectID:     w.ProjectID,
+		IsDeleted:     w.IsDeleted,
+		CreatedAt:     w.CreatedAt,
+		UpdatedAt:     w.UpdatedAt,
 	}
 }
 
@@ -44,4 +60,13 @@ func WikisEntityToResponse(ws []*WikiEntity) []*response.WikiResponse {
 		out = append(out, w.ToResponse())
 	}
 	return out
+}
+
+type WikiContentEntity struct {
+	ID        string     `json:"id"`
+	WikiID    string     `json:"wiki_id"`
+	Title     string     `json:"title"`
+	Content   string     `json:"content"`
+	IsDeleted bool       `json:"is_deleted"`
+	CreatedAt *time.Time `json:"created_at"`
 }

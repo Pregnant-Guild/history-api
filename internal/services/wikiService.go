@@ -19,6 +19,7 @@ type WikiService interface {
 	GetWikiBySlug(ctx context.Context, slug string) (*response.WikiResponse, *fiber.Error)
 	IsExistWikiSlug(ctx context.Context, slug string) (bool, *fiber.Error)
 	SearchWikis(ctx context.Context, req *request.SearchWikiDto) ([]*response.WikiResponse, *fiber.Error)
+	GetWikiContentByID(ctx context.Context, id string) (*response.WikiContentResponse, *fiber.Error)
 }
 
 type wikiService struct {
@@ -106,4 +107,23 @@ func (s *wikiService) SearchWikis(ctx context.Context, req *request.SearchWikiDt
 	}
 
 	return models.WikisEntityToResponse(wikis), nil
+}
+
+func (s *wikiService) GetWikiContentByID(ctx context.Context, id string) (*response.WikiContentResponse, *fiber.Error) {
+	contentId, err := convert.StringToUUID(id)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid content ID format")
+	}
+	content, err := s.wikiRepo.GetContentByID(ctx, contentId)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusNotFound, "Wiki content not found")
+	}
+
+	return &response.WikiContentResponse{
+		ID:        content.ID,
+		WikiID:    content.WikiID,
+		Title:     content.Title,
+		Content:   content.Content,
+		CreatedAt: content.CreatedAt,
+	}, nil
 }

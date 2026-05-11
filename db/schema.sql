@@ -102,10 +102,18 @@ CREATE TABLE IF NOT EXISTS wikis (
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     title TEXT,
     slug TEXT UNIQUE,
-    content TEXT,
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS wiki_content (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    wiki_id UUID NOT NULL REFERENCES wikis(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS entity_wikis (

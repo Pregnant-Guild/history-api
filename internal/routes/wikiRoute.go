@@ -11,6 +11,7 @@ func WikiRoutes(router fiber.Router, wikiController *controllers.WikiController)
 	wiki.Get("/", wikiController.SearchWikis)
 	wiki.Get("/slug/exists", wikiController.IsExistWikiSlug)
 	wiki.Get("/slug/:slug", wikiController.GetWikiBySlug)
+	wiki.Get("/content/:id", wikiController.GetWikiContentById)
 	wiki.Get("/:id", wikiController.GetWikiById)
 }
 

@@ -136,3 +136,30 @@ func (h *WikiController) SearchWikis(c fiber.Ctx) error {
 	})
 }
 
+// GetWikiContentById handles fetching a single wiki content by ID.
+// @Summary      Get wiki content by ID
+// @Description  Get detailed information about a specific wiki content version
+// @Tags         Wikis
+// @Accept       json
+// @Produce      json
+// @Param        id   path      string  true  "Wiki Content ID"
+// @Success      200  {object}  response.CommonResponse
+// @Failure      500  {object}  response.CommonResponse
+// @Router       /wikis/content/{id} [get]
+func (h *WikiController) GetWikiContentById(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	id := c.Params("id")
+	res, err := h.service.GetWikiContentByID(ctx, id)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}
+
