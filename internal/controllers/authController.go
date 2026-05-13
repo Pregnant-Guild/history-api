@@ -9,6 +9,7 @@ import (
 	"history-api/internal/models"
 	"history-api/internal/services"
 	"history-api/pkg/config"
+	"history-api/pkg/constants"
 	"history-api/pkg/validator"
 	"strings"
 	"time"
@@ -59,6 +60,7 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 			Message: err.Message,
 		})
 	}
+	
 	c.Cookie(&fiber.Cookie{
 		Name:     "access_token",
 		Value:    res.AccessToken,
@@ -66,6 +68,7 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 		Secure:   true,
 		SameSite: "None",
 		Path:     "/",
+		Expires:  time.Now().Add(constants.AccessTokenDuration),
 	})
 
 	c.Cookie(&fiber.Cookie{
@@ -75,6 +78,7 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 		Secure:   true,
 		SameSite: "None",
 		Path:     "/",
+		Expires:  time.Now().Add(constants.RefreshTokenDuration),
 	})
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -121,6 +125,7 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 		Secure:   true,
 		SameSite: "None",
 		Path:     "/",
+		Expires:  time.Now().Add(constants.AccessTokenDuration),
 	})
 
 	c.Cookie(&fiber.Cookie{
@@ -130,6 +135,7 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 		Secure:   true,
 		SameSite: "None",
 		Path:     "/",
+		Expires:  time.Now().Add(constants.RefreshTokenDuration),
 	})
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -185,6 +191,7 @@ func (h *AuthController) RefreshToken(c fiber.Ctx) error {
 		Secure:   true,
 		SameSite: "None",
 		Path:     "/",
+		Expires:  time.Now().Add(constants.AccessTokenDuration),
 	})
 
 	c.Cookie(&fiber.Cookie{
@@ -194,6 +201,7 @@ func (h *AuthController) RefreshToken(c fiber.Ctx) error {
 		Secure:   true,
 		SameSite: "None",
 		Path:     "/",
+		Expires:  time.Now().Add(constants.RefreshTokenDuration),
 	})
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
@@ -426,6 +434,7 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 		Secure:   true,
 		SameSite: "None",
 		Path:     "/",
+		Expires:  time.Now().Add(constants.AccessTokenDuration),
 	})
 
 	c.Cookie(&fiber.Cookie{
@@ -435,6 +444,7 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 		Secure:   true,
 		SameSite: "None",
 		Path:     "/",
+		Expires:  time.Now().Add(constants.RefreshTokenDuration),
 	})
 
 	allowed := map[string]bool{

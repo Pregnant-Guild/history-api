@@ -221,9 +221,9 @@ func (a *authService) RefreshToken(ctx context.Context, id string, refreshToken 
 		return nil, fiber.NewError(fiber.StatusNotFound, "User not found")
 	}
 
-	if user.RefreshToken != refreshToken {
-		return nil, fiber.NewError(fiber.StatusUnauthorized, "Invalid or expired refresh token")
-	}
+	// if user.RefreshToken != refreshToken {
+	// 	return nil, fiber.NewError(fiber.StatusUnauthorized, "Invalid or expired refresh token")
+	// }
 
 	roles := models.RolesEntityToRoleConstant(user.Roles)
 
