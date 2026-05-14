@@ -19,7 +19,7 @@ import (
 
 func runStatistics(ctx context.Context, repo repositories.StatisticRepository) {
 	log.Info().Msg("Running daily statistics...")
-	today := time.Now().UTC().Truncate(24 * time.Hour)
+	today := time.Now().Truncate(24 * time.Hour)
 	_, err := repo.Upsert(ctx, today)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to upsert system statistics")
