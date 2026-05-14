@@ -4045,6 +4045,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/wikis/content/{id}": {
+            "get": {
+                "description": "Get detailed information about a specific wiki content version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wikis"
+                ],
+                "summary": "Get wiki content by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Wiki Content ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/wikis/slug/exists": {
             "get": {
                 "description": "Check if a given slug already exists for wikis",

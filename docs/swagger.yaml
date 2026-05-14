@@ -3316,6 +3316,31 @@ paths:
       summary: Get wiki by ID
       tags:
       - Wikis
+  /wikis/content/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific wiki content version
+      parameters:
+      - description: Wiki Content ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get wiki content by ID
+      tags:
+      - Wikis
   /wikis/slug/{slug}:
     get:
       consumes:
