@@ -360,6 +360,9 @@ func (r *projectRepository) AddMember(ctx context.Context, params sqlc.AddProjec
 	if err != nil {
 		return err
 	}
+	go func() {
+		_ = r.c.DelByPattern(context.Background(), "project:user*")
+	}()
 	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", convert.UUIDToString(params.ProjectID)))
 	_ = r.c.Del(ctx, fmt.Sprintf("project:perm:%s:%s", convert.UUIDToString(params.ProjectID), convert.UUIDToString(params.UserID)))
 	return nil
@@ -370,6 +373,9 @@ func (r *projectRepository) UpdateMemberRole(ctx context.Context, params sqlc.Up
 	if err != nil {
 		return err
 	}
+	go func() {
+		_ = r.c.DelByPattern(context.Background(), "project:user*")
+	}()
 	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", convert.UUIDToString(params.ProjectID)))
 	_ = r.c.Del(ctx, fmt.Sprintf("project:perm:%s:%s", convert.UUIDToString(params.ProjectID), convert.UUIDToString(params.UserID)))
 	return nil
@@ -380,6 +386,9 @@ func (r *projectRepository) RemoveMember(ctx context.Context, params sqlc.Remove
 	if err != nil {
 		return err
 	}
+	go func() {
+		_ = r.c.DelByPattern(context.Background(), "project:user*")
+	}()
 	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", convert.UUIDToString(params.ProjectID)))
 	_ = r.c.Del(ctx, fmt.Sprintf("project:perm:%s:%s", convert.UUIDToString(params.ProjectID), convert.UUIDToString(params.UserID)))
 	return nil
