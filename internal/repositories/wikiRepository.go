@@ -200,6 +200,8 @@ func (r *wikiRepository) Search(ctx context.Context, params sqlc.SearchWikisPara
 	}
 	var wikis []*models.WikiEntity
 	var ids []string
+	var pgIds []pgtype.UUID
+	wikiMap := make(map[string]*models.WikiEntity)
 	wikiToCache := make(map[string]any)
 
 	for _, row := range rows {
@@ -213,10 +215,30 @@ func (r *wikiRepository) Search(ctx context.Context, params sqlc.SearchWikisPara
 			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 		}
 		ids = append(ids, wiki.ID)
+		pgIds = append(pgIds, row.ID)
 		wikis = append(wikis, wiki)
-		wikiToCache[fmt.Sprintf("wiki:id:%s", wiki.ID)] = wiki
+		wikiMap[wiki.ID] = wiki
 	}
 
+	if len(pgIds) > 0 {
+		samples, err := r.q.GetWikiContentByWikiIDs(ctx, pgIds)
+		if err == nil {
+			for _, sample := range samples {
+				wikiID := convert.UUIDToString(sample.WikiID)
+				if item, ok := wikiMap[wikiID]; ok {
+					item.ContentSample = append(item.ContentSample, models.WikiContentSample{
+						ID:        convert.UUIDToString(sample.ID),
+						Title:     sample.Title,
+						CreatedAt: convert.TimeToPtr(sample.CreatedAt),
+					})
+				}
+			}
+		}
+	}
+
+	for _, wiki := range wikis {
+		wikiToCache[fmt.Sprintf("wiki:id:%s", wiki.ID)] = wiki
+	}
 	if len(wikiToCache) > 0 {
 		_ = r.c.MSet(ctx, wikiToCache, constants.NormalCacheDuration)
 	}
@@ -304,6 +326,8 @@ func (r *wikiRepository) GetByProjectID(ctx context.Context, projectID pgtype.UU
 
 	var wikis []*models.WikiEntity
 	var ids []string
+	var pgIds []pgtype.UUID
+	wikiMap := make(map[string]*models.WikiEntity)
 	wikiToCache := make(map[string]any)
 
 	for _, row := range rows {
@@ -317,10 +341,30 @@ func (r *wikiRepository) GetByProjectID(ctx context.Context, projectID pgtype.UU
 			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 		}
 		ids = append(ids, wiki.ID)
+		pgIds = append(pgIds, row.ID)
 		wikis = append(wikis, wiki)
-		wikiToCache[fmt.Sprintf("wiki:id:%s", wiki.ID)] = wiki
+		wikiMap[wiki.ID] = wiki
 	}
 
+	if len(pgIds) > 0 {
+		samples, err := r.q.GetWikiContentByWikiIDs(ctx, pgIds)
+		if err == nil {
+			for _, sample := range samples {
+				wikiID := convert.UUIDToString(sample.WikiID)
+				if item, ok := wikiMap[wikiID]; ok {
+					item.ContentSample = append(item.ContentSample, models.WikiContentSample{
+						ID:        convert.UUIDToString(sample.ID),
+						Title:     sample.Title,
+						CreatedAt: convert.TimeToPtr(sample.CreatedAt),
+					})
+				}
+			}
+		}
+	}
+
+	for _, wiki := range wikis {
+		wikiToCache[fmt.Sprintf("wiki:id:%s", wiki.ID)] = wiki
+	}
 	if len(wikiToCache) > 0 {
 		_ = r.c.MSet(ctx, wikiToCache, constants.NormalCacheDuration)
 	}
@@ -380,6 +424,18 @@ func (r *wikiRepository) GetBySlug(ctx context.Context, slug string) (*models.Wi
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
+
+	samples, err := r.q.GetWikiContentByWikiID(ctx, row.ID)
+	if err == nil {
+		for _, sample := range samples {
+			wiki.ContentSample = append(wiki.ContentSample, models.WikiContentSample{
+				ID:        convert.UUIDToString(sample.ID),
+				Title:     sample.Title,
+				CreatedAt: convert.TimeToPtr(sample.CreatedAt),
+			})
+		}
+	}
+
 	_ = r.c.Set(ctx, cacheKey, wiki, constants.NormalCacheDuration)
 
 	return &wiki, nil
@@ -409,6 +465,7 @@ func (r *wikiRepository) GetBySlugs(ctx context.Context, slugs []string) ([]*mod
 	if len(missingSlugs) > 0 {
 		dbRows, err := r.q.GetWikisBySlugs(ctx, missingSlugs)
 		if err == nil {
+			var pgIds []pgtype.UUID
 			for _, row := range dbRows {
 				item := models.WikiEntity{
 					ID:        convert.UUIDToString(row.ID),
@@ -419,7 +476,28 @@ func (r *wikiRepository) GetBySlugs(ctx context.Context, slugs []string) ([]*mod
 					CreatedAt: convert.TimeToPtr(row.CreatedAt),
 					UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 				}
+				pgIds = append(pgIds, row.ID)
 				dbMap[item.Slug] = &item
+			}
+
+			if len(pgIds) > 0 {
+				samples, sErr := r.q.GetWikiContentByWikiIDs(ctx, pgIds)
+				if sErr == nil {
+					wikiByID := make(map[string]*models.WikiEntity)
+					for _, item := range dbMap {
+						wikiByID[item.ID] = item
+					}
+					for _, sample := range samples {
+						wikiID := convert.UUIDToString(sample.WikiID)
+						if item, ok := wikiByID[wikiID]; ok {
+							item.ContentSample = append(item.ContentSample, models.WikiContentSample{
+								ID:        convert.UUIDToString(sample.ID),
+								Title:     sample.Title,
+								CreatedAt: convert.TimeToPtr(sample.CreatedAt),
+							})
+						}
+					}
+				}
 			}
 		}
 	}
