@@ -170,7 +170,6 @@ func (r *wikiRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.W
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
 
-	// Fetch content samples
 	samples, err := r.q.GetWikiContentByWikiID(ctx, row.ID)
 	if err == nil {
 		for _, sample := range samples {
