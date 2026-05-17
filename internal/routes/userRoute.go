@@ -58,14 +58,14 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 	route.Delete(
 		"/:id",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin),
 		controller.DeleteUser,
 	)
-	
+
 	route.Put(
 		"/:id",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin),
 		controller.AdminUpdateProfile,
 	)
 
@@ -93,14 +93,14 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 	route.Patch(
 		"/:id/restore",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin),
 		controller.RestoreUser,
 	)
 
 	route.Patch(
 		"/:id/password",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin),
 		controller.AdminResetPassword,
 	)
 
@@ -121,7 +121,7 @@ func UserRoutes(app *fiber.App, controller *controllers.UserController, userRepo
 	route.Post(
 		"/",
 		middlewares.JwtAccess(userRepo),
-		middlewares.RequireAnyRole(constants.RoleTypeAdmin, constants.RoleTypeMod),
+		middlewares.RequireAnyRole(constants.RoleTypeAdmin),
 		controller.CreateUser,
 	)
 
