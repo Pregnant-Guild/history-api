@@ -9,6 +9,14 @@ type CommitSnapshot struct {
 	Wikis                   []*WikiSnapshot           `json:"wikis,omitempty" validate:"omitempty,dive"`
 	GeometryEntity          []*GeometryEntitySnapshot `json:"geometry_entity,omitempty" validate:"omitempty,dive"`
 	EntityWiki              []*EntityWikiLinkSnapshot `json:"entity_wiki,omitempty" validate:"omitempty,dive"`
+	Replays                 []*BattleReplaySnapshot   `json:"replays,omitempty" validate:"omitempty,dive"`
+}
+
+type BattleReplaySnapshot struct {
+	ID               string          `json:"id" validate:"required,uuidv7"`
+	GeometryID       string          `json:"geometry_id" validate:"required,uuidv7"`
+	TargetGeometryIDs []string       `json:"target_geometry_ids,omitempty" validate:"omitempty,dive,uuidv7"`
+	Detail           json.RawMessage `json:"detail,omitempty"`
 }
 
 type FeatureCollection struct {

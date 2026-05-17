@@ -399,6 +399,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/battle-replays/geometry/{geometryId}": {
+            "get": {
+                "description": "Get all battle replays associated with a specific geometry",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "BattleReplays"
+                ],
+                "summary": "Get battle replays by geometry ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Geometry ID",
+                        "name": "geometryId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/battle-replays/{id}": {
+            "get": {
+                "description": "Get detailed information about a specific battle replay",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "BattleReplays"
+                ],
+                "summary": "Get battle replay by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Battle Replay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/chatbot/chat": {
             "post": {
                 "security": [
@@ -4241,6 +4317,33 @@ const docTemplate = `{
                 }
             }
         },
+        "history-api_internal_dtos_request.BattleReplaySnapshot": {
+            "type": "object",
+            "required": [
+                "geometry_id",
+                "id"
+            ],
+            "properties": {
+                "detail": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "geometry_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "target_geometry_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "history-api_internal_dtos_request.ChangeOwnerDto": {
             "type": "object",
             "required": [
@@ -4327,6 +4430,12 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/history-api_internal_dtos_request.GeometryEntitySnapshot"
+                    }
+                },
+                "replays": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/history-api_internal_dtos_request.BattleReplaySnapshot"
                     }
                 },
                 "wikis": {

@@ -98,6 +98,7 @@ func (s *FiberServer) SetupServer(
 	usageRepo := repositories.NewUsageRepository(redis)
 	statisticRepo := repositories.NewStatisticRepository(poolPg, redis)
 	chatRepo := repositories.NewChatRepository(poolPg, redis)
+	battleReplayRepo := repositories.NewBattleReplayRepository(poolPg, redis)
 
 	// service setup
 	authService := services.NewAuthService(userRepo, roleRepo, tokenRepo, redis, poolPg)
@@ -115,10 +116,11 @@ func (s *FiberServer) SetupServer(
 	submissionService := services.NewSubmissionService(
 		submissionRepo, projectRepo, commitRepo,
 		userRepo, wikiRepo, geometryRepo, entityRepo,
-		raguRepo, raguUtils, poolPg, redis,
+		battleReplayRepo, raguRepo, raguUtils, poolPg, redis,
 	)
 	chatbotService := services.NewChatbotService(raguRepo, usageRepo, chatRepo, raguUtils)
 	statisticService := services.NewStatisticService(statisticRepo)
+	battleReplayService := services.NewBattleReplayService(battleReplayRepo)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)
@@ -136,6 +138,7 @@ func (s *FiberServer) SetupServer(
 	submissionController := controllers.NewSubmissionController(submissionService)
 	chatbotController := controllers.NewChatbotController(chatbotService)
 	statisticController := controllers.NewStatisticController(statisticService)
+	battleReplayController := controllers.NewBattleReplayController(battleReplayService)
 
 	// route setup
 	routes.AuthRoutes(s.App, authController, userRepo)
@@ -152,5 +155,6 @@ func (s *FiberServer) SetupServer(
 	routes.SubmissionRoutes(s.App, submissionController, userRepo)
 	routes.ChatbotRoutes(s.App, chatbotController, userRepo)
 	routes.StatisticRoutes(s.App, statisticController, userRepo)
+	routes.BattleReplayRoutes(s.App, battleReplayController)
 	routes.NotFoundRoute(s.App)
 }

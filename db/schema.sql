@@ -243,3 +243,14 @@ CREATE TABLE IF NOT EXISTS chatbot_histories (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS battle_replays (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    geometry_id UUID NOT NULL REFERENCES geometries(id) ON DELETE CASCADE,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    target_geometry_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+    detail JSONB NOT NULL DEFAULT '{}'::jsonb,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+

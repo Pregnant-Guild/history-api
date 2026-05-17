@@ -32,17 +32,18 @@ type SubmissionService interface {
 }
 
 type submissionService struct {
-	submissionRepo repositories.SubmissionRepository
-	projectRepo    repositories.ProjectRepository
-	commitRepo     repositories.CommitRepository
-	userRepo       repositories.UserRepository
-	wikiRepo       repositories.WikiRepository
-	geometryRepo   repositories.GeometryRepository
-	entityRepo     repositories.EntityRepository
-	ragRepo        repositories.RagRepository
-	ragUtils       *ai.RagUtils
-	db             *pgxpool.Pool
-	c              cache.Cache
+	submissionRepo   repositories.SubmissionRepository
+	projectRepo      repositories.ProjectRepository
+	commitRepo       repositories.CommitRepository
+	userRepo         repositories.UserRepository
+	wikiRepo         repositories.WikiRepository
+	geometryRepo     repositories.GeometryRepository
+	entityRepo       repositories.EntityRepository
+	battleReplayRepo repositories.BattleReplayRepository
+	ragRepo          repositories.RagRepository
+	ragUtils         *ai.RagUtils
+	db               *pgxpool.Pool
+	c                cache.Cache
 }
 
 func NewSubmissionService(
@@ -53,23 +54,25 @@ func NewSubmissionService(
 	wikiRepo repositories.WikiRepository,
 	geometryRepo repositories.GeometryRepository,
 	entityRepo repositories.EntityRepository,
+	battleReplayRepo repositories.BattleReplayRepository,
 	ragRepo repositories.RagRepository,
 	ragUtils *ai.RagUtils,
 	db *pgxpool.Pool,
 	c cache.Cache,
 ) SubmissionService {
 	return &submissionService{
-		submissionRepo: submissionRepo,
-		projectRepo:    projectRepo,
-		commitRepo:     commitRepo,
-		userRepo:       userRepo,
-		wikiRepo:       wikiRepo,
-		geometryRepo:   geometryRepo,
-		entityRepo:     entityRepo,
-		ragRepo:        ragRepo,
-		ragUtils:       ragUtils,
-		db:             db,
-		c:              c,
+		submissionRepo:   submissionRepo,
+		projectRepo:      projectRepo,
+		commitRepo:       commitRepo,
+		userRepo:         userRepo,
+		wikiRepo:         wikiRepo,
+		geometryRepo:     geometryRepo,
+		entityRepo:       entityRepo,
+		battleReplayRepo: battleReplayRepo,
+		ragRepo:          ragRepo,
+		ragUtils:         ragUtils,
+		db:               db,
+		c:                c,
 	}
 }
 
@@ -187,6 +190,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 	entityRepo := s.entityRepo.WithTx(tx)
 	geometryRepo := s.geometryRepo.WithTx(tx)
 	wikiRepo := s.wikiRepo.WithTx(tx)
+	battleReplayRepo := s.battleReplayRepo.WithTx(tx)
 
 	submissionUUID, err := convert.StringToUUID(submissionID)
 	if err != nil {
@@ -229,6 +233,7 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 	listDeleteEntities := make([]pgtype.UUID, 0)
 	listDeleteWikis := make([]pgtype.UUID, 0)
 	listDeleteGeometries := make([]pgtype.UUID, 0)
+	listDeleteBattleReplays := make([]pgtype.UUID, 0)
 	var snapshotData request.CommitSnapshot
 	err = json.Unmarshal(commit.SnapshotJson, &snapshotData)
 	if err != nil {
@@ -242,17 +247,22 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 		}
 		currentEntity, err := s.entityRepo.GetByProjectID(ctx, projectUUID)
 		if err != nil {
-			return nil, fiber.NewError(fiber.StatusNotFound, "Entity not found")
+			return nil, fiber.NewError(fiber.StatusNotFound, "Entity not found: "+err.Error())
 		}
 
 		currentGeometry, err := s.geometryRepo.GetByProjectID(ctx, projectUUID)
 		if err != nil {
-			return nil, fiber.NewError(fiber.StatusNotFound, "Geometry not found")
+			return nil, fiber.NewError(fiber.StatusNotFound, "Geometry not found: "+err.Error())
 		}
 
 		currentWiki, err := s.wikiRepo.GetByProjectID(ctx, projectUUID)
 		if err != nil {
-			return nil, fiber.NewError(fiber.StatusNotFound, "Wiki not found")
+			return nil, fiber.NewError(fiber.StatusNotFound, "Wiki not found: "+err.Error())
+		}
+
+		currentBattleReplay, err := s.battleReplayRepo.GetByProjectID(ctx, projectUUID)
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusNotFound, "Battle replay not found: "+err.Error())
 		}
 
 		persistItemIDs := make(map[string]struct{})
@@ -265,6 +275,9 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 		for _, item := range snapshotData.Wikis {
 			persistItemIDs[item.ID] = struct{}{}
 		}
+		for _, item := range snapshotData.Replays {
+			persistItemIDs[item.ID] = struct{}{}
+		}
 
 		persistCurrentItemIDs := make(map[string]struct{})
 		for _, item := range currentEntity {
@@ -274,6 +287,9 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 			persistCurrentItemIDs[item.ID] = struct{}{}
 		}
 		for _, item := range currentWiki {
+			persistCurrentItemIDs[item.ID] = struct{}{}
+		}
+		for _, item := range currentBattleReplay {
 			persistCurrentItemIDs[item.ID] = struct{}{}
 		}
 
@@ -310,6 +326,17 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 			}
 		}
 
+		for _, br := range currentBattleReplay {
+			if _, ok := persistItemIDs[br.ID]; !ok {
+				itemUUID, err := convert.StringToUUID(br.ID)
+				if err != nil {
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid battle replay ID")
+				}
+				listDeleteBattleReplays = append(listDeleteBattleReplays, itemUUID)
+				delete(persistCurrentItemIDs, br.ID)
+			}
+		}
+
 		if len(listDeleteEntities) > 0 {
 			if err = entityRepo.DeleteByIDs(ctx, listDeleteEntities); err != nil {
 				return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to delete entities")
@@ -325,6 +352,12 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 		if len(listDeleteWikis) > 0 {
 			if err = wikiRepo.DeleteByIDs(ctx, listDeleteWikis); err != nil {
 				return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to delete wikis")
+			}
+		}
+
+		if len(listDeleteBattleReplays) > 0 {
+			if err = battleReplayRepo.DeleteByIDs(ctx, listDeleteBattleReplays); err != nil {
+				return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to delete battle replays")
 			}
 		}
 
@@ -569,6 +602,46 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 			}
 		}
 		snapshotData.Wikis = newWikis
+
+		for _, replay := range snapshotData.Replays {
+			replayUUID, err := convert.StringToUUID(replay.ID)
+			if err != nil {
+				return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid battle replay ID")
+			}
+
+			geomUUID, err := convert.StringToUUID(replay.GeometryID)
+			if err != nil {
+				return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid geometry ID in battle replay")
+			}
+
+			targetIDs, err := json.Marshal(replay.TargetGeometryIDs)
+			if err != nil {
+				return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to marshal target geometry IDs")
+			}
+
+			if _, ok := persistCurrentItemIDs[replay.ID]; ok {
+				_, err := battleReplayRepo.Update(ctx, sqlc.UpdateBattleReplayParams{
+					ID:                replayUUID,
+					GeometryID:        geomUUID,
+					TargetGeometryIds: targetIDs,
+					Detail:            replay.Detail,
+				})
+				if err != nil {
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to update battle replay: "+err.Error())
+				}
+			} else {
+				_, err := battleReplayRepo.Create(ctx, sqlc.CreateBattleReplayParams{
+					ID:                replayUUID,
+					GeometryID:        geomUUID,
+					ProjectID:         projectUUID,
+					TargetGeometryIds: targetIDs,
+					Detail:            replay.Detail,
+				})
+				if err != nil {
+					return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create battle replay: "+err.Error())
+				}
+			}
+		}
 
 		err = geometryRepo.DeleteEntityGeometriesByProjectID(ctx, projectUUID)
 		if err != nil {

@@ -29,6 +29,24 @@ definitions:
     - min_lat
     - min_lng
     type: object
+  history-api_internal_dtos_request.BattleReplaySnapshot:
+    properties:
+      detail:
+        items:
+          type: integer
+        type: array
+      geometry_id:
+        type: string
+      id:
+        type: string
+      target_geometry_ids:
+        items:
+          type: string
+        type: array
+    required:
+    - geometry_id
+    - id
+    type: object
   history-api_internal_dtos_request.ChangeOwnerDto:
     properties:
       new_owner_id:
@@ -87,6 +105,10 @@ definitions:
       geometry_entity:
         items:
           $ref: '#/definitions/history-api_internal_dtos_request.GeometryEntitySnapshot'
+        type: array
+      replays:
+        items:
+          $ref: '#/definitions/history-api_internal_dtos_request.BattleReplaySnapshot'
         type: array
       wikis:
         items:
@@ -947,6 +969,56 @@ paths:
       summary: Verify a security token
       tags:
       - Auth
+  /battle-replays/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific battle replay
+      parameters:
+      - description: Battle Replay ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get battle replay by ID
+      tags:
+      - BattleReplays
+  /battle-replays/geometry/{geometryId}:
+    get:
+      consumes:
+      - application/json
+      description: Get all battle replays associated with a specific geometry
+      parameters:
+      - description: Geometry ID
+        in: path
+        name: geometryId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get battle replays by geometry ID
+      tags:
+      - BattleReplays
   /chatbot/chat:
     post:
       consumes:

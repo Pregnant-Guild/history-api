@@ -11,6 +11,17 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
+type BattleReplay struct {
+	ID                pgtype.UUID        `json:"id"`
+	GeometryID        pgtype.UUID        `json:"geometry_id"`
+	ProjectID         pgtype.UUID        `json:"project_id"`
+	TargetGeometryIds json.RawMessage    `json:"target_geometry_ids"`
+	Detail            json.RawMessage    `json:"detail"`
+	IsDeleted         bool               `json:"is_deleted"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ChatbotHistory struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
