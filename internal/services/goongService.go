@@ -59,7 +59,7 @@ func (s *goongService) ProxyRequest(ctx context.Context, method string, targetUR
 	parsedUrl.RawQuery = q.Encode()
 	finalURL := parsedUrl.String()
 
-	cacheKey := fmt.Sprintf("goong_proxy:%s", finalURL)
+	cacheKey := fmt.Sprintf("goong_proxy_v2:%s", finalURL)
 
 	if method == http.MethodGet {
 		var entry CacheEntry
