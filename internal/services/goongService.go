@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -99,6 +100,27 @@ func (s *goongService) ProxyRequest(ctx context.Context, method string, targetUR
 	respHeaders := make(map[string]string)
 	for k, v := range resp.Header {
 		respHeaders[k] = v[0]
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	isText := strings.Contains(contentType, "json") ||
+		strings.Contains(contentType, "text") ||
+		strings.Contains(contentType, "javascript") ||
+		strings.Contains(contentType, "xml")
+
+	if isText && len(respBody) > 0 {
+		pattern := fmt.Sprintf(`(?i)([?&])api_key=%s(&?)`, regexp.QuoteMeta(apiKey))
+		if re, err := regexp.Compile(pattern); err == nil {
+			respBodyStr := string(respBody)
+			cleanedStr := re.ReplaceAllStringFunc(respBodyStr, func(match string) string {
+				groups := re.FindStringSubmatch(match)
+				if len(groups) > 2 && groups[2] == "&" {
+					return groups[1]
+				}
+				return ""
+			})
+			respBody = []byte(cleanedStr)
+		}
 	}
 
 	if method == http.MethodGet && resp.StatusCode == http.StatusOK {
