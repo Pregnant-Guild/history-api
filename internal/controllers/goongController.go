@@ -84,7 +84,11 @@ func (ctrl *goongController) Proxy(c fiber.Ctx) error {
 	}
 
 	if c.Method() == "GET" {
-		c.Set("Cache-Control", "public, max-age=86400")
+		if statusCode == fiber.StatusOK || statusCode == fiber.StatusNotModified {
+			c.Set("Cache-Control", "public, max-age=86400")
+		} else {
+			c.Set("Cache-Control", "no-store, no-cache, must-revalidate")
+		}
 	}
 
 	return c.Status(statusCode).Send(respBody)

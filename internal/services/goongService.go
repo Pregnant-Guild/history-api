@@ -25,12 +25,21 @@ type CacheEntry struct {
 }
 
 type goongService struct {
-	redis cache.Cache
+	redis      cache.Cache
+	httpClient *http.Client
 }
 
 func NewGoongService(redis cache.Cache) GoongService {
 	return &goongService{
 		redis: redis,
+		httpClient: &http.Client{
+			Timeout: 15 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 100,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 	}
 }
 
@@ -79,14 +88,22 @@ func (s *goongService) ProxyRequest(ctx context.Context, method string, targetUR
 
 	for k, v := range headers {
 		lowerK := strings.ToLower(k)
-		if lowerK == "host" || lowerK == "connection" || lowerK == "accept-encoding" {
+		if lowerK == "host" || lowerK == "connection" || lowerK == "accept-encoding" || lowerK == "keep-alive" || lowerK == "te" || lowerK == "transfer-encoding" || lowerK == "upgrade" {
+			continue
+		}
+		if strings.HasPrefix(lowerK, "cf-") {
+			continue
+		}
+		if strings.HasPrefix(lowerK, "x-forwarded-") || lowerK == "x-real-ip" || lowerK == "true-client-ip" || lowerK == "cdn-loop" {
+			continue
+		}
+		if lowerK == "cookie" || lowerK == "authorization" || lowerK == "x-api-key" || lowerK == "x-csrf-token" {
 			continue
 		}
 		req.Header.Set(k, v)
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return 500, nil, nil, fmt.Errorf("failed to fetch from target: %w", err)
 	}
@@ -99,6 +116,23 @@ func (s *goongService) ProxyRequest(ctx context.Context, method string, targetUR
 
 	respHeaders := make(map[string]string)
 	for k, v := range resp.Header {
+		lowerK := strings.ToLower(k)
+		// Skip hop-by-hop/transport headers in response
+		if lowerK == "connection" || lowerK == "keep-alive" || lowerK == "transfer-encoding" || lowerK == "upgrade" {
+			continue
+		}
+		// Skip Cloudflare headers from Goong to prevent clashing with our own server
+		if strings.HasPrefix(lowerK, "cf-") || lowerK == "server" || lowerK == "date" || lowerK == "alt-svc" {
+			continue
+		}
+		// Skip CORS headers (handled by our own Fiber CORS middleware)
+		if strings.HasPrefix(lowerK, "access-control-") {
+			continue
+		}
+		// Skip content encoding/length (handled by Fiber / Go client automatically)
+		if lowerK == "content-encoding" || lowerK == "content-length" {
+			continue
+		}
 		respHeaders[k] = v[0]
 	}
 
