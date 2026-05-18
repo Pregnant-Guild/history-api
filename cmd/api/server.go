@@ -121,6 +121,7 @@ func (s *FiberServer) SetupServer(
 	chatbotService := services.NewChatbotService(raguRepo, usageRepo, chatRepo, raguUtils)
 	statisticService := services.NewStatisticService(statisticRepo)
 	battleReplayService := services.NewBattleReplayService(battleReplayRepo)
+	goongService := services.NewGoongService(redis)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)
@@ -139,6 +140,7 @@ func (s *FiberServer) SetupServer(
 	chatbotController := controllers.NewChatbotController(chatbotService)
 	statisticController := controllers.NewStatisticController(statisticService)
 	battleReplayController := controllers.NewBattleReplayController(battleReplayService)
+	goongController := controllers.NewGoongController(goongService)
 
 	// route setup
 	routes.AuthRoutes(s.App, authController, userRepo)
@@ -156,5 +158,6 @@ func (s *FiberServer) SetupServer(
 	routes.ChatbotRoutes(s.App, chatbotController, userRepo)
 	routes.StatisticRoutes(s.App, statisticController, userRepo)
 	routes.BattleReplayRoutes(s.App, battleReplayController)
+	routes.GoongRoutes(s.App, goongController)
 	routes.NotFoundRoute(s.App)
 }
