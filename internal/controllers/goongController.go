@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"history-api/internal/services"
+	"net/url"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -41,6 +42,9 @@ func (ctrl *goongController) Proxy(c fiber.Ctx) error {
 	}
 
 	targetURL := path
+	if decodedURL, err := url.PathUnescape(targetURL); err == nil {
+		targetURL = decodedURL
+	}
 
 	if strings.HasPrefix(targetURL, "https:/") && !strings.HasPrefix(targetURL, "https://") {
 		targetURL = strings.Replace(targetURL, "https:/", "https://", 1)
@@ -49,7 +53,11 @@ func (ctrl *goongController) Proxy(c fiber.Ctx) error {
 	}
 
 	if len(c.Request().URI().QueryString()) > 0 {
-		targetURL += "?" + string(c.Request().URI().QueryString())
+		if strings.Contains(targetURL, "?") {
+			targetURL += "&" + string(c.Request().URI().QueryString())
+		} else {
+			targetURL += "?" + string(c.Request().URI().QueryString())
+		}
 	}
 
 	headers := make(map[string]string)
