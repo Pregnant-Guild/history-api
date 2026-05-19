@@ -5,3 +5,5 @@ pg_data
 *.env
 *.env.dev
 build
+*.exe
+*.exe~

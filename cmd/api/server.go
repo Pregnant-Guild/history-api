@@ -73,9 +73,11 @@ func (s *FiberServer) SetupServer(
 			"http://localhost:3001",
 			"https://history-admin.kain.id.vn",
 			"https://history-user.kain.id.vn",
+			"https://www.history-admin.kain.id.vn",
+			"https://www.history-user.kain.id.vn",
 		},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type", "Origin"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"},
+		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type", "Origin", "Range", "Cache-Control", "Pragma", "If-Modified-Since", "If-None-Match"},
 		AllowCredentials: true,
 	}))
 

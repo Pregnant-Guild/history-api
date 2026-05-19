@@ -448,10 +448,12 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 	})
 
 	allowed := map[string]bool{
-		"http://localhost:3000":            true,
-		"http://localhost:3001":            true,
-		"https://history-admin.kain.id.vn": true,
-		"https://history-user.kain.id.vn":  true,
+		"http://localhost:3000":                true,
+		"http://localhost:3001":                true,
+		"https://history-admin.kain.id.vn":     true,
+		"https://history-user.kain.id.vn":      true,
+		"https://www.history-admin.kain.id.vn": true,
+		"https://www.history-user.kain.id.vn":  true,
 	}
 	feUrl := config.GetConfigWithDefault("FRONTEND_URL", "http://localhost:3000")
 	redirectURL := data.RedirectURL
