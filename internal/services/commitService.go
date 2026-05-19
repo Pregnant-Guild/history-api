@@ -172,7 +172,7 @@ func (s *commitService) RestoreCommit(ctx context.Context, userID string, projec
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to restore commit")
 	}
 
-	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", projectID))
+	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", projectID), fmt.Sprintf("commit:project:%s", projectID))
 	return nil
 }
 

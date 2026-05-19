@@ -212,6 +212,8 @@ func (v *verificationRepository) Create(ctx context.Context, params sqlc.CreateU
 		_ = v.c.DelByPattern(bgCtx, "verification:count*")
 	}()
 
+	_ = v.c.Del(ctx, fmt.Sprintf("verification:userId:%s", convert.UUIDToString(params.UserID)))
+
 	return &verification, nil
 }
 
@@ -246,7 +248,7 @@ func (v *verificationRepository) BulkVerificationMediaByMediaId(ctx context.Cont
 	if len(ids) == 0 {
 		return nil
 	}
-	
+
 	listCacheId := make([]string, 0)
 	for _, it := range ids {
 		id := convert.UUIDToString(it)

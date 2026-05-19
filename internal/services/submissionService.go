@@ -175,6 +175,8 @@ func (s *submissionService) CreateSubmission(ctx context.Context, userID string,
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create submission")
 	}
 
+	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", project.ID))
+
 	return submission.ToResponse(), nil
 }
 

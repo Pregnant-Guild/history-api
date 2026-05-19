@@ -165,6 +165,8 @@ func (r *mediaRepository) Create(ctx context.Context, params sqlc.CreateMediaPar
 		_ = r.c.DelByPattern(bgCtx, "media:count*")
 	}()
 
+	_ = r.c.Del(ctx, fmt.Sprintf("media:userId:%s", convert.UUIDToString(params.UserID)))
+
 	media := models.MediaEntity{
 		ID:           convert.UUIDToString(row.ID),
 		UserID:       convert.UUIDToString(row.UserID),
