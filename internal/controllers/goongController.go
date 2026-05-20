@@ -87,11 +87,9 @@ func (ctrl *goongController) Proxy(c fiber.Ctx) error {
 	c.Set("Cross-Origin-Resource-Policy", "cross-origin")
 
 	if c.Method() == "GET" {
-		if statusCode == fiber.StatusOK || statusCode == fiber.StatusNotModified {
-			c.Set("Cache-Control", "public, max-age=86400")
-		} else {
-			c.Set("Cache-Control", "no-store, no-cache, must-revalidate")
-		}
+		c.Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+		c.Set("CDN-Cache-Control", "no-store")
+		c.Set("Cloudflare-CDN-Cache-Control", "no-store")
 	}
 
 	return c.Status(statusCode).Send(respBody)
