@@ -84,6 +84,7 @@ func (ctrl *goongController) Proxy(c fiber.Ctx) error {
 	}
 
 	c.Set("Vary", "Origin")
+	c.Set("Cross-Origin-Resource-Policy", "cross-origin")
 
 	if c.Method() == "GET" {
 		if statusCode == fiber.StatusOK || statusCode == fiber.StatusNotModified {
