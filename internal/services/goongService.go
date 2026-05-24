@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type GoongService interface {
@@ -100,18 +102,82 @@ func (s *goongService) ProxyRequest(ctx context.Context, method string, targetUR
 		if lowerK == "cookie" || lowerK == "authorization" || lowerK == "x-api-key" || lowerK == "x-csrf-token" {
 			continue
 		}
+		if strings.HasPrefix(lowerK, "sec-") || lowerK == "user-agent" || lowerK == "accept-language" || lowerK == "priority" || lowerK == "purpose" || lowerK == "dnt" {
+			continue
+		}
 		req.Header.Set(k, v)
 	}
 
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return 500, nil, nil, fmt.Errorf("failed to fetch from target: %w", err)
-	}
-	defer resp.Body.Close()
+	var resp *http.Response
+	var lastErr error
+	var respBody []byte
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 500, nil, nil, fmt.Errorf("failed to read response body: %w", err)
+	for attempt := 1; attempt <= 3; attempt++ {
+		if ctx.Err() != nil {
+			lastErr = ctx.Err()
+			break
+		}
+
+		attemptReq := req.Clone(ctx)
+		if len(reqBody) > 0 {
+			attemptReq.Body = io.NopCloser(bytes.NewReader(reqBody))
+		}
+
+		resp, err = s.httpClient.Do(attemptReq)
+		if err != nil {
+			lastErr = err
+			if ctx.Err() != nil {
+				break
+			}
+			time.Sleep(time.Duration(attempt*150) * time.Millisecond)
+			continue
+		}
+
+		respBody, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = err
+			time.Sleep(time.Duration(attempt*150) * time.Millisecond)
+			continue
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			break
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			lastErr = fmt.Errorf("target returned status code %d: %s", resp.StatusCode, string(respBody))
+			time.Sleep(time.Duration(attempt*150) * time.Millisecond)
+			continue
+		}
+
+		break
+	}
+
+	if resp == nil || (resp.StatusCode != http.StatusOK && lastErr != nil) {
+		statusCode := 500
+		if resp != nil {
+			statusCode = resp.StatusCode
+		}
+		if ctx.Err() != nil {
+			return 499, nil, nil, ctx.Err()
+		}
+		log.Error().
+			Err(lastErr).
+			Int("status_code", statusCode).
+			Str("url", finalURL).
+			Str("method", method).
+			Msg("Goong Map proxy request failed after retries")
+		return statusCode, nil, nil, fmt.Errorf("failed to fetch from target: %w", lastErr)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		log.Warn().
+			Int("status_code", resp.StatusCode).
+			Str("url", finalURL).
+			Str("method", method).
+			Str("resp_body", string(respBody)).
+			Msg("Goong Map proxy request returned non-200 status code")
 	}
 
 	respHeaders := make(map[string]string)

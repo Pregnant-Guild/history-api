@@ -86,7 +86,25 @@ func (ctrl *goongController) Proxy(c fiber.Ctx) error {
 	c.Set("Vary", "Origin")
 	c.Set("Cross-Origin-Resource-Policy", "cross-origin")
 
-	if c.Method() == "GET" {
+	if c.Method() == "GET" && statusCode == fiber.StatusOK {
+		isStaticAsset := strings.Contains(targetURL, "/tiles/") ||
+			strings.Contains(targetURL, "/fonts/") ||
+			strings.Contains(targetURL, "/glyphs/") ||
+			strings.HasSuffix(targetURL, ".pbf") ||
+			strings.HasSuffix(targetURL, ".png") ||
+			strings.HasSuffix(targetURL, ".jpg") ||
+			strings.HasSuffix(targetURL, ".webp")
+
+		if !isStaticAsset {
+			c.Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+			c.Set("CDN-Cache-Control", "no-store")
+			c.Set("Cloudflare-CDN-Cache-Control", "no-store")
+		} else {
+			c.Set("Cache-Control", "public, max-age=86400")
+			c.Set("CDN-Cache-Control", "max-age=86400")
+			c.Set("Cloudflare-CDN-Cache-Control", "max-age=86400")
+		}
+	} else if c.Method() == "GET" {
 		c.Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 		c.Set("CDN-Cache-Control", "no-store")
 		c.Set("Cloudflare-CDN-Cache-Control", "no-store")
