@@ -97,7 +97,7 @@ func (r *geometryRepository) getByIDsWithFallback(ctx context.Context, ids []str
 					ID:           convert.UUIDToString(row.ID),
 					GeoType:      row.GeoType,
 					DrawGeometry: row.DrawGeometry,
-					Binding:      row.Binding,
+					BoundWith:    convert.UUIDToStringPtr(row.BoundWith),
 					TimeStart:    convert.Int4ToInt32(row.TimeStart),
 					TimeEnd:      convert.Int4ToInt32(row.TimeEnd),
 					Bbox: &response.Bbox{
@@ -159,7 +159,7 @@ func (r *geometryRepository) GetByID(ctx context.Context, id pgtype.UUID) (*mode
 		ID:           convert.UUIDToString(row.ID),
 		GeoType:      row.GeoType,
 		DrawGeometry: row.DrawGeometry,
-		Binding:      row.Binding,
+		BoundWith:    convert.UUIDToStringPtr(row.BoundWith),
 		TimeStart:    convert.Int4ToInt32(row.TimeStart),
 		TimeEnd:      convert.Int4ToInt32(row.TimeEnd),
 		Bbox: &response.Bbox{
@@ -198,7 +198,7 @@ func (r *geometryRepository) Search(ctx context.Context, params sqlc.SearchGeome
 			ID:           convert.UUIDToString(row.ID),
 			GeoType:      row.GeoType,
 			DrawGeometry: row.DrawGeometry,
-			Binding:      row.Binding,
+			BoundWith:    convert.UUIDToStringPtr(row.BoundWith),
 			TimeStart:    convert.Int4ToInt32(row.TimeStart),
 			TimeEnd:      convert.Int4ToInt32(row.TimeEnd),
 			Bbox: &response.Bbox{
@@ -237,7 +237,7 @@ func (r *geometryRepository) Create(ctx context.Context, params sqlc.CreateGeome
 		ID:           convert.UUIDToString(row.ID),
 		GeoType:      row.GeoType,
 		DrawGeometry: row.DrawGeometry,
-		Binding:      row.Binding,
+		BoundWith:    convert.UUIDToStringPtr(row.BoundWith),
 		TimeStart:    convert.Int4ToInt32(row.TimeStart),
 		TimeEnd:      convert.Int4ToInt32(row.TimeEnd),
 		Bbox: &response.Bbox{
@@ -264,7 +264,7 @@ func (r *geometryRepository) Update(ctx context.Context, params sqlc.UpdateGeome
 		ID:           convert.UUIDToString(row.ID),
 		GeoType:      row.GeoType,
 		DrawGeometry: row.DrawGeometry,
-		Binding:      row.Binding,
+		BoundWith:    convert.UUIDToStringPtr(row.BoundWith),
 		TimeStart:    convert.Int4ToInt32(row.TimeStart),
 		TimeEnd:      convert.Int4ToInt32(row.TimeEnd),
 		Bbox: &response.Bbox{
@@ -328,7 +328,7 @@ func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtyp
 			ID:           convert.UUIDToString(row.ID),
 			GeoType:      row.GeoType,
 			DrawGeometry: row.DrawGeometry,
-			Binding:      row.Binding,
+			BoundWith:    convert.UUIDToStringPtr(row.BoundWith),
 			TimeStart:    convert.Int4ToInt32(row.TimeStart),
 			TimeEnd:      convert.Int4ToInt32(row.TimeEnd),
 			Bbox: &response.Bbox{
@@ -430,7 +430,7 @@ func (r *geometryRepository) getSearchByIDsWithFallback(ctx context.Context, pai
 					GeometryID:        convert.UUIDToString(row.GeometryID),
 					GeoType:           row.GeoType,
 					DrawGeometry:      row.DrawGeometry,
-					Binding:           row.Binding,
+					BoundWith:         convert.UUIDToStringPtr(row.BoundWith),
 					TimeStart:         convert.Int4ToPtr(row.TimeStart),
 					TimeEnd:           convert.Int4ToPtr(row.TimeEnd),
 				}
@@ -485,7 +485,7 @@ func (r *geometryRepository) SearchByEntityName(ctx context.Context, params sqlc
 			GeometryID:        convert.UUIDToString(row.GeometryID),
 			GeoType:           convert.Int2ToInt16(row.GeoType),
 			DrawGeometry:      row.DrawGeometry,
-			Binding:           row.Binding,
+			BoundWith:         convert.UUIDToStringPtr(row.BoundWith),
 			TimeStart:         convert.Int4ToPtr(row.TimeStart),
 			TimeEnd:           convert.Int4ToPtr(row.TimeEnd),
 		}

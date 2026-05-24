@@ -16,7 +16,7 @@ type GeometryResponse struct {
 	ID           string          `json:"id"`
 	GeoType      int16           `json:"geo_type"`
 	DrawGeometry json.RawMessage `json:"draw_geometry"`
-	Binding      json.RawMessage `json:"binding,omitempty"`
+	BoundWith    *string         `json:"bound_with,omitempty"`
 	TimeStart    int32           `json:"time_start,omitempty"`
 	TimeEnd      int32           `json:"time_end,omitempty"`
 	Bbox         *Bbox           `json:"bbox,omitempty"`

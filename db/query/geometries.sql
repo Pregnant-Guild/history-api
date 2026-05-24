@@ -1,15 +1,15 @@
 -- name: CreateGeometry :one
 INSERT INTO geometries (
-    id, geo_type, draw_geometry, binding, time_start, time_end, bbox, project_id
+    id, geo_type, draw_geometry, bound_with, time_start, time_end, bbox, project_id
 ) VALUES (
     COALESCE(sqlc.narg('id')::uuid, uuidv7()), $1, $2, $3, $4, $5, ST_MakeEnvelope(sqlc.arg('min_lng')::float8, sqlc.arg('min_lat')::float8, sqlc.arg('max_lng')::float8, sqlc.arg('max_lat')::float8, 4326), $6
 )
-RETURNING id, geo_type, draw_geometry, binding, time_start, time_end, project_id,
+RETURNING id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
     ST_XMin(bbox)::float8 as min_lng, ST_YMin(bbox)::float8 as min_lat, ST_XMax(bbox)::float8 as max_lng, ST_YMax(bbox)::float8 as max_lat,
     is_deleted, created_at, updated_at;
 
 -- name: GetGeometryById :one
-SELECT id, geo_type, draw_geometry, binding, time_start, time_end, project_id,
+SELECT id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
     ST_XMin(bbox)::float8 as min_lng, ST_YMin(bbox)::float8 as min_lat, ST_XMax(bbox)::float8 as max_lng, ST_YMax(bbox)::float8 as max_lat,
     is_deleted, created_at, updated_at
 FROM geometries
@@ -20,7 +20,7 @@ UPDATE geometries
 SET 
     geo_type = COALESCE(sqlc.narg('geo_type'), geo_type),
     draw_geometry = COALESCE(sqlc.narg('draw_geometry'), draw_geometry),
-    binding = COALESCE(sqlc.narg('binding'), binding),
+    bound_with = COALESCE(sqlc.narg('bound_with'), bound_with),
     time_start = COALESCE(sqlc.narg('time_start'), time_start),
     time_end = COALESCE(sqlc.narg('time_end'), time_end),
     project_id = COALESCE(sqlc.narg('project_id'), project_id),
@@ -31,7 +31,7 @@ SET
     END,
     updated_at = now()
 WHERE id = sqlc.arg('id') AND is_deleted = false
-RETURNING id, geo_type, draw_geometry, binding, time_start, time_end, project_id,
+RETURNING id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
     ST_XMin(bbox)::float8 as min_lng, ST_YMin(bbox)::float8 as min_lat, ST_XMax(bbox)::float8 as max_lng, ST_YMax(bbox)::float8 as max_lat,
     is_deleted, created_at, updated_at;
 
@@ -43,7 +43,7 @@ WHERE id = $1;
 
 -- name: SearchGeometries :many
 SELECT 
-    g.id, g.geo_type, g.draw_geometry, g.binding, g.time_start, g.time_end, g.project_id,
+    g.id, g.geo_type, g.draw_geometry, g.bound_with, g.time_start, g.time_end, g.project_id,
     ST_XMin(g.bbox)::float8 as min_lng, 
     ST_YMin(g.bbox)::float8 as min_lat, 
     ST_XMax(g.bbox)::float8 as max_lng, 
@@ -82,6 +82,11 @@ WHERE g.is_deleted = false
           AND eg.entity_id = sqlc.narg('entity_id')::uuid
     )
   )
+  AND (
+    sqlc.narg('has_bound')::boolean IS NULL OR
+    sqlc.narg('has_bound')::boolean = true OR
+    g.bound_with IS NULL
+  )
 ORDER BY g.id DESC;
 
 -- name: SearchGeometriesByEntityName :many
@@ -104,7 +109,7 @@ SELECT
     g.id AS geometry_id,
     g.geo_type,
     g.draw_geometry,
-    g.binding,
+    g.bound_with,
     g.time_start,
     g.time_end
 FROM matched_entities me
@@ -133,7 +138,7 @@ WHERE project_id = $1;
 
 -- name: GetGeometriesByIDs :many
 SELECT 
-    id, geo_type, draw_geometry, binding, time_start, time_end, project_id,
+    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
     ST_XMin(bbox)::float8 as min_lng, 
     ST_YMin(bbox)::float8 as min_lat, 
     ST_XMax(bbox)::float8 as max_lng, 
@@ -144,7 +149,7 @@ WHERE id = ANY($1::uuid[]) AND is_deleted = false;
 
 -- name: GetGeometriesByProjectId :many
 SELECT 
-    id, geo_type, draw_geometry, binding, time_start, time_end, project_id,
+    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
     ST_XMin(bbox)::float8 as min_lng, 
     ST_YMin(bbox)::float8 as min_lat, 
     ST_XMax(bbox)::float8 as max_lng, 
@@ -174,7 +179,7 @@ SELECT
     g.id AS geometry_id,
     g.geo_type,
     g.draw_geometry,
-    g.binding,
+    g.bound_with,
     g.time_start,
     g.time_end
 FROM (

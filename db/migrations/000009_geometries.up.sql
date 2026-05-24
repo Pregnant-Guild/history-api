@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS geometries (
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     geo_type SMALLINT NOT NULL DEFAULT 1,
     draw_geometry JSONB NOT NULL,
-    binding JSONB,
+    bound_with UUID REFERENCES geometries(id) ON DELETE SET NULL,
     time_start INT,
     time_end INT,
     bbox GEOMETRY(Polygon, 4326), 
@@ -40,8 +40,8 @@ WHERE is_deleted = false;
 CREATE INDEX idx_entity_geometries_geometry
 ON entity_geometries(geometry_id);
 
-CREATE INDEX idx_geom_binding 
-ON geometries USING GIN (binding);
+CREATE INDEX idx_geom_bound_with 
+ON geometries (bound_with);
 
 CREATE INDEX idx_geom_updated_at 
 ON geometries (updated_at DESC) 

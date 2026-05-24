@@ -36,7 +36,7 @@ type FeatureProperties struct {
 	GeometryPreset string   `json:"geometry_preset,omitempty"`
 	TimeStart      *float64 `json:"time_start,omitempty"`
 	TimeEnd        *float64 `json:"time_end,omitempty"`
-	Binding        []string `json:"binding,omitempty"`
+	BoundWith      *string  `json:"bound_with,omitempty"`
 	EntityID       string   `json:"entity_id,omitempty" validate:"omitempty,uuidv7"`
 	EntityIDs      []string `json:"entity_ids,omitempty" validate:"omitempty,dive,uuidv7"`
 	EntityName     string   `json:"entity_name,omitempty"`
@@ -64,7 +64,7 @@ type GeometrySnapshot struct {
 	Operation     string          `json:"operation,omitempty" validate:"omitempty,oneof=create update delete reference"`
 	Type          string          `json:"type,omitempty" validate:"omitempty"`
 	DrawGeometry  json.RawMessage `json:"draw_geometry,omitempty"`
-	Binding       []string        `json:"binding,omitempty"`
+	BoundWith     *string         `json:"bound_with,omitempty"`
 	TimeStart     *float64        `json:"time_start,omitempty"`
 	TimeEnd       *float64        `json:"time_end,omitempty"`
 	BBox          *BBox           `json:"bbox,omitempty" validate:"omitempty"`

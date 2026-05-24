@@ -301,10 +301,8 @@ definitions:
     type: object
   history-api_internal_dtos_request.FeatureProperties:
     properties:
-      binding:
-        items:
-          type: string
-        type: array
+      bound_with:
+        type: string
       entity_id:
         type: string
       entity_ids:
@@ -374,10 +372,8 @@ definitions:
         type: string
       bbox:
         $ref: '#/definitions/history-api_internal_dtos_request.BBox'
-      binding:
-        items:
-          type: string
-        type: array
+      bound_with:
+        type: string
       draw_geometry:
         items:
           type: integer
@@ -1216,6 +1212,9 @@ paths:
       - in: query
         name: entity_id
         type: string
+      - in: query
+        name: has_bound
+        type: boolean
       - in: query
         maximum: 90
         minimum: -90

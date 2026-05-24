@@ -10,7 +10,7 @@ type GeometryEntity struct {
 	ID           string          `json:"id"`
 	GeoType      int16           `json:"geo_type"`
 	DrawGeometry json.RawMessage `json:"draw_geometry"`
-	Binding      json.RawMessage `json:"binding"`
+	BoundWith    *string         `json:"bound_with"`
 	TimeStart    int32           `json:"time_start"`
 	TimeEnd      int32           `json:"time_end"`
 	Bbox         *response.Bbox  `json:"bbox"`
@@ -27,7 +27,7 @@ type EntityGeometriesSearchEntity struct {
 	GeometryID        string          `json:"id"`
 	GeoType           int16           `json:"geo_type"`
 	DrawGeometry      json.RawMessage `json:"draw_geometry"`
-	Binding           json.RawMessage `json:"binding,omitempty"`
+	BoundWith         *string         `json:"bound_with,omitempty"`
 	TimeStart         *int32          `json:"time_start,omitempty"`
 	TimeEnd           *int32          `json:"time_end,omitempty"`
 }
@@ -40,7 +40,7 @@ func (g *GeometryEntity) ToResponse() *response.GeometryResponse {
 		ID:           g.ID,
 		GeoType:      g.GeoType,
 		DrawGeometry: g.DrawGeometry,
-		Binding:      g.Binding,
+		BoundWith:    g.BoundWith,
 		TimeStart:    g.TimeStart,
 		TimeEnd:      g.TimeEnd,
 		Bbox:         g.Bbox,

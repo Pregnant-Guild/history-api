@@ -716,7 +716,15 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 			return fiber.NewError(fiber.StatusInternalServerError, "Invalid geometry ID")
 		}
 
-		binding, _ := json.Marshal(geo.Binding)
+		var boundWith pgtype.UUID
+		if geo.BoundWith != nil && *geo.BoundWith != "" {
+			var err error
+			boundWith, err = convert.StringToUUID(*geo.BoundWith)
+			if err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid bound_with geometry ID")
+			}
+		}
+
 		geoTypeCode := int16(0)
 		if geo.Type != "" {
 			if n, err := strconv.ParseInt(geo.Type, 10, 16); err == nil {
@@ -729,7 +737,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 				ID:           geometryUUID,
 				GeoType:      pgtype.Int2{Int16: geoTypeCode, Valid: true},
 				DrawGeometry: geo.DrawGeometry,
-				Binding:      binding,
+				BoundWith:    boundWith,
 				TimeStart:    convert.PtrFloat64ToInt4(geo.TimeStart),
 				TimeEnd:      convert.PtrFloat64ToInt4(geo.TimeEnd),
 				ProjectID:    projectUUID,
@@ -754,7 +762,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 				ID:           geometryUUID,
 				GeoType:      geoTypeCode,
 				DrawGeometry: geo.DrawGeometry,
-				Binding:      binding,
+				BoundWith:    boundWith,
 				TimeStart:    convert.PtrFloat64ToInt4(geo.TimeStart),
 				TimeEnd:      convert.PtrFloat64ToInt4(geo.TimeEnd),
 				ProjectID:    projectUUID,

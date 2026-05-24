@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS geometries (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     geo_type SMALLINT NOT NULL DEFAULT 1,
     draw_geometry JSONB NOT NULL,
-    binding JSONB,
+    bound_with UUID REFERENCES geometries(id) ON DELETE SET NULL,
     time_start INT,
     time_end INT,
     bbox GEOMETRY(Polygon, 4326), 

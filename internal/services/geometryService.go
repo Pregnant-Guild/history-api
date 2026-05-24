@@ -73,6 +73,18 @@ func (s *geometryService) SearchGeometries(ctx context.Context, req *request.Sea
 		params.EntityID = entityId
 	}
 
+	if req.ProjectID != nil {
+		projectId, err := convert.StringToUUID(*req.ProjectID)
+		if err != nil {
+			return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
+		}
+		params.ProjectID = projectId
+	}
+
+	if req.HasBound != nil {
+		params.HasBound = pgtype.Bool{Bool: *req.HasBound, Valid: true}
+	}
+
 	geometries, err := s.geometryRepo.Search(ctx, params)
 	if err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search geometries")
@@ -132,7 +144,7 @@ func (s *geometryService) SearchGeometriesByEntityName(
 			ID:           row.GeometryID,
 			GeoType:      row.GeoType,
 			DrawGeometry: row.DrawGeometry,
-			Binding:      row.Binding,
+			BoundWith:    row.BoundWith,
 			TimeStart:    row.TimeStart,
 			TimeEnd:      row.TimeEnd,
 		})

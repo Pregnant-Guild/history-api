@@ -69,11 +69,11 @@ func (q *Queries) CreateEntityGeometries(ctx context.Context, arg CreateEntityGe
 
 const createGeometry = `-- name: CreateGeometry :one
 INSERT INTO geometries (
-    id, geo_type, draw_geometry, binding, time_start, time_end, bbox, project_id
+    id, geo_type, draw_geometry, bound_with, time_start, time_end, bbox, project_id
 ) VALUES (
     COALESCE($7::uuid, uuidv7()), $1, $2, $3, $4, $5, ST_MakeEnvelope($8::float8, $9::float8, $10::float8, $11::float8, 4326), $6
 )
-RETURNING id, geo_type, draw_geometry, binding, time_start, time_end, project_id,
+RETURNING id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
     ST_XMin(bbox)::float8 as min_lng, ST_YMin(bbox)::float8 as min_lat, ST_XMax(bbox)::float8 as max_lng, ST_YMax(bbox)::float8 as max_lat,
     is_deleted, created_at, updated_at
 `
@@ -81,7 +81,7 @@ RETURNING id, geo_type, draw_geometry, binding, time_start, time_end, project_id
 type CreateGeometryParams struct {
 	GeoType      int16           `json:"geo_type"`
 	DrawGeometry json.RawMessage `json:"draw_geometry"`
-	Binding      []byte          `json:"binding"`
+	BoundWith    pgtype.UUID     `json:"bound_with"`
 	TimeStart    pgtype.Int4     `json:"time_start"`
 	TimeEnd      pgtype.Int4     `json:"time_end"`
 	ProjectID    pgtype.UUID     `json:"project_id"`
@@ -96,7 +96,7 @@ type CreateGeometryRow struct {
 	ID           pgtype.UUID        `json:"id"`
 	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
-	Binding      []byte             `json:"binding"`
+	BoundWith    pgtype.UUID        `json:"bound_with"`
 	TimeStart    pgtype.Int4        `json:"time_start"`
 	TimeEnd      pgtype.Int4        `json:"time_end"`
 	ProjectID    pgtype.UUID        `json:"project_id"`
@@ -113,7 +113,7 @@ func (q *Queries) CreateGeometry(ctx context.Context, arg CreateGeometryParams) 
 	row := q.db.QueryRow(ctx, createGeometry,
 		arg.GeoType,
 		arg.DrawGeometry,
-		arg.Binding,
+		arg.BoundWith,
 		arg.TimeStart,
 		arg.TimeEnd,
 		arg.ProjectID,
@@ -128,7 +128,7 @@ func (q *Queries) CreateGeometry(ctx context.Context, arg CreateGeometryParams) 
 		&i.ID,
 		&i.GeoType,
 		&i.DrawGeometry,
-		&i.Binding,
+		&i.BoundWith,
 		&i.TimeStart,
 		&i.TimeEnd,
 		&i.ProjectID,
@@ -199,7 +199,7 @@ SELECT
     g.id AS geometry_id,
     g.geo_type,
     g.draw_geometry,
-    g.binding,
+    g.bound_with,
     g.time_start,
     g.time_end
 FROM (
@@ -224,7 +224,7 @@ type GetEntityGeometriesByPairsRow struct {
 	GeometryID        pgtype.UUID     `json:"geometry_id"`
 	GeoType           int16           `json:"geo_type"`
 	DrawGeometry      json.RawMessage `json:"draw_geometry"`
-	Binding           []byte          `json:"binding"`
+	BoundWith         pgtype.UUID     `json:"bound_with"`
 	TimeStart         pgtype.Int4     `json:"time_start"`
 	TimeEnd           pgtype.Int4     `json:"time_end"`
 }
@@ -245,7 +245,7 @@ func (q *Queries) GetEntityGeometriesByPairs(ctx context.Context, arg GetEntityG
 			&i.GeometryID,
 			&i.GeoType,
 			&i.DrawGeometry,
-			&i.Binding,
+			&i.BoundWith,
 			&i.TimeStart,
 			&i.TimeEnd,
 		); err != nil {
@@ -261,7 +261,7 @@ func (q *Queries) GetEntityGeometriesByPairs(ctx context.Context, arg GetEntityG
 
 const getGeometriesByIDs = `-- name: GetGeometriesByIDs :many
 SELECT 
-    id, geo_type, draw_geometry, binding, time_start, time_end, project_id,
+    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
     ST_XMin(bbox)::float8 as min_lng, 
     ST_YMin(bbox)::float8 as min_lat, 
     ST_XMax(bbox)::float8 as max_lng, 
@@ -275,7 +275,7 @@ type GetGeometriesByIDsRow struct {
 	ID           pgtype.UUID        `json:"id"`
 	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
-	Binding      []byte             `json:"binding"`
+	BoundWith    pgtype.UUID        `json:"bound_with"`
 	TimeStart    pgtype.Int4        `json:"time_start"`
 	TimeEnd      pgtype.Int4        `json:"time_end"`
 	ProjectID    pgtype.UUID        `json:"project_id"`
@@ -301,7 +301,7 @@ func (q *Queries) GetGeometriesByIDs(ctx context.Context, dollar_1 []pgtype.UUID
 			&i.ID,
 			&i.GeoType,
 			&i.DrawGeometry,
-			&i.Binding,
+			&i.BoundWith,
 			&i.TimeStart,
 			&i.TimeEnd,
 			&i.ProjectID,
@@ -325,7 +325,7 @@ func (q *Queries) GetGeometriesByIDs(ctx context.Context, dollar_1 []pgtype.UUID
 
 const getGeometriesByProjectId = `-- name: GetGeometriesByProjectId :many
 SELECT 
-    id, geo_type, draw_geometry, binding, time_start, time_end, project_id,
+    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
     ST_XMin(bbox)::float8 as min_lng, 
     ST_YMin(bbox)::float8 as min_lat, 
     ST_XMax(bbox)::float8 as max_lng, 
@@ -339,7 +339,7 @@ type GetGeometriesByProjectIdRow struct {
 	ID           pgtype.UUID        `json:"id"`
 	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
-	Binding      []byte             `json:"binding"`
+	BoundWith    pgtype.UUID        `json:"bound_with"`
 	TimeStart    pgtype.Int4        `json:"time_start"`
 	TimeEnd      pgtype.Int4        `json:"time_end"`
 	ProjectID    pgtype.UUID        `json:"project_id"`
@@ -365,7 +365,7 @@ func (q *Queries) GetGeometriesByProjectId(ctx context.Context, projectID pgtype
 			&i.ID,
 			&i.GeoType,
 			&i.DrawGeometry,
-			&i.Binding,
+			&i.BoundWith,
 			&i.TimeStart,
 			&i.TimeEnd,
 			&i.ProjectID,
@@ -388,7 +388,7 @@ func (q *Queries) GetGeometriesByProjectId(ctx context.Context, projectID pgtype
 }
 
 const getGeometryById = `-- name: GetGeometryById :one
-SELECT id, geo_type, draw_geometry, binding, time_start, time_end, project_id,
+SELECT id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
     ST_XMin(bbox)::float8 as min_lng, ST_YMin(bbox)::float8 as min_lat, ST_XMax(bbox)::float8 as max_lng, ST_YMax(bbox)::float8 as max_lat,
     is_deleted, created_at, updated_at
 FROM geometries
@@ -399,7 +399,7 @@ type GetGeometryByIdRow struct {
 	ID           pgtype.UUID        `json:"id"`
 	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
-	Binding      []byte             `json:"binding"`
+	BoundWith    pgtype.UUID        `json:"bound_with"`
 	TimeStart    pgtype.Int4        `json:"time_start"`
 	TimeEnd      pgtype.Int4        `json:"time_end"`
 	ProjectID    pgtype.UUID        `json:"project_id"`
@@ -419,7 +419,7 @@ func (q *Queries) GetGeometryById(ctx context.Context, id pgtype.UUID) (GetGeome
 		&i.ID,
 		&i.GeoType,
 		&i.DrawGeometry,
-		&i.Binding,
+		&i.BoundWith,
 		&i.TimeStart,
 		&i.TimeEnd,
 		&i.ProjectID,
@@ -436,7 +436,7 @@ func (q *Queries) GetGeometryById(ctx context.Context, id pgtype.UUID) (GetGeome
 
 const searchGeometries = `-- name: SearchGeometries :many
 SELECT 
-    g.id, g.geo_type, g.draw_geometry, g.binding, g.time_start, g.time_end, g.project_id,
+    g.id, g.geo_type, g.draw_geometry, g.bound_with, g.time_start, g.time_end, g.project_id,
     ST_XMin(g.bbox)::float8 as min_lng, 
     ST_YMin(g.bbox)::float8 as min_lat, 
     ST_XMax(g.bbox)::float8 as max_lng, 
@@ -475,6 +475,11 @@ WHERE g.is_deleted = false
           AND eg.entity_id = $8::uuid
     )
   )
+  AND (
+    $9::boolean IS NULL OR
+    $9::boolean = true OR
+    g.bound_with IS NULL
+  )
 ORDER BY g.id DESC
 `
 
@@ -487,13 +492,14 @@ type SearchGeometriesParams struct {
 	TimePoint    pgtype.Int4   `json:"time_point"`
 	TimeRange    pgtype.Int4   `json:"time_range"`
 	EntityID     pgtype.UUID   `json:"entity_id"`
+	HasBound     pgtype.Bool   `json:"has_bound"`
 }
 
 type SearchGeometriesRow struct {
 	ID           pgtype.UUID        `json:"id"`
 	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
-	Binding      []byte             `json:"binding"`
+	BoundWith    pgtype.UUID        `json:"bound_with"`
 	TimeStart    pgtype.Int4        `json:"time_start"`
 	TimeEnd      pgtype.Int4        `json:"time_end"`
 	ProjectID    pgtype.UUID        `json:"project_id"`
@@ -516,6 +522,7 @@ func (q *Queries) SearchGeometries(ctx context.Context, arg SearchGeometriesPara
 		arg.TimePoint,
 		arg.TimeRange,
 		arg.EntityID,
+		arg.HasBound,
 	)
 	if err != nil {
 		return nil, err
@@ -528,7 +535,7 @@ func (q *Queries) SearchGeometries(ctx context.Context, arg SearchGeometriesPara
 			&i.ID,
 			&i.GeoType,
 			&i.DrawGeometry,
-			&i.Binding,
+			&i.BoundWith,
 			&i.TimeStart,
 			&i.TimeEnd,
 			&i.ProjectID,
@@ -570,7 +577,7 @@ SELECT
     g.id AS geometry_id,
     g.geo_type,
     g.draw_geometry,
-    g.binding,
+    g.bound_with,
     g.time_start,
     g.time_end
 FROM matched_entities me
@@ -595,7 +602,7 @@ type SearchGeometriesByEntityNameRow struct {
 	GeometryID        pgtype.UUID `json:"geometry_id"`
 	GeoType           pgtype.Int2 `json:"geo_type"`
 	DrawGeometry      []byte      `json:"draw_geometry"`
-	Binding           []byte      `json:"binding"`
+	BoundWith         pgtype.UUID `json:"bound_with"`
 	TimeStart         pgtype.Int4 `json:"time_start"`
 	TimeEnd           pgtype.Int4 `json:"time_end"`
 }
@@ -616,7 +623,7 @@ func (q *Queries) SearchGeometriesByEntityName(ctx context.Context, arg SearchGe
 			&i.GeometryID,
 			&i.GeoType,
 			&i.DrawGeometry,
-			&i.Binding,
+			&i.BoundWith,
 			&i.TimeStart,
 			&i.TimeEnd,
 		); err != nil {
@@ -635,7 +642,7 @@ UPDATE geometries
 SET 
     geo_type = COALESCE($1, geo_type),
     draw_geometry = COALESCE($2, draw_geometry),
-    binding = COALESCE($3, binding),
+    bound_with = COALESCE($3, bound_with),
     time_start = COALESCE($4, time_start),
     time_end = COALESCE($5, time_end),
     project_id = COALESCE($6, project_id),
@@ -646,7 +653,7 @@ SET
     END,
     updated_at = now()
 WHERE id = $12 AND is_deleted = false
-RETURNING id, geo_type, draw_geometry, binding, time_start, time_end, project_id,
+RETURNING id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
     ST_XMin(bbox)::float8 as min_lng, ST_YMin(bbox)::float8 as min_lat, ST_XMax(bbox)::float8 as max_lng, ST_YMax(bbox)::float8 as max_lat,
     is_deleted, created_at, updated_at
 `
@@ -654,7 +661,7 @@ RETURNING id, geo_type, draw_geometry, binding, time_start, time_end, project_id
 type UpdateGeometryParams struct {
 	GeoType      pgtype.Int2   `json:"geo_type"`
 	DrawGeometry []byte        `json:"draw_geometry"`
-	Binding      []byte        `json:"binding"`
+	BoundWith    pgtype.UUID   `json:"bound_with"`
 	TimeStart    pgtype.Int4   `json:"time_start"`
 	TimeEnd      pgtype.Int4   `json:"time_end"`
 	ProjectID    pgtype.UUID   `json:"project_id"`
@@ -670,7 +677,7 @@ type UpdateGeometryRow struct {
 	ID           pgtype.UUID        `json:"id"`
 	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
-	Binding      []byte             `json:"binding"`
+	BoundWith    pgtype.UUID        `json:"bound_with"`
 	TimeStart    pgtype.Int4        `json:"time_start"`
 	TimeEnd      pgtype.Int4        `json:"time_end"`
 	ProjectID    pgtype.UUID        `json:"project_id"`
@@ -687,7 +694,7 @@ func (q *Queries) UpdateGeometry(ctx context.Context, arg UpdateGeometryParams) 
 	row := q.db.QueryRow(ctx, updateGeometry,
 		arg.GeoType,
 		arg.DrawGeometry,
-		arg.Binding,
+		arg.BoundWith,
 		arg.TimeStart,
 		arg.TimeEnd,
 		arg.ProjectID,
@@ -703,7 +710,7 @@ func (q *Queries) UpdateGeometry(ctx context.Context, arg UpdateGeometryParams) 
 		&i.ID,
 		&i.GeoType,
 		&i.DrawGeometry,
-		&i.Binding,
+		&i.BoundWith,
 		&i.TimeStart,
 		&i.TimeEnd,
 		&i.ProjectID,

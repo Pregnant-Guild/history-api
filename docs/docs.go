@@ -792,6 +792,11 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "boolean",
+                        "name": "has_bound",
+                        "in": "query"
+                    },
+                    {
                         "maximum": 90,
                         "minimum": -90,
                         "type": "number",
@@ -4769,11 +4774,8 @@ const docTemplate = `{
                 "id"
             ],
             "properties": {
-                "binding": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "bound_with": {
+                    "type": "string"
                 },
                 "entity_id": {
                     "type": "string"
@@ -4875,11 +4877,8 @@ const docTemplate = `{
                 "bbox": {
                     "$ref": "#/definitions/history-api_internal_dtos_request.BBox"
                 },
-                "binding": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "bound_with": {
+                    "type": "string"
                 },
                 "draw_geometry": {
                     "type": "array",

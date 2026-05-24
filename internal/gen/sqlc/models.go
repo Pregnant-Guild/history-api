@@ -81,7 +81,7 @@ type Geometry struct {
 	ID           pgtype.UUID        `json:"id"`
 	GeoType      int16              `json:"geo_type"`
 	DrawGeometry json.RawMessage    `json:"draw_geometry"`
-	Binding      []byte             `json:"binding"`
+	BoundWith    pgtype.UUID        `json:"bound_with"`
 	TimeStart    pgtype.Int4        `json:"time_start"`
 	TimeEnd      pgtype.Int4        `json:"time_end"`
 	Bbox         interface{}        `json:"bbox"`
