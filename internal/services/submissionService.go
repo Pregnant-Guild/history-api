@@ -421,44 +421,54 @@ func (s *submissionService) DeleteSubmission(ctx context.Context, userID string,
 
 	submissionRepo := s.submissionRepo.WithTx(tx)
 
+	isLatestApprovedDeleted := false
+
 	if submission.Status == constants.StatusTypeApproved {
 		projectUUID, err := convert.StringToUUID(submission.ProjectID)
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid project ID")
 		}
 
-		prevSubmission, err := s.submissionRepo.GetLatestApprovedSubmissionExcluding(ctx, projectUUID, submissionUUID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				if err := s.clearProjectItems(ctx, tx, projectUUID); err != nil {
+		latestApproved, err := s.submissionRepo.GetLatestApprovedSubmission(ctx, projectUUID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to check latest approved submission: "+err.Error())
+		}
+
+		if err == nil && latestApproved != nil && latestApproved.ID == submission.ID {
+			isLatestApprovedDeleted = true
+			prevSubmission, err := s.submissionRepo.GetLatestApprovedSubmissionExcluding(ctx, projectUUID, submissionUUID)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					if err := s.clearProjectItems(ctx, tx, projectUUID); err != nil {
+						return err
+					}
+				} else {
+					return fiber.NewError(fiber.StatusInternalServerError, "Failed to get previous approved submission: "+err.Error())
+				}
+			} else if prevSubmission != nil {
+				prevCommitUUID, err := convert.StringToUUID(prevSubmission.CommitID)
+				if err != nil {
+					return fiber.NewError(fiber.StatusBadRequest, "Invalid previous commit ID")
+				}
+
+				prevCommit, err := s.commitRepo.GetByID(ctx, prevCommitUUID)
+				if err != nil {
+					return fiber.NewError(fiber.StatusNotFound, "Previous commit not found")
+				}
+
+				var prevSnapshotData request.CommitSnapshot
+				err = json.Unmarshal(prevCommit.SnapshotJson, &prevSnapshotData)
+				if err != nil {
+					return fiber.NewError(fiber.StatusInternalServerError, "Failed to parse previous commit snapshot")
+				}
+
+				if err := s.applySnapshot(ctx, tx, projectUUID, prevCommitUUID, &prevSnapshotData); err != nil {
 					return err
 				}
 			} else {
-				return fiber.NewError(fiber.StatusInternalServerError, "Failed to get previous approved submission: "+err.Error())
-			}
-		} else if prevSubmission != nil {
-			prevCommitUUID, err := convert.StringToUUID(prevSubmission.CommitID)
-			if err != nil {
-				return fiber.NewError(fiber.StatusBadRequest, "Invalid previous commit ID")
-			}
-
-			prevCommit, err := s.commitRepo.GetByID(ctx, prevCommitUUID)
-			if err != nil {
-				return fiber.NewError(fiber.StatusNotFound, "Previous commit not found")
-			}
-
-			var prevSnapshotData request.CommitSnapshot
-			err = json.Unmarshal(prevCommit.SnapshotJson, &prevSnapshotData)
-			if err != nil {
-				return fiber.NewError(fiber.StatusInternalServerError, "Failed to parse previous commit snapshot")
-			}
-
-			if err := s.applySnapshot(ctx, tx, projectUUID, prevCommitUUID, &prevSnapshotData); err != nil {
-				return err
-			}
-		} else {
-			if err := s.clearProjectItems(ctx, tx, projectUUID); err != nil {
-				return err
+				if err := s.clearProjectItems(ctx, tx, projectUUID); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -473,7 +483,7 @@ func (s *submissionService) DeleteSubmission(ctx context.Context, userID string,
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction: "+err.Error())
 	}
 
-	if submission.Status == constants.StatusTypeApproved {
+	if isLatestApprovedDeleted {
 		go func() {
 			bgCtx := context.Background()
 			_ = s.c.DelByPattern(bgCtx, "entity:search*")

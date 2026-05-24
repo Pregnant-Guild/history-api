@@ -216,3 +216,13 @@ WHERE project_id = $1
 ORDER BY reviewed_at DESC, created_at DESC
 LIMIT 1;
 
+-- name: GetLatestApprovedSubmission :one
+SELECT 
+    id, project_id, commit_id, user_id, created_at, status, reviewed_by, reviewed_at, review_note, content, is_deleted
+FROM submissions
+WHERE project_id = $1 
+  AND status = 2
+  AND is_deleted = false
+ORDER BY reviewed_at DESC, created_at DESC
+LIMIT 1;
+

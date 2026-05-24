@@ -24,6 +24,7 @@ type SubmissionRepository interface {
 	Update(ctx context.Context, params sqlc.UpdateSubmissionParams) (*models.SubmissionEntity, error)
 	Delete(ctx context.Context, id pgtype.UUID) error
 	GetLatestApprovedSubmissionExcluding(ctx context.Context, projectID pgtype.UUID, id pgtype.UUID) (*models.SubmissionEntity, error)
+	GetLatestApprovedSubmission(ctx context.Context, projectID pgtype.UUID) (*models.SubmissionEntity, error)
 	WithTx(tx pgx.Tx) SubmissionRepository
 }
 
@@ -330,6 +331,28 @@ func (r *submissionRepository) GetLatestApprovedSubmissionExcluding(ctx context.
 		ProjectID: projectID,
 		ID:        id,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	entity := &models.SubmissionEntity{
+		ID:         convert.UUIDToString(row.ID),
+		ProjectID:  convert.UUIDToString(row.ProjectID),
+		CommitID:   convert.UUIDToString(row.CommitID),
+		UserID:     convert.UUIDToString(row.UserID),
+		CreatedAt:  convert.TimeToPtr(row.CreatedAt),
+		Status:     constants.ParseStatusType(row.Status),
+		ReviewedBy: convert.UUIDToStringPtr(row.ReviewedBy),
+		ReviewedAt: convert.TimeToPtr(row.ReviewedAt),
+		ReviewNote: convert.TextToPtr(row.ReviewNote),
+		Content:    convert.TextToPtr(row.Content),
+		IsDeleted:  row.IsDeleted,
+	}
+	return entity, nil
+}
+
+func (r *submissionRepository) GetLatestApprovedSubmission(ctx context.Context, projectID pgtype.UUID) (*models.SubmissionEntity, error) {
+	row, err := r.q.GetLatestApprovedSubmission(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
