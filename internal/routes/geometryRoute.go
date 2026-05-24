@@ -10,5 +10,6 @@ func GeometryRoutes(router fiber.Router, geometryController *controllers.Geometr
 	geometry := router.Group("/geometries")
 	geometry.Get("/", geometryController.SearchGeometries)
 	geometry.Get("/entity", geometryController.SearchGeometriesByEntityName)
+	geometry.Get("/bound-with/:bound_with", geometryController.GetGeometriesByBoundWith)
 	geometry.Get("/:id", geometryController.GetGeometryById)
 }

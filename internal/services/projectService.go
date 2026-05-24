@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -12,6 +14,7 @@ import (
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/internal/repositories"
+	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
 )
@@ -27,15 +30,20 @@ type ProjectService interface {
 	UpdateMemberRole(ctx context.Context, claims *response.JWTClaims, projectID string, memberUserID string, dto *request.UpdateProjectMemberDto) (*response.ProjectResponse, *fiber.Error)
 	RemoveMember(ctx context.Context, claims *response.JWTClaims, projectID string, memberUserID string) *fiber.Error
 	ChangeOwner(ctx context.Context, claims *response.JWTClaims, projectID string, newOwnerID string) (*response.ProjectResponse, *fiber.Error)
+	LockProject(ctx context.Context, userID string, projectID string) *fiber.Error
+	UnlockProject(ctx context.Context, userID string, projectID string) *fiber.Error
+	HeartbeatProject(ctx context.Context, userID string, projectID string) *fiber.Error
 }
 
 type projectService struct {
 	projectRepo repositories.ProjectRepository
+	c           cache.Cache
 }
 
-func NewProjectService(projectRepo repositories.ProjectRepository) ProjectService {
+func NewProjectService(projectRepo repositories.ProjectRepository, c cache.Cache) ProjectService {
 	return &projectService{
 		projectRepo: projectRepo,
+		c:           c,
 	}
 }
 
@@ -78,7 +86,16 @@ func (s *projectService) GetProjectByID(ctx context.Context, id string) (*respon
 		return nil, fiber.NewError(fiber.StatusNotFound, "Project not found")
 	}
 
-	return project.ToResponse(), nil
+	res := project.ToResponse()
+	lockKey := fmt.Sprintf("project:lock:%s", id)
+	var lockUser string
+	if err := s.c.Get(ctx, lockKey, &lockUser); err == nil && lockUser != "" {
+		res.LockedBy = &lockUser
+	} else {
+		res.LockedBy = nil
+	}
+
+	return res, nil
 }
 
 func (s *projectService) GetProjectByUserID(ctx context.Context, userID string, dto *request.GetProjectsByUserDto) ([]*response.ProjectResponse, *fiber.Error) {
@@ -418,4 +435,73 @@ func (s *projectService) ChangeOwner(ctx context.Context, claims *response.JWTCl
 	}
 
 	return project.ToResponse(), nil
+}
+
+func (s *projectService) LockProject(ctx context.Context, userID string, projectID string) *fiber.Error {
+	projectUUID, err := convert.StringToUUID(projectID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid project ID format")
+	}
+
+	_, err = s.projectRepo.GetByID(ctx, projectUUID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "Project not found")
+	}
+
+	lockKey := fmt.Sprintf("project:lock:%s", projectID)
+	var lockUser string
+	err = s.c.Get(ctx, lockKey, &lockUser)
+	if err == nil && lockUser != "" {
+		if lockUser != userID {
+			return fiber.NewError(fiber.StatusConflict, "Project is locked by another user")
+		}
+		err = s.c.Set(ctx, lockKey, userID, 3*time.Minute)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to refresh lock")
+		}
+		return nil
+	}
+
+	err = s.c.Set(ctx, lockKey, userID, 3*time.Minute)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to acquire lock")
+	}
+
+	return nil
+}
+
+func (s *projectService) UnlockProject(ctx context.Context, userID string, projectID string) *fiber.Error {
+	lockKey := fmt.Sprintf("project:lock:%s", projectID)
+	var lockUser string
+	err := s.c.Get(ctx, lockKey, &lockUser)
+	if err != nil || lockUser == "" {
+		return nil
+	}
+
+	if lockUser != userID {
+		return fiber.NewError(fiber.StatusForbidden, "You cannot unlock a project locked by another user")
+	}
+
+	_ = s.c.Del(ctx, lockKey)
+	return nil
+}
+
+func (s *projectService) HeartbeatProject(ctx context.Context, userID string, projectID string) *fiber.Error {
+	lockKey := fmt.Sprintf("project:lock:%s", projectID)
+	var lockUser string
+	err := s.c.Get(ctx, lockKey, &lockUser)
+	if err != nil || lockUser == "" {
+		return fiber.NewError(fiber.StatusConflict, "Lock does not exist or has expired")
+	}
+
+	if lockUser != userID {
+		return fiber.NewError(fiber.StatusForbidden, "Lock is held by another user")
+	}
+
+	err = s.c.Set(ctx, lockKey, userID, 3*time.Minute)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to refresh lock")
+	}
+
+	return nil
 }

@@ -118,3 +118,30 @@ func (h *GeometryController) SearchGeometriesByEntityName(c fiber.Ctx) error {
 		Data:   res,
 	})
 }
+
+// GetGeometriesByBoundWith handles fetching geometries by their bound_with reference.
+// @Summary      Get geometries by bound_with ID
+// @Description  Get a list of geometries that are bound to the specified geometry ID
+// @Tags         Geometries
+// @Accept       json
+// @Produce      json
+// @Param        bound_with   path      string  true  "Bound-with Geometry ID"
+// @Success      200  {object}  response.CommonResponse
+// @Failure      500  {object}  response.CommonResponse
+// @Router       /geometries/bound-with/{bound_with} [get]
+func (h *GeometryController) GetGeometriesByBoundWith(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	boundWith := c.Params("bound_with")
+	res, err := h.service.GetGeometriesByBoundWith(ctx, boundWith)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}

@@ -66,6 +66,24 @@ func ProjectRoutes(
 		controller.ChangeOwner,
 	)
 
+	route.Post(
+		"/:id/lock",
+		middlewares.JwtAccess(userRepo),
+		controller.LockProject,
+	)
+
+	route.Post(
+		"/:id/unlock",
+		middlewares.JwtAccess(userRepo),
+		controller.UnlockProject,
+	)
+
+	route.Post(
+		"/:id/heartbeat",
+		middlewares.JwtAccess(userRepo),
+		controller.HeartbeatProject,
+	)
+
 	route.Get(
 		"/:id",
 		middlewares.JwtAccess(userRepo),

@@ -456,3 +456,105 @@ func (h *ProjectController) ChangeOwner(c fiber.Ctx) error {
 		Data:   res,
 	})
 }
+
+// LockProject godoc
+// @Summary Lock a project
+// @Description Acquire an exclusive editing lock on a project for 15 minutes
+// @Tags Projects
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Project ID"
+// @Success 200 {object} response.CommonResponse
+// @Failure 400 {object} response.CommonResponse
+// @Failure 409 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /projects/{id}/lock [post]
+func (h *ProjectController) LockProject(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	projectID := c.Params("id")
+	uid := c.Locals("uid").(string)
+
+	err := h.service.LockProject(ctx, uid, projectID)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status:  true,
+		Message: "Project locked successfully",
+	})
+}
+
+// UnlockProject godoc
+// @Summary Unlock a project
+// @Description Release the exclusive editing lock on a project
+// @Tags Projects
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Project ID"
+// @Success 200 {object} response.CommonResponse
+// @Failure 400 {object} response.CommonResponse
+// @Failure 403 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /projects/{id}/unlock [post]
+func (h *ProjectController) UnlockProject(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	projectID := c.Params("id")
+	uid := c.Locals("uid").(string)
+
+	err := h.service.UnlockProject(ctx, uid, projectID)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status:  true,
+		Message: "Project unlocked successfully",
+	})
+}
+
+// HeartbeatProject godoc
+// @Summary Heartbeat to refresh project lock
+// @Description Refresh the TTL of the exclusive editing lock on a project for another 15 minutes
+// @Tags Projects
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Project ID"
+// @Success 200 {object} response.CommonResponse
+// @Failure 400 {object} response.CommonResponse
+// @Failure 409 {object} response.CommonResponse
+// @Failure 500 {object} response.CommonResponse
+// @Router /projects/{id}/heartbeat [post]
+func (h *ProjectController) HeartbeatProject(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	projectID := c.Params("id")
+	uid := c.Locals("uid").(string)
+
+	err := h.service.HeartbeatProject(ctx, uid, projectID)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status:  true,
+		Message: "Lock refreshed successfully",
+	})
+}

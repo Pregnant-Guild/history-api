@@ -194,3 +194,14 @@ JOIN entity_geometries eg ON eg.entity_id = e.id AND eg.geometry_id = pairs.gid
 JOIN geometries g ON g.id = pairs.gid
 WHERE e.is_deleted = false
 AND g.is_deleted = false;
+
+-- name: GetGeometriesByBoundWith :many
+SELECT 
+    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
+    ST_XMin(bbox)::float8 as min_lng, 
+    ST_YMin(bbox)::float8 as min_lat, 
+    ST_XMax(bbox)::float8 as max_lng, 
+    ST_YMax(bbox)::float8 as max_lat,
+    is_deleted, created_at, updated_at
+FROM geometries
+WHERE bound_with = $1 AND is_deleted = false;

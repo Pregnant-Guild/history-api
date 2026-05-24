@@ -17,6 +17,7 @@ type GeometryService interface {
 	GetGeometryByID(ctx context.Context, id string) (*response.GeometryResponse, *fiber.Error)
 	SearchGeometries(ctx context.Context, req *request.SearchGeometryDto) ([]*response.GeometryResponse, *fiber.Error)
 	SearchGeometriesByEntityName(ctx context.Context, req *request.SearchGeometriesByEntityNameDto) (*response.SearchGeometriesByEntityNameResponse, *fiber.Error)
+	GetGeometriesByBoundWith(ctx context.Context, boundWith string) ([]*response.GeometryResponse, *fiber.Error)
 }
 
 type geometryService struct {
@@ -40,6 +41,18 @@ func (s *geometryService) GetGeometryByID(ctx context.Context, id string) (*resp
 	}
 
 	return geometry.ToResponse(), nil
+}
+
+func (s *geometryService) GetGeometriesByBoundWith(ctx context.Context, boundWith string) ([]*response.GeometryResponse, *fiber.Error) {
+	boundWithUUID, err := convert.StringToUUID(boundWith)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid bound_with geometry ID format")
+	}
+	geometries, err := s.geometryRepo.GetGeometriesByBoundWith(ctx, boundWithUUID)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch geometries by bound_with")
+	}
+	return models.GeometriesEntityToResponse(geometries), nil
 }
 
 func (s *geometryService) SearchGeometries(ctx context.Context, req *request.SearchGeometryDto) ([]*response.GeometryResponse, *fiber.Error) {

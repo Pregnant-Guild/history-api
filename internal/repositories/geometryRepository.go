@@ -29,6 +29,7 @@ type GeometryRepository interface {
 	CreateEntityGeometries(ctx context.Context, params sqlc.CreateEntityGeometriesParams) error
 	BulkDeleteEntityGeometriesByEntityId(ctx context.Context, entityId pgtype.UUID) error
 	GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.GeometryEntity, error)
+	GetGeometriesByBoundWith(ctx context.Context, boundWith pgtype.UUID) ([]*models.GeometryEntity, error)
 	DeleteByIDs(ctx context.Context, ids []pgtype.UUID) error
 	BulkDeleteEntityGeometriesByGeometryID(ctx context.Context, geometryID pgtype.UUID) error
 	DeleteEntityGeometry(ctx context.Context, entityID pgtype.UUID, geometryID pgtype.UUID) error
@@ -315,6 +316,56 @@ func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtyp
 	}
 
 	rows, err := r.q.GetGeometriesByProjectId(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var geometries []*models.GeometryEntity
+	var ids []string
+	geometryToCache := make(map[string]any)
+
+	for _, row := range rows {
+		geometry := &models.GeometryEntity{
+			ID:           convert.UUIDToString(row.ID),
+			GeoType:      row.GeoType,
+			DrawGeometry: row.DrawGeometry,
+			BoundWith:    convert.UUIDToStringPtr(row.BoundWith),
+			TimeStart:    convert.Int4ToInt32(row.TimeStart),
+			TimeEnd:      convert.Int4ToInt32(row.TimeEnd),
+			Bbox: &response.Bbox{
+				MinLng: row.MinLng,
+				MinLat: row.MinLat,
+				MaxLng: row.MaxLng,
+				MaxLat: row.MaxLat,
+			},
+			ProjectID: convert.UUIDToString(row.ProjectID),
+			IsDeleted: row.IsDeleted,
+			CreatedAt: convert.TimeToPtr(row.CreatedAt),
+			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
+		}
+		ids = append(ids, geometry.ID)
+		geometries = append(geometries, geometry)
+		geometryToCache[fmt.Sprintf("geometry:id:%s", geometry.ID)] = geometry
+	}
+
+	if len(geometryToCache) > 0 {
+		_ = r.c.MSet(ctx, geometryToCache, constants.NormalCacheDuration)
+	}
+	if len(ids) > 0 {
+		_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
+	}
+
+	return geometries, nil
+}
+
+func (r *geometryRepository) GetGeometriesByBoundWith(ctx context.Context, boundWith pgtype.UUID) ([]*models.GeometryEntity, error) {
+	cacheKey := fmt.Sprintf("geometry:bound_with:%s", convert.UUIDToString(boundWith))
+	var cachedIDs []string
+	if err := r.c.Get(ctx, cacheKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+		return r.getByIDsWithFallback(ctx, cachedIDs)
+	}
+
+	rows, err := r.q.GetGeometriesByBoundWith(ctx, boundWith)
 	if err != nil {
 		return nil, err
 	}

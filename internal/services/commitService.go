@@ -52,6 +52,12 @@ func (s *commitService) checkWritePermission(ctx context.Context, userID string,
 		return fiber.NewError(fiber.StatusNotFound, "Project not found")
 	}
 
+	lockKey := fmt.Sprintf("project:lock:%s", convert.UUIDToString(projectUUID))
+	var lockUser string
+	if err := s.c.Get(ctx, lockKey, &lockUser); err == nil && lockUser != "" && lockUser != userID {
+		return fiber.NewError(fiber.StatusConflict, "Cannot commit: Project is locked by another user who is editing")
+	}
+
 	if project.UserID == userID {
 		return nil
 	}

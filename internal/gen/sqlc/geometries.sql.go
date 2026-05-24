@@ -259,6 +259,70 @@ func (q *Queries) GetEntityGeometriesByPairs(ctx context.Context, arg GetEntityG
 	return items, nil
 }
 
+const getGeometriesByBoundWith = `-- name: GetGeometriesByBoundWith :many
+SELECT 
+    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
+    ST_XMin(bbox)::float8 as min_lng, 
+    ST_YMin(bbox)::float8 as min_lat, 
+    ST_XMax(bbox)::float8 as max_lng, 
+    ST_YMax(bbox)::float8 as max_lat,
+    is_deleted, created_at, updated_at
+FROM geometries
+WHERE bound_with = $1 AND is_deleted = false
+`
+
+type GetGeometriesByBoundWithRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	GeoType      int16              `json:"geo_type"`
+	DrawGeometry json.RawMessage    `json:"draw_geometry"`
+	BoundWith    pgtype.UUID        `json:"bound_with"`
+	TimeStart    pgtype.Int4        `json:"time_start"`
+	TimeEnd      pgtype.Int4        `json:"time_end"`
+	ProjectID    pgtype.UUID        `json:"project_id"`
+	MinLng       float64            `json:"min_lng"`
+	MinLat       float64            `json:"min_lat"`
+	MaxLng       float64            `json:"max_lng"`
+	MaxLat       float64            `json:"max_lat"`
+	IsDeleted    bool               `json:"is_deleted"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetGeometriesByBoundWith(ctx context.Context, boundWith pgtype.UUID) ([]GetGeometriesByBoundWithRow, error) {
+	rows, err := q.db.Query(ctx, getGeometriesByBoundWith, boundWith)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetGeometriesByBoundWithRow{}
+	for rows.Next() {
+		var i GetGeometriesByBoundWithRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.GeoType,
+			&i.DrawGeometry,
+			&i.BoundWith,
+			&i.TimeStart,
+			&i.TimeEnd,
+			&i.ProjectID,
+			&i.MinLng,
+			&i.MinLat,
+			&i.MaxLng,
+			&i.MaxLat,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getGeometriesByIDs = `-- name: GetGeometriesByIDs :many
 SELECT 
     id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
