@@ -297,9 +297,7 @@ func (r *entityRepository) GetByProjectID(ctx context.Context, projectID pgtype.
 	if len(entityToCache) > 0 {
 		_ = r.c.MSet(ctx, entityToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
 
 	return entities, nil
 }

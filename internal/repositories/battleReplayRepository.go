@@ -166,9 +166,7 @@ func (r *battleReplayRepository) GetByGeometryID(ctx context.Context, geometryID
 	if len(itemToCache) > 0 {
 		_ = r.c.MSet(ctx, itemToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
 
 	return items, nil
 }
@@ -233,9 +231,7 @@ func (r *battleReplayRepository) GetByProjectID(ctx context.Context, projectID p
 	if len(itemToCache) > 0 {
 		_ = r.c.MSet(ctx, itemToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
 
 	return items, nil
 }

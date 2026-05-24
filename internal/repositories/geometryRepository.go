@@ -351,9 +351,7 @@ func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtyp
 	if len(geometryToCache) > 0 {
 		_ = r.c.MSet(ctx, geometryToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
 
 	return geometries, nil
 }
@@ -401,10 +399,7 @@ func (r *geometryRepository) GetGeometriesByBoundWith(ctx context.Context, bound
 	if len(geometryToCache) > 0 {
 		_ = r.c.MSet(ctx, geometryToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
-	}
-
+	_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
 	return geometries, nil
 }
 
