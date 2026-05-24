@@ -46,6 +46,8 @@ func (ctrl *goongController) Proxy(c fiber.Ctx) error {
 		targetURL = decodedURL
 	}
 
+	targetURL = strings.TrimPrefix(targetURL, "/")
+
 	if strings.HasPrefix(targetURL, "https:/") && !strings.HasPrefix(targetURL, "https://") {
 		targetURL = strings.Replace(targetURL, "https:/", "https://", 1)
 	} else if strings.HasPrefix(targetURL, "http:/") && !strings.HasPrefix(targetURL, "http://") {
@@ -83,17 +85,24 @@ func (ctrl *goongController) Proxy(c fiber.Ctx) error {
 		c.Set(k, v)
 	}
 
+	c.Set("Access-Control-Allow-Origin", "*")
+	c.Response().Header.Del("Access-Control-Allow-Credentials")
 	c.Set("Vary", "Origin")
 	c.Set("Cross-Origin-Resource-Policy", "cross-origin")
 
 	if c.Method() == "GET" && statusCode == fiber.StatusOK {
-		isStaticAsset := strings.Contains(targetURL, "/tiles/") ||
-			strings.Contains(targetURL, "/fonts/") ||
-			strings.Contains(targetURL, "/glyphs/") ||
-			strings.HasSuffix(targetURL, ".pbf") ||
-			strings.HasSuffix(targetURL, ".png") ||
-			strings.HasSuffix(targetURL, ".jpg") ||
-			strings.HasSuffix(targetURL, ".webp")
+		cleanURL := targetURL
+		if idx := strings.Index(cleanURL, "?"); idx != -1 {
+			cleanURL = cleanURL[:idx]
+		}
+
+		isStaticAsset := strings.Contains(cleanURL, "/tiles/") ||
+			strings.Contains(cleanURL, "/fonts/") ||
+			strings.Contains(cleanURL, "/glyphs/") ||
+			strings.HasSuffix(cleanURL, ".pbf") ||
+			strings.HasSuffix(cleanURL, ".png") ||
+			strings.HasSuffix(cleanURL, ".jpg") ||
+			strings.HasSuffix(cleanURL, ".webp")
 
 		if !isStaticAsset {
 			c.Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
