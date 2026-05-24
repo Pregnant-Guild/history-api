@@ -705,6 +705,13 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 		refGeometryMap[g.ID] = true
 	}
 
+	validGeometries := make(map[string]bool)
+	for _, g := range snapshotData.Geometries {
+		if g.Operation != "delete" {
+			validGeometries[g.ID] = true
+		}
+	}
+
 	newGeometries := make([]*request.GeometrySnapshot, 0, len(snapshotData.Geometries))
 	for i, geo := range snapshotData.Geometries {
 		if geo.Operation == "delete" {
@@ -716,15 +723,6 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 			return fiber.NewError(fiber.StatusInternalServerError, "Invalid geometry ID")
 		}
 
-		var boundWith pgtype.UUID
-		if geo.BoundWith != nil && *geo.BoundWith != "" {
-			var err error
-			boundWith, err = convert.StringToUUID(*geo.BoundWith)
-			if err != nil {
-				return fiber.NewError(fiber.StatusBadRequest, "Invalid bound_with geometry ID")
-			}
-		}
-
 		geoTypeCode := int16(0)
 		if geo.Type != "" {
 			if n, err := strconv.ParseInt(geo.Type, 10, 16); err == nil {
@@ -734,13 +732,13 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 
 		if _, ok := persistCurrentItemIDs[geo.ID]; ok {
 			params := sqlc.UpdateGeometryParams{
-				ID:           geometryUUID,
-				GeoType:      pgtype.Int2{Int16: geoTypeCode, Valid: true},
-				DrawGeometry: geo.DrawGeometry,
-				BoundWith:    boundWith,
-				TimeStart:    convert.PtrFloat64ToInt4(geo.TimeStart),
-				TimeEnd:      convert.PtrFloat64ToInt4(geo.TimeEnd),
-				ProjectID:    projectUUID,
+				ID:              geometryUUID,
+				GeoType:         pgtype.Int2{Int16: geoTypeCode, Valid: true},
+				DrawGeometry:    geo.DrawGeometry,
+				UpdateBoundWith: pgtype.Bool{Bool: false, Valid: true},
+				TimeStart:       convert.PtrFloat64ToInt4(geo.TimeStart),
+				TimeEnd:         convert.PtrFloat64ToInt4(geo.TimeEnd),
+				ProjectID:       projectUUID,
 			}
 
 			if geo.BBox != nil {
@@ -762,7 +760,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 				ID:           geometryUUID,
 				GeoType:      geoTypeCode,
 				DrawGeometry: geo.DrawGeometry,
-				BoundWith:    boundWith,
+				BoundWith:    pgtype.UUID{Valid: false},
 				TimeStart:    convert.PtrFloat64ToInt4(geo.TimeStart),
 				TimeEnd:      convert.PtrFloat64ToInt4(geo.TimeEnd),
 				ProjectID:    projectUUID,
@@ -788,6 +786,41 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 		}
 	}
 	snapshotData.Geometries = newGeometries
+
+	for _, geo := range snapshotData.Geometries {
+		if geo.Operation == "delete" || geo.Source == "ref" {
+			continue
+		}
+
+		geometryUUID, err := convert.StringToUUID(geo.ID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Invalid geometry ID")
+		}
+
+		var boundWith pgtype.UUID
+		if geo.BoundWith != nil && *geo.BoundWith != "" {
+			if !validGeometries[*geo.BoundWith] {
+				return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Geometry %s references a non-existent or deleted geometry %s as bound_with", geo.ID, *geo.BoundWith))
+			}
+			if *geo.BoundWith == geo.ID {
+				return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Geometry %s cannot be bound to itself", geo.ID))
+			}
+
+			boundWith, err = convert.StringToUUID(*geo.BoundWith)
+			if err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid bound_with geometry ID")
+			}
+		}
+		params := sqlc.UpdateGeometryParams{
+			ID:              geometryUUID,
+			UpdateBoundWith: pgtype.Bool{Bool: true, Valid: true},
+			BoundWith:       boundWith,
+		}
+		_, err = geometryRepo.Update(ctx, params)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to update geometry bound_with: "+err.Error())
+		}
+	}
 
 	refWikiIDs := []string{}
 	for _, w := range snapshotData.Wikis {
@@ -927,10 +960,6 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 	validEntities := make(map[string]bool)
 	for _, e := range snapshotData.Entities {
 		validEntities[e.ID] = true
-	}
-	validGeometries := make(map[string]bool)
-	for _, g := range snapshotData.Geometries {
-		validGeometries[g.ID] = true
 	}
 	validWikis := make(map[string]bool)
 	for _, w := range snapshotData.Wikis {

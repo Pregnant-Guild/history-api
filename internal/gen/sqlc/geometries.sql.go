@@ -642,35 +642,40 @@ UPDATE geometries
 SET 
     geo_type = COALESCE($1, geo_type),
     draw_geometry = COALESCE($2, draw_geometry),
-    bound_with = COALESCE($3, bound_with),
-    time_start = COALESCE($4, time_start),
-    time_end = COALESCE($5, time_end),
-    project_id = COALESCE($6, project_id),
+    bound_with = CASE 
+        WHEN $3::boolean = true THEN 
+            $4
+        ELSE bound_with 
+    END,
+    time_start = COALESCE($5, time_start),
+    time_end = COALESCE($6, time_end),
+    project_id = COALESCE($7, project_id),
     bbox = CASE 
-        WHEN $7::boolean = true THEN 
-            ST_MakeEnvelope($8::float8, $9::float8, $10::float8, $11::float8, 4326)
+        WHEN $8::boolean = true THEN 
+            ST_MakeEnvelope($9::float8, $10::float8, $11::float8, $12::float8, 4326)
         ELSE bbox 
     END,
     updated_at = now()
-WHERE id = $12 AND is_deleted = false
+WHERE id = $13 AND is_deleted = false
 RETURNING id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
     ST_XMin(bbox)::float8 as min_lng, ST_YMin(bbox)::float8 as min_lat, ST_XMax(bbox)::float8 as max_lng, ST_YMax(bbox)::float8 as max_lat,
     is_deleted, created_at, updated_at
 `
 
 type UpdateGeometryParams struct {
-	GeoType      pgtype.Int2   `json:"geo_type"`
-	DrawGeometry []byte        `json:"draw_geometry"`
-	BoundWith    pgtype.UUID   `json:"bound_with"`
-	TimeStart    pgtype.Int4   `json:"time_start"`
-	TimeEnd      pgtype.Int4   `json:"time_end"`
-	ProjectID    pgtype.UUID   `json:"project_id"`
-	UpdateBbox   pgtype.Bool   `json:"update_bbox"`
-	MinLng       pgtype.Float8 `json:"min_lng"`
-	MinLat       pgtype.Float8 `json:"min_lat"`
-	MaxLng       pgtype.Float8 `json:"max_lng"`
-	MaxLat       pgtype.Float8 `json:"max_lat"`
-	ID           pgtype.UUID   `json:"id"`
+	GeoType         pgtype.Int2   `json:"geo_type"`
+	DrawGeometry    []byte        `json:"draw_geometry"`
+	UpdateBoundWith pgtype.Bool   `json:"update_bound_with"`
+	BoundWith       pgtype.UUID   `json:"bound_with"`
+	TimeStart       pgtype.Int4   `json:"time_start"`
+	TimeEnd         pgtype.Int4   `json:"time_end"`
+	ProjectID       pgtype.UUID   `json:"project_id"`
+	UpdateBbox      pgtype.Bool   `json:"update_bbox"`
+	MinLng          pgtype.Float8 `json:"min_lng"`
+	MinLat          pgtype.Float8 `json:"min_lat"`
+	MaxLng          pgtype.Float8 `json:"max_lng"`
+	MaxLat          pgtype.Float8 `json:"max_lat"`
+	ID              pgtype.UUID   `json:"id"`
 }
 
 type UpdateGeometryRow struct {
@@ -694,6 +699,7 @@ func (q *Queries) UpdateGeometry(ctx context.Context, arg UpdateGeometryParams) 
 	row := q.db.QueryRow(ctx, updateGeometry,
 		arg.GeoType,
 		arg.DrawGeometry,
+		arg.UpdateBoundWith,
 		arg.BoundWith,
 		arg.TimeStart,
 		arg.TimeEnd,

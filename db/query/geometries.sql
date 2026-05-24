@@ -20,7 +20,11 @@ UPDATE geometries
 SET 
     geo_type = COALESCE(sqlc.narg('geo_type'), geo_type),
     draw_geometry = COALESCE(sqlc.narg('draw_geometry'), draw_geometry),
-    bound_with = COALESCE(sqlc.narg('bound_with'), bound_with),
+    bound_with = CASE 
+        WHEN sqlc.narg('update_bound_with')::boolean = true THEN 
+            sqlc.narg('bound_with')
+        ELSE bound_with 
+    END,
     time_start = COALESCE(sqlc.narg('time_start'), time_start),
     time_end = COALESCE(sqlc.narg('time_end'), time_end),
     project_id = COALESCE(sqlc.narg('project_id'), project_id),
