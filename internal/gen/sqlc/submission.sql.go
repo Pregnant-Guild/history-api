@@ -159,6 +159,56 @@ func (q *Queries) DeleteSubmission(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const getLatestApprovedSubmissionExcluding = `-- name: GetLatestApprovedSubmissionExcluding :one
+SELECT 
+    id, project_id, commit_id, user_id, created_at, status, reviewed_by, reviewed_at, review_note, content, is_deleted
+FROM submissions
+WHERE project_id = $1 
+  AND status = 2
+  AND id != $2
+  AND is_deleted = false
+ORDER BY reviewed_at DESC, created_at DESC
+LIMIT 1
+`
+
+type GetLatestApprovedSubmissionExcludingParams struct {
+	ProjectID pgtype.UUID `json:"project_id"`
+	ID        pgtype.UUID `json:"id"`
+}
+
+type GetLatestApprovedSubmissionExcludingRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	ProjectID  pgtype.UUID        `json:"project_id"`
+	CommitID   pgtype.UUID        `json:"commit_id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Status     int16              `json:"status"`
+	ReviewedBy pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote pgtype.Text        `json:"review_note"`
+	Content    pgtype.Text        `json:"content"`
+	IsDeleted  bool               `json:"is_deleted"`
+}
+
+func (q *Queries) GetLatestApprovedSubmissionExcluding(ctx context.Context, arg GetLatestApprovedSubmissionExcludingParams) (GetLatestApprovedSubmissionExcludingRow, error) {
+	row := q.db.QueryRow(ctx, getLatestApprovedSubmissionExcluding, arg.ProjectID, arg.ID)
+	var i GetLatestApprovedSubmissionExcludingRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.CommitID,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.Status,
+		&i.ReviewedBy,
+		&i.ReviewedAt,
+		&i.ReviewNote,
+		&i.Content,
+		&i.IsDeleted,
+	)
+	return i, err
+}
+
 const getSubmissionById = `-- name: GetSubmissionById :one
 SELECT 
     s.id, s.project_id, s.commit_id, s.user_id, s.created_at, s.status, s.reviewed_by, s.reviewed_at, s.review_note, s.content, s.is_deleted,

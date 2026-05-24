@@ -205,3 +205,14 @@ LEFT JOIN users ru ON s.reviewed_by = ru.id
 LEFT JOIN user_profiles rup ON ru.id = rup.user_id
 WHERE s.id = ANY($1::uuid[]) AND s.is_deleted = false;
 
+-- name: GetLatestApprovedSubmissionExcluding :one
+SELECT 
+    id, project_id, commit_id, user_id, created_at, status, reviewed_by, reviewed_at, review_note, content, is_deleted
+FROM submissions
+WHERE project_id = $1 
+  AND status = 2
+  AND id != $2
+  AND is_deleted = false
+ORDER BY reviewed_at DESC, created_at DESC
+LIMIT 1;
+
