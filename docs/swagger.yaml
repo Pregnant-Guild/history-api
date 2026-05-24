@@ -1287,6 +1287,32 @@ paths:
       summary: Get geometry by ID
       tags:
       - Geometries
+  /geometries/bound-with/{bound_with}:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of geometries that are bound to the specified geometry
+        ID
+      parameters:
+      - description: Bound-with Geometry ID
+        in: path
+        name: bound_with
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get geometries by bound_with ID
+      tags:
+      - Geometries
   /geometries/entity:
     get:
       consumes:
@@ -2145,6 +2171,77 @@ paths:
       summary: Restore project to a commit
       tags:
       - Commits
+  /projects/{id}/heartbeat:
+    post:
+      consumes:
+      - application/json
+      description: Refresh the TTL of the exclusive editing lock on a project for
+        another 15 minutes
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Heartbeat to refresh project lock
+      tags:
+      - Projects
+  /projects/{id}/lock:
+    post:
+      consumes:
+      - application/json
+      description: Acquire an exclusive editing lock on a project for 15 minutes
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Lock a project
+      tags:
+      - Projects
   /projects/{id}/members:
     post:
       consumes:
@@ -2283,6 +2380,41 @@ paths:
       security:
       - BearerAuth: []
       summary: Update member role
+      tags:
+      - Projects
+  /projects/{id}/unlock:
+    post:
+      consumes:
+      - application/json
+      description: Release the exclusive editing lock on a project
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      security:
+      - BearerAuth: []
+      summary: Unlock a project
       tags:
       - Projects
   /projects/commits/{commitId}:

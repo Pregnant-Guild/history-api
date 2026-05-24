@@ -860,6 +860,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/geometries/bound-with/{bound_with}": {
+            "get": {
+                "description": "Get a list of geometries that are bound to the specified geometry ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Geometries"
+                ],
+                "summary": "Get geometries by bound_with ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bound-with Geometry ID",
+                        "name": "bound_with",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/geometries/entity": {
             "get": {
                 "description": "Search entities by name (cursor pagination) and return their linked geometries",
@@ -2283,6 +2321,116 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{id}/heartbeat": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Refresh the TTL of the exclusive editing lock on a project for another 15 minutes",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Heartbeat to refresh project lock",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/lock": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Acquire an exclusive editing lock on a project for 15 minutes",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Lock a project",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{id}/members": {
             "post": {
                 "security": [
@@ -2483,6 +2631,61 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{id}/unlock": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Release the exclusive editing lock on a project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Projects"
+                ],
+                "summary": "Unlock a project",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
                         }
