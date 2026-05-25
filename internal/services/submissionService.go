@@ -273,7 +273,13 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 		}()
 	}
 
-	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", submission.ProjectID))
+	_ = s.c.Del(ctx,
+		fmt.Sprintf("project:id:%s", submission.ProjectID),
+		fmt.Sprintf("entity:project:%s", submission.ProjectID),
+		fmt.Sprintf("geometry:project:%s", submission.ProjectID),
+		fmt.Sprintf("wiki:project:%s", submission.ProjectID),
+		fmt.Sprintf("battle_replay:project:%s", submission.ProjectID),
+	)
 
 	return updatedSubmission.ToResponse(), nil
 }
@@ -493,7 +499,13 @@ func (s *submissionService) DeleteSubmission(ctx context.Context, userID string,
 		}()
 	}
 
-	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", submission.ProjectID))
+	_ = s.c.Del(ctx,
+		fmt.Sprintf("project:id:%s", submission.ProjectID),
+		fmt.Sprintf("entity:project:%s", submission.ProjectID),
+		fmt.Sprintf("geometry:project:%s", submission.ProjectID),
+		fmt.Sprintf("wiki:project:%s", submission.ProjectID),
+		fmt.Sprintf("battle_replay:project:%s", submission.ProjectID),
+	)
 
 	return nil
 }
@@ -504,22 +516,30 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 	wikiRepo := s.wikiRepo.WithTx(tx)
 	battleReplayRepo := s.battleReplayRepo.WithTx(tx)
 
-	currentEntity, err := s.entityRepo.GetByProjectID(ctx, projectUUID)
+	projectIDStr := convert.UUIDToString(projectUUID)
+	_ = s.c.Del(ctx,
+		fmt.Sprintf("entity:project:%s", projectIDStr),
+		fmt.Sprintf("geometry:project:%s", projectIDStr),
+		fmt.Sprintf("wiki:project:%s", projectIDStr),
+		fmt.Sprintf("battle_replay:project:%s", projectIDStr),
+	)
+
+	currentEntity, err := entityRepo.GetByProjectID(ctx, projectUUID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Entity not found: "+err.Error())
 	}
 
-	currentGeometry, err := s.geometryRepo.GetByProjectID(ctx, projectUUID)
+	currentGeometry, err := geometryRepo.GetByProjectID(ctx, projectUUID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Geometry not found: "+err.Error())
 	}
 
-	currentWiki, err := s.wikiRepo.GetByProjectID(ctx, projectUUID)
+	currentWiki, err := wikiRepo.GetByProjectID(ctx, projectUUID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Wiki not found: "+err.Error())
 	}
 
-	currentBattleReplay, err := s.battleReplayRepo.GetByProjectID(ctx, projectUUID)
+	currentBattleReplay, err := battleReplayRepo.GetByProjectID(ctx, projectUUID)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Battle replay not found: "+err.Error())
 	}
@@ -632,7 +652,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 		}
 	}
 
-	refEntities, _ := s.entityRepo.GetByIDs(ctx, refEntityIDs)
+	refEntities, _ := entityRepo.GetByIDs(ctx, refEntityIDs)
 	refEntityMap := make(map[string]bool)
 	for _, e := range refEntities {
 		refEntityMap[e.ID] = true
@@ -699,7 +719,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 			refGeometryIDs = append(refGeometryIDs, g.ID)
 		}
 	}
-	refGeometries, _ := s.geometryRepo.GetByIDs(ctx, refGeometryIDs)
+	refGeometries, _ := geometryRepo.GetByIDs(ctx, refGeometryIDs)
 	refGeometryMap := make(map[string]bool)
 	for _, g := range refGeometries {
 		refGeometryMap[g.ID] = true
@@ -828,7 +848,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 			refWikiIDs = append(refWikiIDs, w.ID)
 		}
 	}
-	refWikis, _ := s.wikiRepo.GetByIDs(ctx, refWikiIDs)
+	refWikis, _ := wikiRepo.GetByIDs(ctx, refWikiIDs)
 	refWikiMap := make(map[string]bool)
 	for _, w := range refWikis {
 		refWikiMap[w.ID] = true
@@ -856,7 +876,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 				return fiber.NewError(fiber.StatusInternalServerError, "Failed to update wiki: "+err.Error())
 			}
 
-			count, err := s.wikiRepo.GetContentCountByWikiID(ctx, wikiUUID)
+			count, err := wikiRepo.GetContentCountByWikiID(ctx, wikiUUID)
 			if err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "Failed to get wiki content count: "+err.Error())
 			}
@@ -1082,10 +1102,18 @@ func (s *submissionService) clearProjectItems(ctx context.Context, tx pgx.Tx, pr
 	wikiRepo := s.wikiRepo.WithTx(tx)
 	battleReplayRepo := s.battleReplayRepo.WithTx(tx)
 
-	currentEntity, _ := s.entityRepo.GetByProjectID(ctx, projectUUID)
-	currentGeometry, _ := s.geometryRepo.GetByProjectID(ctx, projectUUID)
-	currentWiki, _ := s.wikiRepo.GetByProjectID(ctx, projectUUID)
-	currentBattleReplay, _ := s.battleReplayRepo.GetByProjectID(ctx, projectUUID)
+	projectIDStr := convert.UUIDToString(projectUUID)
+	_ = s.c.Del(ctx,
+		fmt.Sprintf("entity:project:%s", projectIDStr),
+		fmt.Sprintf("geometry:project:%s", projectIDStr),
+		fmt.Sprintf("wiki:project:%s", projectIDStr),
+		fmt.Sprintf("battle_replay:project:%s", projectIDStr),
+	)
+
+	currentEntity, _ := entityRepo.GetByProjectID(ctx, projectUUID)
+	currentGeometry, _ := geometryRepo.GetByProjectID(ctx, projectUUID)
+	currentWiki, _ := wikiRepo.GetByProjectID(ctx, projectUUID)
+	currentBattleReplay, _ := battleReplayRepo.GetByProjectID(ctx, projectUUID)
 
 	var entityIDs []pgtype.UUID
 	for _, e := range currentEntity {
