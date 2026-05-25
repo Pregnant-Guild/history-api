@@ -314,7 +314,15 @@ func (s *projectService) AddMember(ctx context.Context, claims *response.JWTClai
 
 	callerUUID, _ := convert.StringToUUID(claims.UId)
 
-	if dto.UserID == claims.UId {
+	isAdminOrMod := false
+	for _, r := range claims.Roles {
+		if r == constants.RoleTypeAdmin || r == constants.RoleTypeMod {
+			isAdminOrMod = true
+			break
+		}
+	}
+
+	if dto.UserID == claims.UId && !isAdminOrMod {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Cannot add yourself as a member")
 	}
 
@@ -387,7 +395,15 @@ func (s *projectService) RemoveMember(ctx context.Context, claims *response.JWTC
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid member user ID format")
 	}
 
-	if claims.UId == memberUserID {
+	isAdminOrMod := false
+	for _, r := range claims.Roles {
+		if r == constants.RoleTypeAdmin || r == constants.RoleTypeMod {
+			isAdminOrMod = true
+			break
+		}
+	}
+
+	if claims.UId == memberUserID && !isAdminOrMod {
 		return fiber.NewError(fiber.StatusBadRequest, "Cannot remove yourself from the project")
 	}
 
