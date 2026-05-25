@@ -3,7 +3,6 @@ services:
     image: azenkain/postgres-postgis-pgvector:18
     container_name: history_db
     restart: unless-stopped
-
     env_file:
       - ./assets/resources/.env
     environment:

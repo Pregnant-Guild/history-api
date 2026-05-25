@@ -544,32 +544,38 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 		return fiber.NewError(fiber.StatusNotFound, "Battle replay not found: "+err.Error())
 	}
 
-	persistItemIDs := make(map[string]struct{})
+	persistEntityIDs := make(map[string]struct{})
 	for _, item := range snapshotData.Entities {
-		persistItemIDs[item.ID] = struct{}{}
+		persistEntityIDs[item.ID] = struct{}{}
 	}
+	persistGeometryIDs := make(map[string]struct{})
 	for _, item := range snapshotData.Geometries {
-		persistItemIDs[item.ID] = struct{}{}
+		persistGeometryIDs[item.ID] = struct{}{}
 	}
+	persistWikiIDs := make(map[string]struct{})
 	for _, item := range snapshotData.Wikis {
-		persistItemIDs[item.ID] = struct{}{}
+		persistWikiIDs[item.ID] = struct{}{}
 	}
+	persistReplayIDs := make(map[string]struct{})
 	for _, item := range snapshotData.Replays {
-		persistItemIDs[item.ID] = struct{}{}
+		persistReplayIDs[item.ID] = struct{}{}
 	}
 
-	persistCurrentItemIDs := make(map[string]struct{})
+	persistCurrentEntityIDs := make(map[string]struct{})
 	for _, item := range currentEntity {
-		persistCurrentItemIDs[item.ID] = struct{}{}
+		persistCurrentEntityIDs[item.ID] = struct{}{}
 	}
+	persistCurrentGeometryIDs := make(map[string]struct{})
 	for _, item := range currentGeometry {
-		persistCurrentItemIDs[item.ID] = struct{}{}
+		persistCurrentGeometryIDs[item.ID] = struct{}{}
 	}
+	persistCurrentWikiIDs := make(map[string]struct{})
 	for _, item := range currentWiki {
-		persistCurrentItemIDs[item.ID] = struct{}{}
+		persistCurrentWikiIDs[item.ID] = struct{}{}
 	}
+	persistCurrentReplayIDs := make(map[string]struct{})
 	for _, item := range currentBattleReplay {
-		persistCurrentItemIDs[item.ID] = struct{}{}
+		persistCurrentReplayIDs[item.ID] = struct{}{}
 	}
 
 	listDeleteEntities := make([]pgtype.UUID, 0)
@@ -578,46 +584,46 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 	listDeleteBattleReplays := make([]pgtype.UUID, 0)
 
 	for _, e := range currentEntity {
-		if _, ok := persistItemIDs[e.ID]; !ok {
+		if _, ok := persistEntityIDs[e.ID]; !ok {
 			itemUUID, err := convert.StringToUUID(e.ID)
 			if err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "Invalid entity ID")
 			}
 			listDeleteEntities = append(listDeleteEntities, itemUUID)
-			delete(persistCurrentItemIDs, e.ID)
+			delete(persistCurrentEntityIDs, e.ID)
 		}
 	}
 
 	for _, g := range currentGeometry {
-		if _, ok := persistItemIDs[g.ID]; !ok {
+		if _, ok := persistGeometryIDs[g.ID]; !ok {
 			itemUUID, err := convert.StringToUUID(g.ID)
 			if err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "Invalid geometry ID")
 			}
 			listDeleteGeometries = append(listDeleteGeometries, itemUUID)
-			delete(persistCurrentItemIDs, g.ID)
+			delete(persistCurrentGeometryIDs, g.ID)
 		}
 	}
 
 	for _, w := range currentWiki {
-		if _, ok := persistItemIDs[w.ID]; !ok {
+		if _, ok := persistWikiIDs[w.ID]; !ok {
 			itemUUID, err := convert.StringToUUID(w.ID)
 			if err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "Invalid wiki ID")
 			}
 			listDeleteWikis = append(listDeleteWikis, itemUUID)
-			delete(persistCurrentItemIDs, w.ID)
+			delete(persistCurrentWikiIDs, w.ID)
 		}
 	}
 
 	for _, br := range currentBattleReplay {
-		if _, ok := persistItemIDs[br.ID]; !ok {
+		if _, ok := persistReplayIDs[br.ID]; !ok {
 			itemUUID, err := convert.StringToUUID(br.ID)
 			if err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "Invalid battle replay ID")
 			}
 			listDeleteBattleReplays = append(listDeleteBattleReplays, itemUUID)
-			delete(persistCurrentItemIDs, br.ID)
+			delete(persistCurrentReplayIDs, br.ID)
 		}
 	}
 
@@ -669,7 +675,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 			return fiber.NewError(fiber.StatusInternalServerError, "Invalid entity ID")
 		}
 
-		if _, ok := persistCurrentItemIDs[entity.ID]; ok {
+		if _, ok := persistCurrentEntityIDs[entity.ID]; ok {
 			_, err := entityRepo.Update(ctx, sqlc.UpdateEntityParams{
 				Name:        convert.StringToText(entity.Name),
 				Description: convert.StringToText(entity.Description),
@@ -750,7 +756,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 			}
 		}
 
-		if _, ok := persistCurrentItemIDs[geo.ID]; ok {
+		if _, ok := persistCurrentGeometryIDs[geo.ID]; ok {
 			params := sqlc.UpdateGeometryParams{
 				ID:              geometryUUID,
 				GeoType:         pgtype.Int2{Int16: geoTypeCode, Valid: true},
@@ -865,7 +871,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 			return fiber.NewError(fiber.StatusInternalServerError, "Invalid wiki ID")
 		}
 
-		if _, ok := persistCurrentItemIDs[wiki.ID]; ok {
+		if _, ok := persistCurrentWikiIDs[wiki.ID]; ok {
 			_, err := wikiRepo.Update(ctx, sqlc.UpdateWikiParams{
 				ID:        wikiUUID,
 				Title:     convert.StringToText(wiki.Title),
@@ -944,7 +950,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 			return fiber.NewError(fiber.StatusInternalServerError, "Failed to marshal target geometry IDs")
 		}
 
-		if _, ok := persistCurrentItemIDs[replay.ID]; ok {
+		if _, ok := persistCurrentReplayIDs[replay.ID]; ok {
 			_, err := battleReplayRepo.Update(ctx, sqlc.UpdateBattleReplayParams{
 				ID:                replayUUID,
 				GeometryID:        geomUUID,
