@@ -114,6 +114,8 @@ func (s *commitService) CreateCommit(ctx context.Context, userID string, project
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Invalid snapshot JSON")
 	}
 
+	fmt.Printf("snapshotJSON in CreateCommit: %s\n", string(snapshotJSON))
+
 	commit, err := cRepoTx.Create(ctx, sqlc.CreateCommitParams{
 		ProjectID:    projectUUID,
 		SnapshotJson: snapshotJSON,
