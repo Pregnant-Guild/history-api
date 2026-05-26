@@ -17,7 +17,7 @@ import (
 )
 
 type GoongService interface {
-	ProxyRequest(ctx context.Context, method string, targetURL string, headers map[string]string, reqBody []byte) (int, map[string]string, []byte, error)
+	ProxyRequest(ctx context.Context, method string, targetURL string, headers map[string]string, reqBody []byte, apiKeyName string) (int, map[string]string, []byte, error)
 }
 
 type CacheEntry struct {
@@ -45,10 +45,10 @@ func NewGoongService(redis cache.Cache) GoongService {
 	}
 }
 
-func (s *goongService) ProxyRequest(ctx context.Context, method string, targetURL string, headers map[string]string, reqBody []byte) (int, map[string]string, []byte, error) {
-	apiKey, err := config.GetConfig("GOONG_API_KEY")
+func (s *goongService) ProxyRequest(ctx context.Context, method string, targetURL string, headers map[string]string, reqBody []byte, apiKeyName string) (int, map[string]string, []byte, error) {
+	apiKey, err := config.GetConfig(apiKeyName)
 	if err != nil {
-		return 500, nil, nil, fmt.Errorf("GOONG_API_KEY is not configured")
+		return 500, nil, nil, fmt.Errorf("%s is not configured", apiKeyName)
 	}
 
 	fullTargetURL := targetURL

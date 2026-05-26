@@ -24,6 +24,57 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/proxy/{path}": {
+            "get": {
+                "description": "Transparent proxy for Goong APIs to forward body, params, headers and inject API key automatically.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json",
+                    "application/x-protobuf"
+                ],
+                "tags": [
+                    "Goong"
+                ],
+                "summary": "Proxy Goong APIs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Target URL to proxy, e.g., 'tiles.goong.io/assets/goong_map_web.json'",
+                        "name": "path",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resource content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/forgot-password": {
             "post": {
                 "description": "Initiate password recovery process for a user",
@@ -1290,6 +1341,57 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/map/proxy/{path}": {
+            "get": {
+                "description": "Transparent proxy for Goong APIs to forward body, params, headers and inject API key automatically.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json",
+                    "application/x-protobuf"
+                ],
+                "tags": [
+                    "Goong"
+                ],
+                "summary": "Proxy Goong APIs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Target URL to proxy, e.g., 'tiles.goong.io/assets/goong_map_web.json'",
+                        "name": "path",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resource content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -2694,57 +2796,6 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/proxy/{path}": {
-            "get": {
-                "description": "Transparent proxy for Goong APIs to forward body, params, headers and inject API key automatically.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json",
-                    "application/x-protobuf"
-                ],
-                "tags": [
-                    "Goong"
-                ],
-                "summary": "Proxy Goong APIs",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Target URL to proxy, e.g., 'tiles.goong.io/assets/goong_map_web.json'",
-                        "name": "path",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Resource content",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "string"
                         }
                     }
                 }

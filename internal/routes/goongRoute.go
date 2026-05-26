@@ -7,7 +7,6 @@ import (
 )
 
 func GoongRoutes(app *fiber.App, goongController controllers.GoongController) {
-	api := app.Group("/proxy")
-
-	api.Get("/*", goongController.Proxy)
+	app.Get("/api/proxy/*", goongController.Proxy)
+	app.Get("/map/proxy/*", goongController.Proxy)
 }

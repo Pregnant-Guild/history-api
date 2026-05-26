@@ -34,7 +34,8 @@ func NewGoongController(goongService services.GoongService) GoongController {
 // @Failure 400 {string} string "Bad Request"
 // @Failure 403 {string} string "Forbidden"
 // @Failure 500 {string} string "Internal Server Error"
-// @Router /proxy/{path} [get]
+// @Router /api/proxy/{path} [get]
+// @Router /map/proxy/{path} [get]
 func (ctrl *goongController) Proxy(c fiber.Ctx) error {
 	path := c.Params("*")
 	if path == "" {
@@ -69,12 +70,18 @@ func (ctrl *goongController) Proxy(c fiber.Ctx) error {
 		}
 	}
 
+	apiKeyName := "GOONG_API_KEY_REQ"
+	if strings.HasPrefix(c.Path(), "/map/proxy") {
+		apiKeyName = "GOONG_API_KEY_MAP"
+	}
+
 	statusCode, respHeaders, respBody, err := ctrl.goongService.ProxyRequest(
 		c.Context(),
 		c.Method(),
 		targetURL,
 		headers,
 		c.Body(),
+		apiKeyName,
 	)
 
 	if err != nil {

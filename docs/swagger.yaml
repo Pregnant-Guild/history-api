@@ -720,6 +720,41 @@ info:
   title: History API
   version: "1.0"
 paths:
+  /api/proxy/{path}:
+    get:
+      consumes:
+      - application/json
+      description: Transparent proxy for Goong APIs to forward body, params, headers
+        and inject API key automatically.
+      parameters:
+      - description: Target URL to proxy, e.g., 'tiles.goong.io/assets/goong_map_web.json'
+        in: path
+        name: path
+        required: true
+        type: string
+      produces:
+      - application/json
+      - application/x-protobuf
+      responses:
+        "200":
+          description: Resource content
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Proxy Goong APIs
+      tags:
+      - Goong
   /auth/forgot-password:
     post:
       consumes:
@@ -1545,6 +1580,41 @@ paths:
       summary: Update application status
       tags:
       - Historian Application
+  /map/proxy/{path}:
+    get:
+      consumes:
+      - application/json
+      description: Transparent proxy for Goong APIs to forward body, params, headers
+        and inject API key automatically.
+      parameters:
+      - description: Target URL to proxy, e.g., 'tiles.goong.io/assets/goong_map_web.json'
+        in: path
+        name: path
+        required: true
+        type: string
+      produces:
+      - application/json
+      - application/x-protobuf
+      responses:
+        "200":
+          description: Resource content
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Proxy Goong APIs
+      tags:
+      - Goong
   /media:
     delete:
       consumes:
@@ -2452,41 +2522,6 @@ paths:
       summary: Get commit by ID
       tags:
       - Commits
-  /proxy/{path}:
-    get:
-      consumes:
-      - application/json
-      description: Transparent proxy for Goong APIs to forward body, params, headers
-        and inject API key automatically.
-      parameters:
-      - description: Target URL to proxy, e.g., 'tiles.goong.io/assets/goong_map_web.json'
-        in: path
-        name: path
-        required: true
-        type: string
-      produces:
-      - application/json
-      - application/x-protobuf
-      responses:
-        "200":
-          description: Resource content
-          schema:
-            type: string
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "403":
-          description: Forbidden
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      summary: Proxy Goong APIs
-      tags:
-      - Goong
   /raster-tiles/{z}/{x}/{y}:
     get:
       description: Fetch vector or raster map tile data by Z, X, Y coordinates
