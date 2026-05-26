@@ -60,7 +60,7 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 			Message: err.Message,
 		})
 	}
-	
+
 	c.Cookie(&fiber.Cookie{
 		Name:     "access_token",
 		Value:    res.AccessToken,
@@ -448,12 +448,16 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 	})
 
 	allowed := map[string]bool{
-		"http://localhost:3000":                true,
-		"http://localhost:3001":                true,
-		"https://history-admin.kain.id.vn":     true,
-		"https://history-user.kain.id.vn":      true,
-		"https://www.history-admin.kain.id.vn": true,
-		"https://www.history-user.kain.id.vn":  true,
+		"http://localhost:3000":       true,
+		"http://localhost:3001":       true,
+		"https://admin.uhm.io.vn":     true,
+		"https://api.uhm.io.vn":       true,
+		"https://cdn.uhm.io.vn":       true,
+		"https://uhm.io.vn":           true,
+		"https://www.admin.uhm.io.vn": true,
+		"https://www.api.uhm.io.vn":   true,
+		"https://www.cdn.uhm.io.vn":   true,
+		"https://www.uhm.io.vn":       true,
 	}
 	feUrl := config.GetConfigWithDefault("FRONTEND_URL", "http://localhost:3000")
 	redirectURL := data.RedirectURL
