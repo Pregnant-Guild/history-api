@@ -2,8 +2,8 @@ package services
 
 import (
 	"context"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
@@ -995,6 +995,9 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 	if len(snapshotData.GeometryEntity) > 0 {
 		geomLinks := make(map[string][]pgtype.UUID)
 		for _, link := range snapshotData.GeometryEntity {
+			if link.Operation == "delete" {
+				continue
+			}
 			if !validEntities[link.EntityID] || !validGeometries[link.GeometryID] {
 				continue
 			}
@@ -1039,16 +1042,6 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 				return fiber.NewError(fiber.StatusInternalServerError, "Failed to create wiki entity: "+err.Error())
 			}
 		}
-	}
-
-	newSnapshot, err := json.Marshal(snapshotData)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to marshal snapshot")
-	}
-	commitRepo := s.commitRepo.WithTx(tx)
-	_, err = commitRepo.UpdateSnapshot(ctx, commitUUID, newSnapshot)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to update snapshot: "+err.Error())
 	}
 
 	wikiDeleteIDs := make([]string, 0)
