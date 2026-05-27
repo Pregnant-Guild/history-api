@@ -4742,6 +4742,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/history-api_internal_dtos_request.GeometryEntitySnapshot"
                     }
                 },
+                "project": {
+                    "$ref": "#/definitions/history-api_internal_dtos_request.ProjectSnapshot"
+                },
                 "replays": {
                     "type": "array",
                     "items": {
@@ -4897,6 +4900,27 @@ const docTemplate = `{
                 }
             }
         },
+        "history-api_internal_dtos_request.EntityLabelCandidate": {
+            "type": "object",
+            "required": [
+                "id",
+                "name"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "time_end": {
+                    "type": "number"
+                },
+                "time_start": {
+                    "type": "number"
+                }
+            }
+        },
         "history-api_internal_dtos_request.EntitySnapshot": {
             "type": "object",
             "required": [
@@ -5040,6 +5064,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "entity_label_candidates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/history-api_internal_dtos_request.EntityLabelCandidate"
+                    }
+                },
                 "entity_name": {
                     "type": "string"
                 },
@@ -5056,6 +5086,22 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {},
+                "line_label": {
+                    "type": "string"
+                },
+                "point_label": {
+                    "type": "string"
+                },
+                "polygon_label": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string",
+                    "enum": [
+                        "inline",
+                        "ref"
+                    ]
+                },
                 "time_end": {
                     "type": "number"
                 },
@@ -5140,6 +5186,12 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "geometry": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "id": {
                     "type": "string"
                 },
@@ -5191,6 +5243,21 @@ const docTemplate = `{
             ],
             "properties": {
                 "token_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "history-api_internal_dtos_request.ProjectSnapshot": {
+            "type": "object",
+            "required": [
+                "id",
+                "title"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "title": {
                     "type": "string"
                 }
             }

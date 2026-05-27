@@ -124,6 +124,7 @@ func (s *wikiService) GetWikiContentByID(ctx context.Context, id string) (*respo
 		WikiID:    content.WikiID,
 		Title:     content.Title,
 		Content:   content.Content,
+		Preview:   content.Preview,
 		CreatedAt: content.CreatedAt,
 	}, nil
 }

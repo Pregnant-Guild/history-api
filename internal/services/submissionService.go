@@ -14,6 +14,7 @@ import (
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
+	"regexp"
 	"slices"
 	"strconv"
 
@@ -24,6 +25,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
+
+var blockquoteRegex = regexp.MustCompile(`(?is)<blockquote\b[^>]*>.*?</blockquote>`)
 
 type SubmissionService interface {
 	CreateSubmission(ctx context.Context, userID string, dto *request.CreateSubmissionDto) (*response.SubmissionResponse, *fiber.Error)
@@ -888,10 +891,16 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 			}
 			versionTitle := fmt.Sprintf("Version %d", count+1)
 
+			var preview pgtype.Text
+			if match := blockquoteRegex.FindString(wiki.Doc); match != "" {
+				preview = convert.StringToText(match)
+			}
+
 			_, err = wikiRepo.CreateContent(ctx, sqlc.CreateWikiContentParams{
 				WikiID:  wikiUUID,
 				Title:   versionTitle,
 				Content: convert.StringToText(wiki.Doc),
+				Preview: preview,
 			})
 			if err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "Failed to create wiki content: "+err.Error())
@@ -912,10 +921,16 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 				return fiber.NewError(fiber.StatusInternalServerError, "Failed to create wiki: "+err.Error())
 			}
 
+			var preview pgtype.Text
+			if match := blockquoteRegex.FindString(wiki.Doc); match != "" {
+				preview = convert.StringToText(match)
+			}
+
 			_, err = wikiRepo.CreateContent(ctx, sqlc.CreateWikiContentParams{
 				WikiID:  wikiUUID,
 				Title:   "Version 1",
 				Content: convert.StringToText(wiki.Doc),
+				Preview: preview,
 			})
 			if err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "Failed to create wiki content: "+err.Error())

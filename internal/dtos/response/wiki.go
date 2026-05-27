@@ -26,5 +26,6 @@ type WikiContentResponse struct {
 	WikiID    string     `json:"wiki_id"`
 	Title     string     `json:"title"`
 	Content   string     `json:"content"`
+	Preview   string     `json:"preview"`
 	CreatedAt *time.Time `json:"created_at"`
 }

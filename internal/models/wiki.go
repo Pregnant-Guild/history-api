@@ -67,6 +67,7 @@ type WikiContentEntity struct {
 	WikiID    string     `json:"wiki_id"`
 	Title     string     `json:"title"`
 	Content   string     `json:"content"`
+	Preview   string     `json:"preview"`
 	IsDeleted bool       `json:"is_deleted"`
 	CreatedAt *time.Time `json:"created_at"`
 }

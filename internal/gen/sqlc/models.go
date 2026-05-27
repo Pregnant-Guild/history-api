@@ -255,6 +255,7 @@ type WikiContent struct {
 	WikiID    pgtype.UUID        `json:"wiki_id"`
 	Title     string             `json:"title"`
 	Content   pgtype.Text        `json:"content"`
+	Preview   pgtype.Text        `json:"preview"`
 	IsDeleted bool               `json:"is_deleted"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }

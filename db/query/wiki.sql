@@ -95,9 +95,9 @@ SELECT * FROM wikis WHERE slug = ANY($1::text[]) AND is_deleted = false;
 
 -- name: CreateWikiContent :one
 INSERT INTO wiki_content (
-    id, wiki_id, title, content
+    id, wiki_id, title, content, preview
 ) VALUES (
-    COALESCE(sqlc.narg('id')::uuid, uuidv7()), $1, $2, $3
+    COALESCE(sqlc.narg('id')::uuid, uuidv7()), $1, $2, $3, $4
 )
 RETURNING *;
 

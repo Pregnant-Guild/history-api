@@ -533,6 +533,7 @@ func (r *wikiRepository) CreateContent(ctx context.Context, params sqlc.CreateWi
 		WikiID:    convert.UUIDToString(row.WikiID),
 		Title:     row.Title,
 		Content:   convert.TextToString(row.Content),
+		Preview:   convert.TextToString(row.Preview),
 		IsDeleted: row.IsDeleted,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 	}, nil
@@ -576,6 +577,7 @@ func (r *wikiRepository) getContentByIDsWithFallback(ctx context.Context, ids []
 					WikiID:    convert.UUIDToString(row.WikiID),
 					Title:     row.Title,
 					Content:   convert.TextToString(row.Content),
+					Preview:   convert.TextToString(row.Preview),
 					IsDeleted: row.IsDeleted,
 					CreatedAt: convert.TimeToPtr(row.CreatedAt),
 				}
@@ -624,6 +626,7 @@ func (r *wikiRepository) GetContentByID(ctx context.Context, id pgtype.UUID) (*m
 		WikiID:    convert.UUIDToString(row.WikiID),
 		Title:     row.Title,
 		Content:   convert.TextToString(row.Content),
+		Preview:   convert.TextToString(row.Preview),
 		IsDeleted: row.IsDeleted,
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 	}

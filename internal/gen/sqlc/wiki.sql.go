@@ -104,17 +104,18 @@ func (q *Queries) CreateWiki(ctx context.Context, arg CreateWikiParams) (Wiki, e
 
 const createWikiContent = `-- name: CreateWikiContent :one
 INSERT INTO wiki_content (
-    id, wiki_id, title, content
+    id, wiki_id, title, content, preview
 ) VALUES (
-    COALESCE($4::uuid, uuidv7()), $1, $2, $3
+    COALESCE($5::uuid, uuidv7()), $1, $2, $3, $4
 )
-RETURNING id, wiki_id, title, content, is_deleted, created_at
+RETURNING id, wiki_id, title, content, preview, is_deleted, created_at
 `
 
 type CreateWikiContentParams struct {
 	WikiID  pgtype.UUID `json:"wiki_id"`
 	Title   string      `json:"title"`
 	Content pgtype.Text `json:"content"`
+	Preview pgtype.Text `json:"preview"`
 	ID      pgtype.UUID `json:"id"`
 }
 
@@ -123,6 +124,7 @@ func (q *Queries) CreateWikiContent(ctx context.Context, arg CreateWikiContentPa
 		arg.WikiID,
 		arg.Title,
 		arg.Content,
+		arg.Preview,
 		arg.ID,
 	)
 	var i WikiContent
@@ -131,6 +133,7 @@ func (q *Queries) CreateWikiContent(ctx context.Context, arg CreateWikiContentPa
 		&i.WikiID,
 		&i.Title,
 		&i.Content,
+		&i.Preview,
 		&i.IsDeleted,
 		&i.CreatedAt,
 	)
@@ -228,7 +231,7 @@ func (q *Queries) GetWikiBySlug(ctx context.Context, slug pgtype.Text) (Wiki, er
 }
 
 const getWikiContentByIDs = `-- name: GetWikiContentByIDs :many
-SELECT id, wiki_id, title, content, is_deleted, created_at
+SELECT id, wiki_id, title, content, preview, is_deleted, created_at
 FROM wiki_content
 WHERE id = ANY($1::uuid[]) AND is_deleted = false
 `
@@ -247,6 +250,7 @@ func (q *Queries) GetWikiContentByIDs(ctx context.Context, dollar_1 []pgtype.UUI
 			&i.WikiID,
 			&i.Title,
 			&i.Content,
+			&i.Preview,
 			&i.IsDeleted,
 			&i.CreatedAt,
 		); err != nil {
@@ -261,7 +265,7 @@ func (q *Queries) GetWikiContentByIDs(ctx context.Context, dollar_1 []pgtype.UUI
 }
 
 const getWikiContentById = `-- name: GetWikiContentById :one
-SELECT id, wiki_id, title, content, is_deleted, created_at
+SELECT id, wiki_id, title, content, preview, is_deleted, created_at
 FROM wiki_content
 WHERE id = $1 AND is_deleted = false
 `
@@ -274,6 +278,7 @@ func (q *Queries) GetWikiContentById(ctx context.Context, id pgtype.UUID) (WikiC
 		&i.WikiID,
 		&i.Title,
 		&i.Content,
+		&i.Preview,
 		&i.IsDeleted,
 		&i.CreatedAt,
 	)

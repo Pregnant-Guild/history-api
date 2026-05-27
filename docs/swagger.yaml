@@ -106,6 +106,8 @@ definitions:
         items:
           $ref: '#/definitions/history-api_internal_dtos_request.GeometryEntitySnapshot'
         type: array
+      project:
+        $ref: '#/definitions/history-api_internal_dtos_request.ProjectSnapshot'
       replays:
         items:
           $ref: '#/definitions/history-api_internal_dtos_request.BattleReplaySnapshot'
@@ -213,6 +215,20 @@ definitions:
     - content
     - verify_type
     type: object
+  history-api_internal_dtos_request.EntityLabelCandidate:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      time_end:
+        type: number
+      time_start:
+        type: number
+    required:
+    - id
+    - name
+    type: object
   history-api_internal_dtos_request.EntitySnapshot:
     properties:
       base_hash:
@@ -309,6 +325,10 @@ definitions:
         items:
           type: string
         type: array
+      entity_label_candidates:
+        items:
+          $ref: '#/definitions/history-api_internal_dtos_request.EntityLabelCandidate'
+        type: array
       entity_name:
         type: string
       entity_names:
@@ -320,6 +340,17 @@ definitions:
       geometry_preset:
         type: string
       id: {}
+      line_label:
+        type: string
+      point_label:
+        type: string
+      polygon_label:
+        type: string
+      source:
+        enum:
+        - inline
+        - ref
+        type: string
       time_end:
         type: number
       time_start:
@@ -378,6 +409,10 @@ definitions:
         items:
           type: integer
         type: array
+      geometry:
+        items:
+          type: integer
+        type: array
       id:
         type: string
       operation:
@@ -416,6 +451,16 @@ definitions:
         type: string
     required:
     - token_id
+    type: object
+  history-api_internal_dtos_request.ProjectSnapshot:
+    properties:
+      id:
+        type: string
+      title:
+        type: string
+    required:
+    - id
+    - title
     type: object
   history-api_internal_dtos_request.ResetPasswordDto:
     properties:
