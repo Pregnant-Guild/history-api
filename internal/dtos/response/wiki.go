@@ -29,3 +29,9 @@ type WikiContentResponse struct {
 	Preview   string     `json:"preview"`
 	CreatedAt *time.Time `json:"created_at"`
 }
+
+type WikiContentPreviewResponse struct {
+	ID        string     `json:"id"`
+	Preview   string     `json:"preview"`
+	CreatedAt *time.Time `json:"created_at"`
+}

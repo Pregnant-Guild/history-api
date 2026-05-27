@@ -370,6 +370,37 @@ func (q *Queries) GetWikiContentCount(ctx context.Context, wikiID pgtype.UUID) (
 	return count, err
 }
 
+const getWikiIDsByEntityIDs = `-- name: GetWikiIDsByEntityIDs :many
+SELECT entity_id, wiki_id
+FROM entity_wikis
+WHERE entity_id = ANY($1::uuid[])
+`
+
+type GetWikiIDsByEntityIDsRow struct {
+	EntityID pgtype.UUID `json:"entity_id"`
+	WikiID   pgtype.UUID `json:"wiki_id"`
+}
+
+func (q *Queries) GetWikiIDsByEntityIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetWikiIDsByEntityIDsRow, error) {
+	rows, err := q.db.Query(ctx, getWikiIDsByEntityIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetWikiIDsByEntityIDsRow{}
+	for rows.Next() {
+		var i GetWikiIDsByEntityIDsRow
+		if err := rows.Scan(&i.EntityID, &i.WikiID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getWikisByIDs = `-- name: GetWikisByIDs :many
 SELECT id, project_id, title, slug, is_deleted, created_at, updated_at FROM wikis WHERE id = ANY($1::uuid[]) AND is_deleted = false
 `

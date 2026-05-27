@@ -159,6 +159,7 @@ func (s *FiberServer) SetupServer(
 	routes.EntityRoutes(s.App, entityController)
 	routes.GeometryRoutes(s.App, geometryController)
 	routes.WikiRoutes(s.App, wikiController)
+	routes.RelationRoutes(s.App, wikiController, entityController)
 	routes.ProjectRoutes(s.App, projectController, commitController, userRepo)
 	routes.SubmissionRoutes(s.App, submissionController, userRepo)
 	routes.ChatbotRoutes(s.App, chatbotController, userRepo)

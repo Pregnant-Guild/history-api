@@ -14,4 +14,3 @@ func WikiRoutes(router fiber.Router, wikiController *controllers.WikiController)
 	wiki.Get("/content/:id", wikiController.GetWikiContentById)
 	wiki.Get("/:id", wikiController.GetWikiById)
 }
-

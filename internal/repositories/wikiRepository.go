@@ -36,6 +36,7 @@ type WikiRepository interface {
 	GetContentCountByWikiID(ctx context.Context, wikiID pgtype.UUID) (int64, error)
 	GetContentByID(ctx context.Context, id pgtype.UUID) (*models.WikiContentEntity, error)
 	GetContentByIDs(ctx context.Context, ids []string) ([]*models.WikiContentEntity, error)
+	GetWikiIDsByEntityIDs(ctx context.Context, entityIDs []string) (map[string][]string, error)
 	WithTx(tx pgx.Tx) WikiRepository
 }
 
@@ -637,4 +638,63 @@ func (r *wikiRepository) GetContentByID(ctx context.Context, id pgtype.UUID) (*m
 
 func (r *wikiRepository) GetContentByIDs(ctx context.Context, ids []string) ([]*models.WikiContentEntity, error) {
 	return r.getContentByIDsWithFallback(ctx, ids)
+}
+
+func (r *wikiRepository) GetWikiIDsByEntityIDs(ctx context.Context, entityIDs []string) (map[string][]string, error) {
+	if len(entityIDs) == 0 {
+		return make(map[string][]string), nil
+	}
+
+	keys := make([]string, len(entityIDs))
+	for i, id := range entityIDs {
+		keys[i] = fmt.Sprintf("entity_wikis:entity:%s", id)
+	}
+
+	raws := r.c.MGet(ctx, keys...)
+	result := make(map[string][]string)
+	var missingEntityIDs []string
+	var missingPgIDs []pgtype.UUID
+
+	for i, b := range raws {
+		if len(b) > 0 {
+			var wikiIDs []string
+			if err := json.Unmarshal(b, &wikiIDs); err == nil {
+				result[entityIDs[i]] = wikiIDs
+				continue
+			}
+		}
+		missingEntityIDs = append(missingEntityIDs, entityIDs[i])
+		pgID, err := convert.StringToUUID(entityIDs[i])
+		if err == nil {
+			missingPgIDs = append(missingPgIDs, pgID)
+		}
+	}
+
+	if len(missingPgIDs) > 0 {
+		rows, err := r.q.GetWikiIDsByEntityIDs(ctx, missingPgIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		dbMap := make(map[string][]string)
+		for _, id := range missingEntityIDs {
+			dbMap[id] = []string{}
+		}
+		for _, row := range rows {
+			eID := convert.UUIDToString(row.EntityID)
+			wID := convert.UUIDToString(row.WikiID)
+			dbMap[eID] = append(dbMap[eID], wID)
+		}
+
+		missingToCache := make(map[string]any)
+		for eID, wIDs := range dbMap {
+			result[eID] = wIDs
+			missingToCache[fmt.Sprintf("entity_wikis:entity:%s", eID)] = wIDs
+		}
+		if len(missingToCache) > 0 {
+			_ = r.c.MSet(ctx, missingToCache, constants.NormalCacheDuration)
+		}
+	}
+
+	return result, nil
 }

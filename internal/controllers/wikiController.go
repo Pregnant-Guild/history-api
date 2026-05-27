@@ -163,3 +163,76 @@ func (h *WikiController) GetWikiContentById(c fiber.Ctx) error {
 	})
 }
 
+// GetWikisByEntityIDs handles fetching wikis by a list of entity IDs.
+// @Summary      Get wikis by entity IDs
+// @Description  Get wikis grouped by entity IDs
+// @Tags         Relations
+// @Accept       json
+// @Produce      json
+// @Param query query request.GetWikisByEntityIDsDto true "Query Parameters"
+// @Success      200  {object}  response.CommonResponse
+// @Failure      400  {object}  response.CommonResponse
+// @Failure      500  {object}  response.CommonResponse
+// @Router       /relations/wikis-by-entities [get]
+func (h *WikiController) GetWikisByEntityIDs(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dto := &request.GetWikisByEntityIDsDto{}
+	if err := validator.ValidateQueryDto(c, dto); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
+			Status: false,
+			Errors: err,
+		})
+	}
+
+	res, err := h.service.GetWikisByEntityIDs(ctx, dto)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}
+
+// GetWikiContentsPreviewByIDs handles fetching wiki content previews by a list of IDs.
+// @Summary      Get wiki content previews by IDs
+// @Description  Get previews of specific wiki contents by a list of their IDs
+// @Tags         Relations
+// @Accept       json
+// @Produce      json
+// @Param query query request.GetWikiContentsPreviewDto true "Query Parameters"
+// @Success      200  {object}  response.CommonResponse
+// @Failure      400  {object}  response.CommonResponse
+// @Failure      500  {object}  response.CommonResponse
+// @Router       /relations/wiki-contents/preview [get]
+func (h *WikiController) GetWikiContentsPreviewByIDs(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dto := &request.GetWikiContentsPreviewDto{}
+	if err := validator.ValidateQueryDto(c, dto); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
+			Status: false,
+			Errors: err,
+		})
+	}
+
+	res, err := h.service.GetWikiContentsPreviewByIDs(ctx, dto)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}

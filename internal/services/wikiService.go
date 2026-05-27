@@ -20,6 +20,8 @@ type WikiService interface {
 	IsExistWikiSlug(ctx context.Context, slug string) (bool, *fiber.Error)
 	SearchWikis(ctx context.Context, req *request.SearchWikiDto) ([]*response.WikiResponse, *fiber.Error)
 	GetWikiContentByID(ctx context.Context, id string) (*response.WikiContentResponse, *fiber.Error)
+	GetWikisByEntityIDs(ctx context.Context, req *request.GetWikisByEntityIDsDto) (map[string][]*response.WikiResponse, *fiber.Error)
+	GetWikiContentsPreviewByIDs(ctx context.Context, req *request.GetWikiContentsPreviewDto) ([]*response.WikiContentPreviewResponse, *fiber.Error)
 }
 
 type wikiService struct {
@@ -127,4 +129,64 @@ func (s *wikiService) GetWikiContentByID(ctx context.Context, id string) (*respo
 		Preview:   content.Preview,
 		CreatedAt: content.CreatedAt,
 	}, nil
+}
+
+func (s *wikiService) GetWikisByEntityIDs(ctx context.Context, req *request.GetWikisByEntityIDsDto) (map[string][]*response.WikiResponse, *fiber.Error) {
+	mapping, err := s.wikiRepo.GetWikiIDsByEntityIDs(ctx, req.EntityIDs)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch wiki IDs by entity IDs")
+	}
+
+	wikiIDMap := make(map[string]struct{})
+	var allWikiIDs []string
+	for _, wIDs := range mapping {
+		for _, wID := range wIDs {
+			if _, ok := wikiIDMap[wID]; !ok {
+				wikiIDMap[wID] = struct{}{}
+				allWikiIDs = append(allWikiIDs, wID)
+			}
+		}
+	}
+
+	wikis, err := s.wikiRepo.GetByIDs(ctx, allWikiIDs)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch wikis")
+	}
+
+	wikisByID := make(map[string]*models.WikiEntity)
+	for _, w := range wikis {
+		wikisByID[w.ID] = w
+	}
+
+	result := make(map[string][]*response.WikiResponse)
+	for _, idStr := range req.EntityIDs {
+		result[idStr] = make([]*response.WikiResponse, 0)
+		if wIDs, exists := mapping[idStr]; exists {
+			for _, wID := range wIDs {
+				if w, found := wikisByID[wID]; found {
+					result[idStr] = append(result[idStr], w.ToResponse())
+				}
+			}
+		}
+	}
+
+	return result, nil
+}
+
+func (s *wikiService) GetWikiContentsPreviewByIDs(ctx context.Context, req *request.GetWikiContentsPreviewDto) ([]*response.WikiContentPreviewResponse, *fiber.Error) {
+	contents, err := s.wikiRepo.GetContentByIDs(ctx, req.IDs)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch wiki contents")
+	}
+
+	var results []*response.WikiContentPreviewResponse
+	for _, c := range contents {
+		results = append(results, &response.WikiContentPreviewResponse{
+			ID:        c.ID,
+			Preview:   c.Preview,
+			CreatedAt: c.CreatedAt,
+		})
+	}
+
+	return results, nil
 }

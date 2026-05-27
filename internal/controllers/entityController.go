@@ -136,3 +136,40 @@ func (h *EntityController) SearchEntities(c fiber.Ctx) error {
 	})
 }
 
+// GetEntitiesByGeometryIDs handles fetching entities by a list of geometry IDs.
+// @Summary      Get entities by geometry IDs
+// @Description  Get entities grouped by geometry IDs
+// @Tags         Relations
+// @Accept       json
+// @Produce      json
+// @Param query query request.GetEntitiesByGeometryIDsDto true "Query Parameters"
+// @Success      200  {object}  response.CommonResponse
+// @Failure      400  {object}  response.CommonResponse
+// @Failure      500  {object}  response.CommonResponse
+// @Router       /relations/entities-by-geometries [get]
+func (h *EntityController) GetEntitiesByGeometryIDs(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dto := &request.GetEntitiesByGeometryIDsDto{}
+	if err := validator.ValidateQueryDto(c, dto); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
+			Status: false,
+			Errors: err,
+		})
+	}
+
+	res, err := h.service.GetEntitiesByGeometryIDs(ctx, dto)
+	if err != nil {
+		return c.Status(err.Code).JSON(response.CommonResponse{
+			Status:  false,
+			Message: err.Message,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
+		Status: true,
+		Data:   res,
+	})
+}
+

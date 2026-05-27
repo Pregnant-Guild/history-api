@@ -127,3 +127,8 @@ SELECT id, wiki_id, title, created_at
 FROM wiki_content
 WHERE wiki_id = ANY($1::uuid[]) AND is_deleted = false
 ORDER BY created_at DESC;
+
+-- name: GetWikiIDsByEntityIDs :many
+SELECT entity_id, wiki_id
+FROM entity_wikis
+WHERE entity_id = ANY($1::uuid[]);

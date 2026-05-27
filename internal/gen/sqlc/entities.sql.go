@@ -242,6 +242,37 @@ func (q *Queries) GetEntityBySlug(ctx context.Context, slug pgtype.Text) (Entity
 	return i, err
 }
 
+const getEntityIDsByGeometryIDs = `-- name: GetEntityIDsByGeometryIDs :many
+SELECT geometry_id, entity_id
+FROM entity_geometries
+WHERE geometry_id = ANY($1::uuid[])
+`
+
+type GetEntityIDsByGeometryIDsRow struct {
+	GeometryID pgtype.UUID `json:"geometry_id"`
+	EntityID   pgtype.UUID `json:"entity_id"`
+}
+
+func (q *Queries) GetEntityIDsByGeometryIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetEntityIDsByGeometryIDsRow, error) {
+	rows, err := q.db.Query(ctx, getEntityIDsByGeometryIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetEntityIDsByGeometryIDsRow{}
+	for rows.Next() {
+		var i GetEntityIDsByGeometryIDsRow
+		if err := rows.Scan(&i.GeometryID, &i.EntityID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchEntities = `-- name: SearchEntities :many
 SELECT id, project_id, name, slug, description, status, time_start, time_end, is_deleted, created_at, updated_at
 FROM entities

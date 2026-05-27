@@ -68,3 +68,8 @@ WHERE slug = $1 AND is_deleted = false;
 
 -- name: GetEntitiesBySlugs :many
 SELECT * FROM entities WHERE slug = ANY($1::text[]) AND is_deleted = false;
+
+-- name: GetEntityIDsByGeometryIDs :many
+SELECT geometry_id, entity_id
+FROM entity_geometries
+WHERE geometry_id = ANY($1::uuid[]);
