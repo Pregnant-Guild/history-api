@@ -8,6 +8,7 @@ import (
 
 func BattleReplayRoutes(router fiber.Router, battleReplayController *controllers.BattleReplayController) {
 	br := router.Group("/battle-replays")
+	br.Get("/geometries", battleReplayController.GetBattleReplaysByGeometryIDs)
 	br.Get("/geometry/:geometryId", battleReplayController.GetBattleReplaysByGeometryId)
 	br.Get("/:id", battleReplayController.GetBattleReplayById)
 }

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
 	"history-api/internal/models"
 	"history-api/internal/repositories"
@@ -13,6 +14,7 @@ import (
 type BattleReplayService interface {
 	GetByID(ctx context.Context, id string) (*response.BattleReplayResponse, *fiber.Error)
 	GetByGeometryID(ctx context.Context, geometryID string) ([]*response.BattleReplayResponse, *fiber.Error)
+	GetByGeometryIDs(ctx context.Context, req *request.GetBattleReplaysByGeometryIDsDto) (map[string][]*response.BattleReplayResponse, *fiber.Error)
 }
 
 type battleReplayService struct {
@@ -51,4 +53,27 @@ func (s *battleReplayService) GetByGeometryID(ctx context.Context, geometryID st
 	}
 
 	return models.BattleReplaysEntityToResponse(replays), nil
+}
+
+func (s *battleReplayService) GetByGeometryIDs(ctx context.Context, req *request.GetBattleReplaysByGeometryIDsDto) (map[string][]*response.BattleReplayResponse, *fiber.Error) {
+	replays, err := s.battleReplayRepo.GetByGeometryIDs(ctx, req.GeometryIDs)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get battle replays")
+	}
+
+	result := make(map[string][]*response.BattleReplayResponse)
+	for _, idStr := range req.GeometryIDs {
+		result[idStr] = make([]*response.BattleReplayResponse, 0)
+	}
+
+	for _, replay := range replays {
+		if replay != nil {
+			geomID := replay.GeometryID
+			if _, exists := result[geomID]; exists {
+				result[geomID] = append(result[geomID], replay.ToResponse())
+			}
+		}
+	}
+
+	return result, nil
 }

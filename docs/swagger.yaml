@@ -1070,6 +1070,38 @@ paths:
       summary: Get battle replay by ID
       tags:
       - BattleReplays
+  /battle-replays/geometries:
+    get:
+      consumes:
+      - application/json
+      description: Get battle replays grouped by geometry IDs
+      parameters:
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        minItems: 1
+        name: geometry_ids
+        required: true
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get battle replays by geometry IDs
+      tags:
+      - BattleReplays
   /battle-replays/geometry/{geometryId}:
     get:
       consumes:
