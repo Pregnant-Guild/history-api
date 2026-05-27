@@ -2623,6 +2623,102 @@ paths:
       summary: Get raster tile metadata
       tags:
       - Tile
+  /relations/entities-by-geometries:
+    get:
+      consumes:
+      - application/json
+      description: Get entities grouped by geometry IDs
+      parameters:
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        minItems: 1
+        name: geometry_ids
+        required: true
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get entities by geometry IDs
+      tags:
+      - Relations
+  /relations/wiki-contents/preview:
+    get:
+      consumes:
+      - application/json
+      description: Get previews of specific wiki contents by a list of their IDs
+      parameters:
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        minItems: 1
+        name: ids
+        required: true
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get wiki content previews by IDs
+      tags:
+      - Relations
+  /relations/wikis-by-entities:
+    get:
+      consumes:
+      - application/json
+      description: Get wikis grouped by entity IDs
+      parameters:
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        minItems: 1
+        name: entity_ids
+        required: true
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get wikis by entity IDs
+      tags:
+      - Relations
   /roles:
     get:
       consumes:
