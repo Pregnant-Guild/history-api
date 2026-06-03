@@ -172,7 +172,11 @@ func (r *projectRepository) GetByID(ctx context.Context, id pgtype.UUID) (*model
 func (r *projectRepository) GetByUserID(ctx context.Context, params sqlc.GetProjectsByUserIdParams) ([]*models.ProjectEntity, error) {
 	queryKey := r.generateQueryKey("project:user", params)
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.ProjectEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -211,9 +215,7 @@ func (r *projectRepository) GetByUserID(ctx context.Context, params sqlc.GetProj
 	if len(projectToCache) > 0 {
 		_ = r.c.MSet(ctx, projectToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return projects, nil
 }
@@ -221,7 +223,11 @@ func (r *projectRepository) GetByUserID(ctx context.Context, params sqlc.GetProj
 func (r *projectRepository) Search(ctx context.Context, params sqlc.SearchProjectsParams) ([]*models.ProjectEntity, error) {
 	queryKey := r.generateQueryKey("project:search", params)
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.ProjectEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -259,9 +265,7 @@ func (r *projectRepository) Search(ctx context.Context, params sqlc.SearchProjec
 	if len(projectToCache) > 0 {
 		_ = r.c.MSet(ctx, projectToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return projects, nil
 }

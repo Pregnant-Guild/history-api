@@ -286,7 +286,11 @@ func (r *chatRepository) CreateMessage(ctx context.Context, params sqlc.CreateMe
 func (r *chatRepository) GetMessagesByConversation(ctx context.Context, params sqlc.GetMessagesByConversationParams) ([]*models.MessageEntity, error) {
 	queryKey := r.generateQueryKey("message:conversation", params)
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.MessageEntity{}, nil
+		}
 		return r.getMessagesByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -315,9 +319,7 @@ func (r *chatRepository) GetMessagesByConversation(ctx context.Context, params s
 	if len(toCache) > 0 {
 		_ = r.c.MSet(ctx, toCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return results, nil
 }
@@ -354,7 +356,11 @@ func (r *chatRepository) GetChatbotHistory(ctx context.Context, params sqlc.GetC
 		convert.UUIDToString(params.CursorID),
 	)
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.ChatbotHistoryEntity{}, nil
+		}
 		return r.getChatbotHistoriesByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -383,9 +389,7 @@ func (r *chatRepository) GetChatbotHistory(ctx context.Context, params sqlc.GetC
 	if len(toCache) > 0 {
 		_ = r.c.MSet(ctx, toCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return results, nil
 }

@@ -166,7 +166,11 @@ func (r *submissionRepository) GetByIDs(ctx context.Context, ids []string) ([]*m
 func (r *submissionRepository) Search(ctx context.Context, params sqlc.SearchSubmissionsParams) ([]*models.SubmissionEntity, error) {
 	queryKey := r.generateQueryKey("verification:search", params)
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.SubmissionEntity{}, nil
+		}
 		listItem, err := r.getByIDsWithFallback(ctx, cachedIDs)
 		if err != nil {
 			return nil, err
@@ -216,9 +220,7 @@ func (r *submissionRepository) Search(ctx context.Context, params sqlc.SearchSub
 		_ = r.c.MSet(ctx, itemToCache, constants.NormalCacheDuration)
 	}
 
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return items, nil
 }

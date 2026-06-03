@@ -190,7 +190,11 @@ func (r *wikiRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.W
 func (r *wikiRepository) Search(ctx context.Context, params sqlc.SearchWikisParams) ([]*models.WikiEntity, error) {
 	queryKey := r.generateQueryKey("wiki:search", params)
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.WikiEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -242,9 +246,7 @@ func (r *wikiRepository) Search(ctx context.Context, params sqlc.SearchWikisPara
 	if len(wikiToCache) > 0 {
 		_ = r.c.MSet(ctx, wikiToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return wikis, nil
 }
@@ -315,7 +317,11 @@ func (r *wikiRepository) BulkDeleteEntityWikisByEntityId(ctx context.Context, en
 func (r *wikiRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.WikiEntity, error) {
 	cacheKey := fmt.Sprintf("wiki:project:%s", convert.UUIDToString(projectID))
 	var cachedIDs []string
-	if err := r.c.Get(ctx, cacheKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, cacheKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.WikiEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -368,9 +374,7 @@ func (r *wikiRepository) GetByProjectID(ctx context.Context, projectID pgtype.UU
 	if len(wikiToCache) > 0 {
 		_ = r.c.MSet(ctx, wikiToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, cacheKey, ids, constants.ListCacheDuration)
 
 	return wikis, nil
 }

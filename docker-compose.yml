@@ -24,7 +24,7 @@ services:
     image: redis:8.6.2-alpine
     container_name: history_cache
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "no"]
     volumes:
       - history_cache_data:/data
     networks:

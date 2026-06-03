@@ -35,7 +35,8 @@ func NewRedisClient() (Cache, error) {
 
 	rdb := redis.NewClient(&redis.Options{
 		Addr:         uri,
-		MinIdleConns: 10,
+		PoolSize:     500,
+		MinIdleConns: 50,
 		DialTimeout:  5 * time.Second,
 		ReadTimeout:  3 * time.Second,
 		WriteTimeout: 3 * time.Second,

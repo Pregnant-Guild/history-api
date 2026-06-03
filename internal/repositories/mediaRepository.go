@@ -216,7 +216,11 @@ func (r *mediaRepository) BulkDelete(ctx context.Context, ids []pgtype.UUID) err
 func (r *mediaRepository) Search(ctx context.Context, params sqlc.SearchMediasParams) ([]*models.MediaEntity, error) {
 	queryKey := r.generateQueryKey("media:search", params)
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.MediaEntity{}, nil
+		}
 		listItem, err := r.getByIDsWithFallback(ctx, cachedIDs)
 		if err != nil {
 			return nil, err
@@ -259,9 +263,7 @@ func (r *mediaRepository) Search(ctx context.Context, params sqlc.SearchMediasPa
 		_ = r.c.MSet(ctx, mediasToCache, constants.NormalCacheDuration)
 	}
 
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return medias, nil
 }
@@ -284,7 +286,11 @@ func (r *mediaRepository) Count(ctx context.Context, params sqlc.CountMediasPara
 func (r *mediaRepository) GetByUserID(ctx context.Context, userId pgtype.UUID) ([]*models.MediaEntity, error) {
 	queryKey := fmt.Sprintf("media:userId:%s", convert.UUIDToString(userId))
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.MediaEntity{}, nil
+		}
 		listItem, err := r.getByIDsWithFallback(ctx, cachedIDs)
 		if err != nil {
 			return nil, err
@@ -327,9 +333,7 @@ func (r *mediaRepository) GetByUserID(ctx context.Context, userId pgtype.UUID) (
 		_ = r.c.MSet(ctx, mediasToCache, constants.NormalCacheDuration)
 	}
 
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return medias, nil
 }

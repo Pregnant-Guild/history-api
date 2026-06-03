@@ -163,7 +163,11 @@ func (r *entityRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models
 func (r *entityRepository) Search(ctx context.Context, params sqlc.SearchEntitiesParams) ([]*models.EntityEntity, error) {
 	queryKey := r.generateQueryKey("entity:search", params)
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.EntityEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -198,9 +202,7 @@ func (r *entityRepository) Search(ctx context.Context, params sqlc.SearchEntitie
 		_ = r.c.MSet(ctx, entityToCache, constants.NormalCacheDuration)
 	}
 
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return entities, nil
 }
@@ -263,7 +265,11 @@ func (r *entityRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 func (r *entityRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.EntityEntity, error) {
 	cacheKey := fmt.Sprintf("entity:project:%s", convert.UUIDToString(projectID))
 	var cachedIDs []string
-	if err := r.c.Get(ctx, cacheKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, cacheKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.EntityEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 

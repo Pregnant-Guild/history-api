@@ -20,6 +20,8 @@ func NewPostgresqlDB() (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, err
 	}
+	poolConfig.MaxConns = 100
+	poolConfig.MinConns = 10
 
 	var pool *pgxpool.Pool
 

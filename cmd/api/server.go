@@ -47,13 +47,15 @@ func NewHttpServer() *FiberServer {
 
 	server.App.Use(swagger.New(cfg))
 
-	logger := zerolog.New(zerolog.ConsoleWriter{
-		Out:        os.Stderr,
-		TimeFormat: time.RFC3339,
-	}).With().Timestamp().Logger()
-	server.App.Use(middleware.New(middleware.Config{
-		Logger: &logger,
-	}))
+	if os.Getenv("DISABLE_REQUEST_LOG") != "true" {
+		logger := zerolog.New(zerolog.ConsoleWriter{
+			Out:        os.Stderr,
+			TimeFormat: time.RFC3339,
+		}).With().Timestamp().Logger()
+		server.App.Use(middleware.New(middleware.Config{
+			Logger: &logger,
+		}))
+	}
 	return server
 }
 

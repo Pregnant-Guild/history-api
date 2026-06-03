@@ -182,7 +182,11 @@ func (r *geometryRepository) GetByID(ctx context.Context, id pgtype.UUID) (*mode
 func (r *geometryRepository) Search(ctx context.Context, params sqlc.SearchGeometriesParams) ([]*models.GeometryEntity, error) {
 	queryKey := r.generateQueryKey("geometry:search", params)
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.GeometryEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -221,9 +225,7 @@ func (r *geometryRepository) Search(ctx context.Context, params sqlc.SearchGeome
 	if len(geometryToCache) > 0 {
 		_ = r.c.MSet(ctx, geometryToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return geometries, nil
 }
@@ -311,7 +313,11 @@ func (r *geometryRepository) BulkDeleteEntityGeometriesByEntityId(ctx context.Co
 func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.GeometryEntity, error) {
 	cacheKey := fmt.Sprintf("geometry:project:%s", convert.UUIDToString(projectID))
 	var cachedIDs []string
-	if err := r.c.Get(ctx, cacheKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, cacheKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.GeometryEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -359,7 +365,11 @@ func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtyp
 func (r *geometryRepository) GetGeometriesByBoundWith(ctx context.Context, boundWith pgtype.UUID) ([]*models.GeometryEntity, error) {
 	cacheKey := fmt.Sprintf("geometry:bound_with:%s", convert.UUIDToString(boundWith))
 	var cachedIDs []string
-	if err := r.c.Get(ctx, cacheKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, cacheKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.GeometryEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -511,7 +521,11 @@ func (r *geometryRepository) SearchByEntityName(ctx context.Context, params sqlc
 
 	queryKey := r.generateQueryKey("geometry:search:entity", params)
 	var cachedPairs []string
-	if err := r.c.Get(ctx, queryKey, &cachedPairs); err == nil && len(cachedPairs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedPairs)
+	if err == nil {
+		if len(cachedPairs) == 0 {
+			return []*models.EntityGeometriesSearchEntity{}, nil
+		}
 		return r.getSearchByIDsWithFallback(ctx, cachedPairs)
 	}
 
@@ -544,9 +558,7 @@ func (r *geometryRepository) SearchByEntityName(ctx context.Context, params sqlc
 	if len(geometryToCache) > 0 {
 		_ = r.c.MSet(ctx, geometryToCache, constants.NormalCacheDuration)
 	}
-	if len(pairs) > 0 {
-		_ = r.c.Set(ctx, queryKey, pairs, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, pairs, constants.ListCacheDuration)
 
 	return geometries, nil
 }

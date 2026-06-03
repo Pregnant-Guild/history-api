@@ -313,7 +313,11 @@ func (r *userRepository) Search(ctx context.Context, params sqlc.SearchUsersPara
 	queryKey := r.generateQueryKey("user:search", params)
 
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.UserEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -354,9 +358,7 @@ func (r *userRepository) Search(ctx context.Context, params sqlc.SearchUsersPara
 	if len(usersToCache) > 0 {
 		_ = r.c.MSet(ctx, usersToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return users, nil
 }

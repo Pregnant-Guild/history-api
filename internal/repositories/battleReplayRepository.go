@@ -143,7 +143,11 @@ func (r *battleReplayRepository) GetByID(ctx context.Context, id pgtype.UUID) (*
 func (r *battleReplayRepository) GetByGeometryID(ctx context.Context, geometryID pgtype.UUID) ([]*models.BattleReplayEntity, error) {
 	cacheKey := fmt.Sprintf("battle_replay:geometry:%s", convert.UUIDToString(geometryID))
 	var cachedIDs []string
-	if err := r.c.Get(ctx, cacheKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, cacheKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.BattleReplayEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -208,7 +212,11 @@ func (r *battleReplayRepository) GetByGeometryIDs(ctx context.Context, geometryI
 func (r *battleReplayRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.BattleReplayEntity, error) {
 	cacheKey := fmt.Sprintf("battle_replay:project:%s", convert.UUIDToString(projectID))
 	var cachedIDs []string
-	if err := r.c.Get(ctx, cacheKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, cacheKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.BattleReplayEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 

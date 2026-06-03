@@ -215,7 +215,11 @@ func (r *roleRepository) Update(ctx context.Context, params sqlc.UpdateRoleParam
 func (r *roleRepository) All(ctx context.Context) ([]*models.RoleEntity, error) {
 	queryKey := "role:all"
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.RoleEntity{}, nil
+		}
 		listItem, err := r.getByIDsWithFallback(ctx, cachedIDs)
 		if err != nil {
 			return nil, err
@@ -254,9 +258,7 @@ func (r *roleRepository) All(ctx context.Context) ([]*models.RoleEntity, error) 
 		_ = r.c.MSet(ctx, roleToCache, constants.NormalCacheDuration)
 	}
 
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return roles, nil
 }

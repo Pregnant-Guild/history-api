@@ -138,7 +138,11 @@ func (r *statisticRepository) Search(ctx context.Context, params sqlc.SearchSyst
 	queryKey := r.generateQueryKey("statistic:search", params)
 
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.StatisticEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -161,9 +165,7 @@ func (r *statisticRepository) Search(ctx context.Context, params sqlc.SearchSyst
 	if len(statsToCache) > 0 {
 		_ = r.c.MSet(ctx, statsToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return stats, nil
 }

@@ -278,7 +278,11 @@ func (v *verificationRepository) DeleteVerificationMedia(ctx context.Context, pa
 func (v *verificationRepository) GetByUserID(ctx context.Context, userId pgtype.UUID) ([]*models.UserVerificationEntity, error) {
 	queryKey := fmt.Sprintf("verification:userId:%s", convert.UUIDToString(userId))
 	var cachedIDs []string
-	if err := v.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := v.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.UserVerificationEntity{}, nil
+		}
 		listItem, err := v.getByIDsWithFallback(ctx, cachedIDs)
 		if err != nil {
 			return nil, err
@@ -332,9 +336,7 @@ func (v *verificationRepository) GetByUserID(ctx context.Context, userId pgtype.
 		_ = v.c.MSet(ctx, itemToCache, constants.NormalCacheDuration)
 	}
 
-	if len(ids) > 0 {
-		_ = v.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = v.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return items, nil
 }
@@ -342,7 +344,11 @@ func (v *verificationRepository) GetByUserID(ctx context.Context, userId pgtype.
 func (v *verificationRepository) Search(ctx context.Context, params sqlc.SearchUserVerificationsParams) ([]*models.UserVerificationEntity, error) {
 	queryKey := v.generateQueryKey("verification:search", params)
 	var cachedIDs []string
-	if err := v.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := v.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.UserVerificationEntity{}, nil
+		}
 		listItem, err := v.getByIDsWithFallback(ctx, cachedIDs)
 		if err != nil {
 			return nil, err
@@ -397,9 +403,7 @@ func (v *verificationRepository) Search(ctx context.Context, params sqlc.SearchU
 		_ = v.c.MSet(ctx, itemToCache, constants.NormalCacheDuration)
 	}
 
-	if len(ids) > 0 {
-		_ = v.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = v.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return items, nil
 }

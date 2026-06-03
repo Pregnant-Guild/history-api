@@ -165,7 +165,11 @@ func (r *commitRepository) getByIDsWithFallback(ctx context.Context, ids []strin
 func (r *commitRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.CommitEntity, error) {
 	queryKey := fmt.Sprintf("commit:project:%s", convert.UUIDToString(projectID))
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.CommitEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 
@@ -175,8 +179,10 @@ func (r *commitRepository) GetByProjectID(ctx context.Context, projectID pgtype.
 	}
 
 	entities := make([]*models.CommitEntity, 0, len(rows))
-	for _, row := range rows {
-		entities = append(entities, &models.CommitEntity{
+	ids := make([]string, len(rows))
+	commitToCache := make(map[string]any)
+	for i, row := range rows {
+		item := &models.CommitEntity{
 			ID:           convert.UUIDToString(row.ID),
 			ProjectID:    convert.UUIDToString(row.ProjectID),
 			SnapshotJson: row.SnapshotJson,
@@ -185,15 +191,26 @@ func (r *commitRepository) GetByProjectID(ctx context.Context, projectID pgtype.
 			EditSummary:  convert.TextToString(row.EditSummary),
 			IsDeleted:    row.IsDeleted,
 			CreatedAt:    convert.TimeToPtr(row.CreatedAt),
-		})
+		}
+		entities = append(entities, item)
+		ids[i] = item.ID
+		commitToCache[fmt.Sprintf("commit:id:%s", item.ID)] = item
 	}
+	if len(commitToCache) > 0 {
+		_ = r.c.MSet(ctx, commitToCache, constants.NormalCacheDuration)
+	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 	return entities, nil
 }
 
 func (r *commitRepository) Search(ctx context.Context, params sqlc.SearchCommitsParams) ([]*models.CommitEntity, error) {
 	queryKey := r.generateQueryKey("commit:search", params)
 	var cachedIDs []string
-	if err := r.c.Get(ctx, queryKey, &cachedIDs); err == nil && len(cachedIDs) > 0 {
+	err := r.c.Get(ctx, queryKey, &cachedIDs)
+	if err == nil {
+		if len(cachedIDs) == 0 {
+			return []*models.CommitEntity{}, nil
+		}
 		return r.getByIDsWithFallback(ctx, cachedIDs)
 	}
 	rows, err := r.q.SearchCommits(ctx, params)
@@ -223,9 +240,7 @@ func (r *commitRepository) Search(ctx context.Context, params sqlc.SearchCommits
 	if len(commitToCache) > 0 {
 		_ = r.c.MSet(ctx, commitToCache, constants.NormalCacheDuration)
 	}
-	if len(ids) > 0 {
-		_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
-	}
+	_ = r.c.Set(ctx, queryKey, ids, constants.ListCacheDuration)
 
 	return commits, nil
 }
