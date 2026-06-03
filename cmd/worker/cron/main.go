@@ -19,13 +19,26 @@ import (
 
 func runStatistics(ctx context.Context, repo repositories.StatisticRepository) {
 	log.Info().Msg("Running daily statistics...")
-	today := time.Now().Truncate(24 * time.Hour)
-	_, err := repo.Upsert(ctx, today)
+
+	loc, err := time.LoadLocation("Asia/Ho_Chi_Minh")
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to upsert system statistics")
-	} else {
-		log.Info().Msg("Successfully updated daily statistics and cleared cache")
+		log.Warn().Err(err).Msg("Failed to load Asia/Ho_Chi_Minh timezone, falling back to fixed UTC+7")
+		loc = time.FixedZone("ICT", 7*3600)
 	}
+
+	now := time.Now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	// Upsert stats for today, yesterday, and the day before to prevent timezone gaps/delays
+	for i := 0; i < 3; i++ {
+		date := today.AddDate(0, 0, -i)
+		log.Info().Str("date", date.Format("2006-01-02")).Msg("Upserting system statistics")
+		_, err = repo.Upsert(ctx, date)
+		if err != nil {
+			log.Error().Err(err).Str("date", date.Format("2006-01-02")).Msg("Failed to upsert system statistics")
+		}
+	}
+	log.Info().Msg("Successfully updated daily statistics and cleared cache")
 }
 
 func runBackup(ctx context.Context, s3 storage.Storage, dbURI string) {

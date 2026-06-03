@@ -10,7 +10,7 @@ import (
 
 	"github.com/tmc/langchaingo/embeddings"
 	"github.com/tmc/langchaingo/llms"
-	"github.com/tmc/langchaingo/llms/googleai"
+	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/tmc/langchaingo/textsplitter"
 )
 
@@ -20,28 +20,29 @@ type RagUtils struct {
 }
 
 func NewRagUtils() (*RagUtils, error) {
-	googleAIApiKey, err := config.GetConfig("GOOGLE_AI_API_KEY")
+	openRouterAPIKey, err := config.GetConfig("OPEN_ROUTER_API")
 	if err != nil {
 		return nil, err
 	}
 
-	googleModal, err := config.GetConfig("GOOGLE_AI_MODEL")
+	model, err := config.GetConfig("OPEN_ROUTER_MODEL")
 	if err != nil {
-		googleModal = "gemma-4-26b-a4b-it"
+		model = "qwen/qwen3.5-flash-02-23"
 	}
 
-	googleEmbeddingModel, err := config.GetConfig("GOOGLE_AI_EMBEDDING_MODEL")
+	embeddingModel, err := config.GetConfig("OPEN_ROUTER_EMBEDDING_MODEL")
 	if err != nil {
-		googleEmbeddingModel = "gemini-embedding-001"
+		embeddingModel = "qwen/qwen3-embedding-8b"
 	}
 
-	llm, err := googleai.New(context.Background(),
-		googleai.WithAPIKey(googleAIApiKey),
-		googleai.WithDefaultModel(googleModal),
-		googleai.WithDefaultEmbeddingModel(googleEmbeddingModel),
+	llm, err := openai.New(
+		openai.WithToken(openRouterAPIKey),
+		openai.WithBaseURL("https://openrouter.ai/api/v1"),
+		openai.WithModel(model),
+		openai.WithEmbeddingModel(embeddingModel),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to init google ai: %w", err)
+		return nil, fmt.Errorf("failed to init openrouter ai: %w", err)
 	}
 
 	embedder, err := embeddings.NewEmbedder(llm)
@@ -77,6 +78,13 @@ func (u *RagUtils) PrepareChunks(ctx context.Context, text string) ([]string, []
 		return nil, nil, err
 	}
 
+	// Truncate to 1536 dimensions for pgvector compatibility (HNSW index limit is 2000)
+	for i := range vectors {
+		if len(vectors[i]) > 1536 {
+			vectors[i] = vectors[i][:1536]
+		}
+	}
+
 	return chunks, vectors, nil
 }
 
@@ -85,7 +93,13 @@ func (u *RagUtils) EmbedQuery(ctx context.Context, query string) ([]float32, err
 	if err != nil || len(vectors) == 0 {
 		return nil, err
 	}
-	return vectors[0], nil
+	
+	vector := vectors[0]
+	if len(vector) > 1536 {
+		vector = vector[:1536]
+	}
+	
+	return vector, nil
 }
 
 func (u *RagUtils) GenerateResponse(ctx context.Context, prompt string) (string, error) {

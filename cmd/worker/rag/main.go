@@ -53,33 +53,24 @@ func processRagTask(ctx context.Context, ragRepo repositories.RagRepository, rag
 		var vectors [][]float32
 		var err error
 
-		for attempt := 0; attempt <= maxRetries; attempt++ {
-			if attempt > 0 {
-				delay := baseRetryDelay * time.Duration(math.Pow(2, float64(attempt-1)))
-				log.Warn().
-					Str("worker", workerName).
-					Str("wiki_id", wiki.ID).
-					Int("attempt", attempt).
-					Dur("delay", delay).
-					Msg("Retrying wiki embedding")
-				time.Sleep(delay)
-			}
-
+		for attempt := 0; ; attempt++ {
 			chunks, vectors, err = ragUtils.PrepareChunks(ctx, cleanText)
 			if err == nil {
 				break
 			}
 
+			delay := baseRetryDelay * time.Duration(math.Pow(2, float64(attempt)))
+			if delay > 2*time.Minute {
+				delay = 2 * time.Minute
+			}
+
 			log.Error().Err(err).
 				Str("worker", workerName).
 				Str("wiki_id", wiki.ID).
-				Int("attempt", attempt).
-				Msg("Failed to prepare wiki chunks")
-		}
-
-		if err != nil {
-			log.Error().Err(err).Str("worker", workerName).Str("wiki_id", wiki.ID).Msg("Giving up on wiki after max retries")
-			continue
+				Int("attempt", attempt+1).
+				Dur("retry_delay", delay).
+				Msg("Failed to prepare wiki chunks, retrying...")
+			time.Sleep(delay)
 		}
 
 		_ = ragRepo.DeleteBySourceIDs(ctx, "wiki", []string{wiki.ID})
@@ -106,33 +97,24 @@ func processRagTask(ctx context.Context, ragRepo repositories.RagRepository, rag
 		var vectors [][]float32
 		var err error
 
-		for attempt := 0; attempt <= maxRetries; attempt++ {
-			if attempt > 0 {
-				delay := baseRetryDelay * time.Duration(math.Pow(2, float64(attempt-1)))
-				log.Warn().
-					Str("worker", workerName).
-					Str("entity_id", entity.ID).
-					Int("attempt", attempt).
-					Dur("delay", delay).
-					Msg("Retrying entity embedding")
-				time.Sleep(delay)
-			}
-
+		for attempt := 0; ; attempt++ {
 			chunks, vectors, err = ragUtils.PrepareChunks(ctx, cleanText)
 			if err == nil {
 				break
 			}
 
+			delay := baseRetryDelay * time.Duration(math.Pow(2, float64(attempt)))
+			if delay > 2*time.Minute {
+				delay = 2 * time.Minute
+			}
+
 			log.Error().Err(err).
 				Str("worker", workerName).
 				Str("entity_id", entity.ID).
-				Int("attempt", attempt).
-				Msg("Failed to prepare entity chunks")
-		}
-
-		if err != nil {
-			log.Error().Err(err).Str("worker", workerName).Str("entity_id", entity.ID).Msg("Giving up on entity after max retries")
-			continue
+				Int("attempt", attempt+1).
+				Dur("retry_delay", delay).
+				Msg("Failed to prepare entity chunks, retrying...")
+			time.Sleep(delay)
 		}
 
 		_ = ragRepo.DeleteBySourceIDs(ctx, "entity", []string{entity.ID})
@@ -253,9 +235,11 @@ func main() {
 	var wg sync.WaitGroup
 
 	for i := 1; i <= workerCount; i++ {
-		wg.Go(func() {
-			runSingleWorker(ctx, rdb, i, ragRepo, ragUtils)
-		})
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+			runSingleWorker(ctx, rdb, workerID, ragRepo, ragUtils)
+		}(i)
 	}
 
 	wg.Wait()
