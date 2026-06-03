@@ -88,6 +88,7 @@ Recent Chat History:
 The user said: "%s"
 
 Rules:
+- You MUST reply in the same language as the user's question (e.g., if the user greets or asks in Vietnamese, reply in Vietnamese).
 - If it is a greeting (like "hello", "hi", "xin chào"), respond with a friendly greeting and briefly introduce yourself.
 - If it is a history question, say that you don't have relevant documents to answer.
 - You MUST wrap your final response inside <answer> tags. Example: <answer>Hello!</answer>
@@ -96,6 +97,7 @@ Rules:
 		prompt = fmt.Sprintf(`You are a helpful history assistant. Answer the question using ONLY the provided context.
 
 Rules:
+- You MUST reply in the same language as the user's question (e.g., if the question is in Vietnamese, reply in Vietnamese).
 - If the answer is not in the context, say "I don't have enough historical context to answer that."
 - You MUST wrap your final response inside <answer> tags. Example: <answer>The capital is...</answer>
 - Be concise and direct.

@@ -93,12 +93,12 @@ func (u *RagUtils) EmbedQuery(ctx context.Context, query string) ([]float32, err
 	if err != nil || len(vectors) == 0 {
 		return nil, err
 	}
-	
+
 	vector := vectors[0]
 	if len(vector) > 1536 {
 		vector = vector[:1536]
 	}
-	
+
 	return vector, nil
 }
 
