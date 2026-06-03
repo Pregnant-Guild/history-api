@@ -17,6 +17,7 @@ import (
 	swagger "github.com/gofiber/contrib/v3/swaggerui"
 	middleware "github.com/gofiber/contrib/v3/zerolog"
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/compress"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
@@ -85,6 +86,11 @@ func (s *FiberServer) SetupServer(
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"},
 		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type", "Origin", "Range", "Cache-Control", "Pragma", "If-Modified-Since", "If-None-Match"},
 		AllowCredentials: true,
+	}))
+
+	// Apply Compress middleware (Brotli/Gzip/Deflate on-the-fly)
+	s.App.Use(compress.New(compress.Config{
+		Level: compress.LevelBestSpeed, // Optimize for high throughput and low CPU usage
 	}))
 
 	// repo setup
