@@ -3,6 +3,6 @@ package constants
 import "time"
 
 const (
-	MaxDailyAIUsage = 10
+	MaxDailyAIUsage = 1000
 	UsageExpiration = 24 * time.Hour
 )
