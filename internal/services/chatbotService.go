@@ -47,6 +47,11 @@ func (s *chatbotService) Chat(ctx context.Context, userID string, projectID *str
 		return "", fmt.Errorf("you have reached your daily limit of %d questions. Please come back tomorrow", constants.MaxDailyAIUsage)
 	}
 
+	pgUserID, err := convert.StringToUUID(userID)
+	if err != nil {
+		return "", fmt.Errorf("invalid user id: %w", err)
+	}
+
 	qVector, err := s.ragUtils.EmbedQuery(ctx, question)
 	if err != nil {
 		return "", fmt.Errorf("failed to embed question: %w", err)
@@ -66,66 +71,61 @@ func (s *chatbotService) Chat(ctx context.Context, userID string, projectID *str
 
 	var contextBuilder strings.Builder
 	for i, res := range results {
-		contextBuilder.WriteString(fmt.Sprintf("[Document %d (score: %.2f)]: %s\n", i+1, res.Similarity, res.Content))
+		contextBuilder.WriteString(fmt.Sprintf("<doc id=\"%d\" score=\"%.2f\">\n%s\n</doc>\n\n", i+1, res.Similarity, res.Content))
 	}
-	contextStr := contextBuilder.String()
-
-	pgUserID, err := convert.StringToUUID(userID)
-	if err != nil {
-		return "", fmt.Errorf("invalid user id: %w", err)
-	}
-
-	histories, err := s.chatRepo.GetChatbotHistory(ctx, sqlc.GetChatbotHistoryParams{
-		UserID: pgUserID,
-		Limit:  10,
-	})
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to get chatbot history")
-	}
-
-	var historyBuilder strings.Builder
-	for _, h := range histories {
-		historyBuilder.WriteString(fmt.Sprintf("User: %s\nAssistant: %s\n\n", h.Question, h.Answer))
-	}
-	historyStr := historyBuilder.String()
+	contextStr := strings.TrimSpace(contextBuilder.String())
 
 	var prompt string
 	if contextStr == "" {
 		prompt = fmt.Sprintf(`You are a friendly history assistant chatbot.
 
-Recent Chat History:
+User Question:
 %s
 
-The user said: "%s"
-
 Rules:
-- You MUST reply in the same language as the user's question (e.g., if the user greets or asks in Vietnamese, reply in Vietnamese).
-- If it is a greeting (like "hello", "hi", "xin chào"), respond with a friendly greeting and briefly introduce yourself.
-- If it is a history question, say that you don't have relevant documents to answer.
-- You MUST wrap your final response inside <answer> tags. Example: <answer>Hello!</answer>
-- Do NOT show your reasoning outside or inside the tags if possible, but the final answer MUST be in <answer> tags.`, historyStr, question)
+- Reply in the same language as the user's question.
+- If the user is greeting, respond with a friendly greeting and briefly introduce yourself.
+- If the user asks a history-related question, respond exactly:
+<answer>I don't have enough historical context to answer that.</answer>
+- Do not answer historical questions from memory.
+- Do not use your own knowledge, assumptions, memory, or external facts.
+- Do not guess, infer, assume, or invent missing information.
+- Your final response MUST be wrapped inside <answer> tags.
+- Do not output anything outside <answer> tags.`, question)
 	} else {
-		prompt = fmt.Sprintf(`You are a helpful history assistant. Answer the question using ONLY the provided context.
-
-Rules:
-- You MUST reply in the same language as the user's question (e.g., if the question is in Vietnamese, reply in Vietnamese).
-- If the answer is not in the context, say "I don't have enough historical context to answer that."
-- You MUST wrap your final response inside <answer> tags. Example: <answer>The capital is...</answer>
-- Be concise and direct.
+		prompt = fmt.Sprintf(`You are a retrieval-augmented history assistant.
 
 Context:
 %s
 
-Recent Chat History:
+Question:
 %s
 
-Question: %s`, contextStr, historyStr, question)
+Rules:
+- Reply in the same language as the user's question.
+- Use ONLY the information explicitly stated in Context.
+- Treat Context as the only source of truth.
+- Never use your own knowledge, assumptions, memory, chat history, or external facts.
+- Never infer information that is not explicitly stated in Context.
+- Never create names, dates, places, events, causes, results, or explanations that are not in Context.
+- Every factual sentence must be directly supported by Context.
+- If Context does not contain enough information to answer, respond exactly:
+<answer>I don't have enough historical context to answer that.</answer>
+- If Context only partially answers the question, answer only the supported part and clearly say the remaining information is not available in the provided context.
+- Do not mention document scores.
+- Do not cite documents unless the user asks.
+- Your final response MUST be wrapped inside <answer> tags.
+- Do not output anything outside <answer> tags.
+- Answer in complete, natural, grammatically correct sentences.`, contextStr, question)
 	}
 
 	response, err := s.ragUtils.GenerateResponse(ctx, prompt)
 	if err != nil {
 		return "", err
 	}
+
+	response = normalizeAnswer(response)
+
 	if _, err := s.usageRepo.IncrementAIUsage(ctx, userID); err != nil {
 		log.Warn().Err(err).Str("userID", userID).Msg("failed to increment AI usage")
 	}
@@ -142,6 +142,20 @@ Question: %s`, contextStr, historyStr, question)
 	return response, nil
 }
 
+func normalizeAnswer(s string) string {
+	s = strings.TrimSpace(s)
+
+	start := strings.Index(s, "<answer>")
+	end := strings.LastIndex(s, "</answer>")
+
+	if start >= 0 && end > start {
+		return strings.TrimSpace(s[start : end+len("</answer>")])
+	}
+
+	s = strings.TrimSpace(strings.TrimPrefix(s, "Answer:"))
+
+	return fmt.Sprintf("<answer>%s</answer>", s)
+}
 func (s *chatbotService) GetHistory(ctx context.Context, userID string, dto *request.GetChatbotHistoryDto) ([]*models.ChatbotHistoryEntity, error) {
 	pgUserID, err := convert.StringToUUID(userID)
 	if err != nil {
