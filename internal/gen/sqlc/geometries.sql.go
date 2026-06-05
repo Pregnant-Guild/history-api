@@ -545,6 +545,7 @@ WHERE g.is_deleted = false
     g.bound_with IS NULL
   )
 ORDER BY g.id DESC
+LIMIT NULLIF($10::int, 0)
 `
 
 type SearchGeometriesParams struct {
@@ -557,6 +558,7 @@ type SearchGeometriesParams struct {
 	TimeRange    pgtype.Int4   `json:"time_range"`
 	EntityID     pgtype.UUID   `json:"entity_id"`
 	HasBound     pgtype.Bool   `json:"has_bound"`
+	LimitCount   int32         `json:"limit_count"`
 }
 
 type SearchGeometriesRow struct {
@@ -587,6 +589,7 @@ func (q *Queries) SearchGeometries(ctx context.Context, arg SearchGeometriesPara
 		arg.TimeRange,
 		arg.EntityID,
 		arg.HasBound,
+		arg.LimitCount,
 	)
 	if err != nil {
 		return nil, err

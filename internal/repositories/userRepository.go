@@ -2,9 +2,7 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
+	json "history-api/pkg/jsonx"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -54,9 +52,7 @@ func (r *userRepository) WithTx(tx pgx.Tx) UserRepository {
 }
 
 func (r *userRepository) generateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func (r *userRepository) getByIDsWithFallback(ctx context.Context, ids []string) ([]*models.UserEntity, error) {
@@ -65,14 +61,14 @@ func (r *userRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("user:id:%s", id)
+		keys[i] = cache.Key("user:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var users []*models.UserEntity
-	missingUsersToCache := make(map[string]any)
+	users := make([]*models.UserEntity, 0, len(ids))
+	missingUsersToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -83,7 +79,7 @@ func (r *userRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 		}
 	}
 
-	dbMap := make(map[string]*models.UserEntity)
+	dbMap := make(map[string]*models.UserEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetUsersByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -126,7 +122,7 @@ func (r *userRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 }
 
 func (r *userRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.UserEntity, error) {
-	cacheId := fmt.Sprintf("user:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("user:id", convert.UUIDToString(id))
 	var user models.UserEntity
 	err := r.c.Get(ctx, cacheId, &user)
 	if err == nil {
@@ -164,7 +160,7 @@ func (r *userRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.U
 }
 
 func (r *userRepository) GetByIDWithoutDeleted(ctx context.Context, id pgtype.UUID) (*models.UserEntity, error) {
-	cacheId := fmt.Sprintf("user:deleted:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("user:deleted:id", convert.UUIDToString(id))
 	var user models.UserEntity
 	err := r.c.Get(ctx, cacheId, &user)
 	if err == nil {
@@ -202,7 +198,7 @@ func (r *userRepository) GetByIDWithoutDeleted(ctx context.Context, id pgtype.UU
 }
 
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*models.UserEntity, error) {
-	cacheId := fmt.Sprintf("user:email:%s", email)
+	cacheId := cache.Key("user:email", email)
 
 	var user models.UserEntity
 	err := r.c.Get(ctx, cacheId, &user)
@@ -287,7 +283,7 @@ func (r *userRepository) UpdateProfile(ctx context.Context, params sqlc.UpdateUs
 	}
 
 	user.Profile = &profile
-	_ = r.c.Del(ctx, fmt.Sprintf("user:email:%s", user.Email), fmt.Sprintf("user:id:%s", user.ID))
+	_ = r.c.Del(ctx, cache.Key("user:email", user.Email), cache.Key("user:id", user.ID))
 	return user, nil
 }
 
@@ -326,9 +322,9 @@ func (r *userRepository) Search(ctx context.Context, params sqlc.SearchUsersPara
 		return nil, err
 	}
 
-	var users []*models.UserEntity
-	var ids []string
-	usersToCache := make(map[string]any)
+	users := make([]*models.UserEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	usersToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		user := &models.UserEntity{
@@ -352,7 +348,7 @@ func (r *userRepository) Search(ctx context.Context, params sqlc.SearchUsersPara
 
 		users = append(users, user)
 		ids = append(ids, user.ID)
-		usersToCache[fmt.Sprintf("user:id:%s", user.ID)] = user
+		usersToCache[cache.Key("user:id", user.ID)] = user
 	}
 
 	if len(usersToCache) > 0 {
@@ -392,9 +388,9 @@ func (r *userRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 
 	_ = r.c.Del(
 		ctx,
-		fmt.Sprintf("user:id:%s", user.ID),
-		fmt.Sprintf("user:email:%s", user.Email),
-		fmt.Sprintf("user:token:%s", user.ID),
+		cache.Key("user:id", user.ID),
+		cache.Key("user:email", user.Email),
+		cache.Key("user:token", user.ID),
 	)
 	go func() {
 		bgCtx := context.Background()
@@ -411,9 +407,9 @@ func (r *userRepository) Restore(ctx context.Context, id pgtype.UUID) error {
 	}
 	_ = r.c.Del(
 		ctx,
-		fmt.Sprintf("user:deleted:id:%s", convert.UUIDToString(id)),
-		fmt.Sprintf("user:email:%s", convert.UUIDToString(id)),
-		fmt.Sprintf("user:id:%s", convert.UUIDToString(id)),
+		cache.Key("user:deleted:id", convert.UUIDToString(id)),
+		cache.Key("user:email", convert.UUIDToString(id)),
+		cache.Key("user:id", convert.UUIDToString(id)),
 	)
 	go func() {
 		bgCtx := context.Background()
@@ -424,7 +420,7 @@ func (r *userRepository) Restore(ctx context.Context, id pgtype.UUID) error {
 }
 
 func (r *userRepository) GetTokenVersion(ctx context.Context, id pgtype.UUID) (int32, error) {
-	cacheId := fmt.Sprintf("user:token:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("user:token", convert.UUIDToString(id))
 	var token int32
 	err := r.c.Get(ctx, cacheId, &token)
 	if err == nil {
@@ -445,7 +441,7 @@ func (r *userRepository) UpdateTokenVersion(ctx context.Context, params sqlc.Upd
 	if err != nil {
 		return err
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("user:token:%s", convert.UUIDToString(params.ID)))
+	_ = r.c.Del(ctx, cache.Key("user:token", convert.UUIDToString(params.ID)))
 	return nil
 }
 
@@ -458,7 +454,7 @@ func (r *userRepository) UpdatePassword(ctx context.Context, params sqlc.UpdateU
 	if err != nil {
 		return err
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("user:email:%s", user.Email), fmt.Sprintf("user:id:%s", user.ID))
+	_ = r.c.Del(ctx, cache.Key("user:email", user.Email), cache.Key("user:id", user.ID))
 	return nil
 }
 
@@ -474,6 +470,6 @@ func (r *userRepository) UpdateRefreshToken(ctx context.Context, params sqlc.Upd
 
 	user.RefreshToken = convert.TextToString(params.RefreshToken)
 
-	_ = r.c.Del(ctx, fmt.Sprintf("user:email:%s", user.Email), fmt.Sprintf("user:id:%s", user.ID))
+	_ = r.c.Del(ctx, cache.Key("user:email", user.Email), cache.Key("user:id", user.ID))
 	return nil
 }

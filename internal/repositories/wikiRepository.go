@@ -2,9 +2,7 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
+	json "history-api/pkg/jsonx"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -60,9 +58,7 @@ func (r *wikiRepository) WithTx(tx pgx.Tx) WikiRepository {
 }
 
 func (r *wikiRepository) generateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func (r *wikiRepository) getByIDsWithFallback(ctx context.Context, ids []string) ([]*models.WikiEntity, error) {
@@ -71,14 +67,14 @@ func (r *wikiRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("wiki:id:%s", id)
+		keys[i] = cache.Key("wiki:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var wikis []*models.WikiEntity
-	missingToCache := make(map[string]any)
+	wikis := make([]*models.WikiEntity, 0, len(ids))
+	missingToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -89,7 +85,7 @@ func (r *wikiRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 		}
 	}
 
-	dbMap := make(map[string]*models.WikiEntity)
+	dbMap := make(map[string]*models.WikiEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetWikisByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -148,7 +144,7 @@ func (r *wikiRepository) GetByIDs(ctx context.Context, ids []string) ([]*models.
 }
 
 func (r *wikiRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.WikiEntity, error) {
-	cacheId := fmt.Sprintf("wiki:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("wiki:id", convert.UUIDToString(id))
 	var wiki models.WikiEntity
 	err := r.c.Get(ctx, cacheId, &wiki)
 	if err == nil {
@@ -173,6 +169,7 @@ func (r *wikiRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.W
 
 	samples, err := r.q.GetWikiContentByWikiID(ctx, row.ID)
 	if err == nil {
+		wiki.ContentSample = make([]models.WikiContentSample, 0, len(samples))
 		for _, sample := range samples {
 			wiki.ContentSample = append(wiki.ContentSample, models.WikiContentSample{
 				ID:        convert.UUIDToString(sample.ID),
@@ -202,11 +199,11 @@ func (r *wikiRepository) Search(ctx context.Context, params sqlc.SearchWikisPara
 	if err != nil {
 		return nil, err
 	}
-	var wikis []*models.WikiEntity
-	var ids []string
-	var pgIds []pgtype.UUID
-	wikiMap := make(map[string]*models.WikiEntity)
-	wikiToCache := make(map[string]any)
+	wikis := make([]*models.WikiEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	pgIds := make([]pgtype.UUID, 0, len(rows))
+	wikiMap := make(map[string]*models.WikiEntity, len(rows))
+	wikiToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		wiki := &models.WikiEntity{
@@ -241,7 +238,7 @@ func (r *wikiRepository) Search(ctx context.Context, params sqlc.SearchWikisPara
 	}
 
 	for _, wiki := range wikis {
-		wikiToCache[fmt.Sprintf("wiki:id:%s", wiki.ID)] = wiki
+		wikiToCache[cache.Key("wiki:id", wiki.ID)] = wiki
 	}
 	if len(wikiToCache) > 0 {
 		_ = r.c.MSet(ctx, wikiToCache, constants.NormalCacheDuration)
@@ -284,8 +281,7 @@ func (r *wikiRepository) Update(ctx context.Context, params sqlc.UpdateWikiParam
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("wiki:id:%s", wiki.ID))
-	_ = r.c.Del(ctx, fmt.Sprintf("wiki:slug:%s", wiki.Slug))
+	_ = r.c.Del(ctx, cache.Key("wiki:id", wiki.ID), cache.Key("wiki:slug", wiki.Slug))
 	return &wiki, nil
 }
 
@@ -294,7 +290,7 @@ func (r *wikiRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 	if err != nil {
 		return err
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("wiki:id:%s", convert.UUIDToString(id)))
+	_ = r.c.Del(ctx, cache.Key("wiki:id", convert.UUIDToString(id)))
 	return nil
 }
 
@@ -315,7 +311,7 @@ func (r *wikiRepository) BulkDeleteEntityWikisByEntityId(ctx context.Context, en
 }
 
 func (r *wikiRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.WikiEntity, error) {
-	cacheKey := fmt.Sprintf("wiki:project:%s", convert.UUIDToString(projectID))
+	cacheKey := cache.Key("wiki:project", convert.UUIDToString(projectID))
 	var cachedIDs []string
 	err := r.c.Get(ctx, cacheKey, &cachedIDs)
 	if err == nil {
@@ -330,11 +326,11 @@ func (r *wikiRepository) GetByProjectID(ctx context.Context, projectID pgtype.UU
 		return nil, err
 	}
 
-	var wikis []*models.WikiEntity
-	var ids []string
-	var pgIds []pgtype.UUID
-	wikiMap := make(map[string]*models.WikiEntity)
-	wikiToCache := make(map[string]any)
+	wikis := make([]*models.WikiEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	pgIds := make([]pgtype.UUID, 0, len(rows))
+	wikiMap := make(map[string]*models.WikiEntity, len(rows))
+	wikiToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		wiki := &models.WikiEntity{
@@ -369,7 +365,7 @@ func (r *wikiRepository) GetByProjectID(ctx context.Context, projectID pgtype.UU
 	}
 
 	for _, wiki := range wikis {
-		wikiToCache[fmt.Sprintf("wiki:id:%s", wiki.ID)] = wiki
+		wikiToCache[cache.Key("wiki:id", wiki.ID)] = wiki
 	}
 	if len(wikiToCache) > 0 {
 		_ = r.c.MSet(ctx, wikiToCache, constants.NormalCacheDuration)
@@ -387,7 +383,7 @@ func (r *wikiRepository) DeleteByIDs(ctx context.Context, ids []pgtype.UUID) err
 	if len(ids) > 0 {
 		keys := make([]string, len(ids))
 		for i, id := range ids {
-			keys[i] = fmt.Sprintf("wiki:id:%s", convert.UUIDToString(id))
+			keys[i] = cache.Key("wiki:id", convert.UUIDToString(id))
 		}
 		_ = r.c.Del(ctx, keys...)
 	}
@@ -406,7 +402,7 @@ func (r *wikiRepository) DeleteEntityWiki(ctx context.Context, entityID pgtype.U
 }
 
 func (r *wikiRepository) GetBySlug(ctx context.Context, slug string) (*models.WikiEntity, error) {
-	cacheKey := fmt.Sprintf("wiki:slug:%s", slug)
+	cacheKey := cache.Key("wiki:slug", slug)
 	var wiki models.WikiEntity
 	err := r.c.Get(ctx, cacheKey, &wiki)
 	if err == nil {
@@ -431,6 +427,7 @@ func (r *wikiRepository) GetBySlug(ctx context.Context, slug string) (*models.Wi
 
 	samples, err := r.q.GetWikiContentByWikiID(ctx, row.ID)
 	if err == nil {
+		wiki.ContentSample = make([]models.WikiContentSample, 0, len(samples))
 		for _, sample := range samples {
 			wiki.ContentSample = append(wiki.ContentSample, models.WikiContentSample{
 				ID:        convert.UUIDToString(sample.ID),
@@ -451,13 +448,13 @@ func (r *wikiRepository) GetBySlugs(ctx context.Context, slugs []string) ([]*mod
 	}
 	keys := make([]string, len(slugs))
 	for i, slug := range slugs {
-		keys[i] = fmt.Sprintf("wiki:slug:%s", slug)
+		keys[i] = cache.Key("wiki:slug", slug)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var wikis []*models.WikiEntity
-	missingToCache := make(map[string]any)
-	var missingSlugs []string
+	wikis := make([]*models.WikiEntity, 0, len(slugs))
+	missingToCache := make(map[string]any, len(slugs))
+	missingSlugs := make([]string, 0, len(slugs))
 
 	for i, b := range raws {
 		if len(b) == 0 {
@@ -465,11 +462,11 @@ func (r *wikiRepository) GetBySlugs(ctx context.Context, slugs []string) ([]*mod
 		}
 	}
 
-	dbMap := make(map[string]*models.WikiEntity)
+	dbMap := make(map[string]*models.WikiEntity, len(missingSlugs))
 	if len(missingSlugs) > 0 {
 		dbRows, err := r.q.GetWikisBySlugs(ctx, missingSlugs)
 		if err == nil {
-			var pgIds []pgtype.UUID
+			pgIds := make([]pgtype.UUID, 0, len(dbRows))
 			for _, row := range dbRows {
 				item := models.WikiEntity{
 					ID:        convert.UUIDToString(row.ID),
@@ -487,7 +484,7 @@ func (r *wikiRepository) GetBySlugs(ctx context.Context, slugs []string) ([]*mod
 			if len(pgIds) > 0 {
 				samples, sErr := r.q.GetWikiContentByWikiIDs(ctx, pgIds)
 				if sErr == nil {
-					wikiByID := make(map[string]*models.WikiEntity)
+					wikiByID := make(map[string]*models.WikiEntity, len(dbMap))
 					for _, item := range dbMap {
 						wikiByID[item.ID] = item
 					}
@@ -554,14 +551,14 @@ func (r *wikiRepository) getContentByIDsWithFallback(ctx context.Context, ids []
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("wiki_content:id:%s", id)
+		keys[i] = cache.Key("wiki_content:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var contents []*models.WikiContentEntity
-	missingToCache := make(map[string]any)
+	contents := make([]*models.WikiContentEntity, 0, len(ids))
+	missingToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -572,7 +569,7 @@ func (r *wikiRepository) getContentByIDsWithFallback(ctx context.Context, ids []
 		}
 	}
 
-	dbMap := make(map[string]*models.WikiContentEntity)
+	dbMap := make(map[string]*models.WikiContentEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetWikiContentByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -613,7 +610,7 @@ func (r *wikiRepository) getContentByIDsWithFallback(ctx context.Context, ids []
 }
 
 func (r *wikiRepository) GetContentByID(ctx context.Context, id pgtype.UUID) (*models.WikiContentEntity, error) {
-	cacheId := fmt.Sprintf("wiki_content:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("wiki_content:id", convert.UUIDToString(id))
 	var content models.WikiContentEntity
 	err := r.c.Get(ctx, cacheId, &content)
 	if err == nil {
@@ -651,13 +648,13 @@ func (r *wikiRepository) GetWikiIDsByEntityIDs(ctx context.Context, entityIDs []
 
 	keys := make([]string, len(entityIDs))
 	for i, id := range entityIDs {
-		keys[i] = fmt.Sprintf("entity_wikis:entity:%s", id)
+		keys[i] = cache.Key("entity_wikis:entity", id)
 	}
 
 	raws := r.c.MGet(ctx, keys...)
-	result := make(map[string][]string)
-	var missingEntityIDs []string
-	var missingPgIDs []pgtype.UUID
+	result := make(map[string][]string, len(entityIDs))
+	missingEntityIDs := make([]string, 0, len(entityIDs))
+	missingPgIDs := make([]pgtype.UUID, 0, len(entityIDs))
 
 	for i, b := range raws {
 		if len(b) > 0 {
@@ -680,7 +677,7 @@ func (r *wikiRepository) GetWikiIDsByEntityIDs(ctx context.Context, entityIDs []
 			return nil, err
 		}
 
-		dbMap := make(map[string][]string)
+		dbMap := make(map[string][]string, len(missingEntityIDs))
 		for _, id := range missingEntityIDs {
 			dbMap[id] = []string{}
 		}
@@ -690,10 +687,10 @@ func (r *wikiRepository) GetWikiIDsByEntityIDs(ctx context.Context, entityIDs []
 			dbMap[eID] = append(dbMap[eID], wID)
 		}
 
-		missingToCache := make(map[string]any)
+		missingToCache := make(map[string]any, len(dbMap))
 		for eID, wIDs := range dbMap {
 			result[eID] = wIDs
-			missingToCache[fmt.Sprintf("entity_wikis:entity:%s", eID)] = wIDs
+			missingToCache[cache.Key("entity_wikis:entity", eID)] = wIDs
 		}
 		if len(missingToCache) > 0 {
 			_ = r.c.MSet(ctx, missingToCache, constants.NormalCacheDuration)

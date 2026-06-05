@@ -1,8 +1,8 @@
 package models
 
 import (
-	"encoding/json"
 	"history-api/internal/dtos/response"
+	json "history-api/pkg/jsonx"
 	"time"
 )
 
@@ -76,7 +76,7 @@ func (u *UserEntity) ToResponse() *response.UserResponse {
 }
 
 func UsersEntityToResponse(users []*UserEntity) []*response.UserResponse {
-	out := make([]*response.UserResponse, 0)
+	out := make([]*response.UserResponse, 0, len(users))
 	if users == nil {
 		return out
 	}

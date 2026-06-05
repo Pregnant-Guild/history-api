@@ -70,6 +70,7 @@ func (s *chatbotService) Chat(ctx context.Context, userID string, projectID *str
 	}
 
 	var contextBuilder strings.Builder
+	contextBuilder.Grow(len(results) * 96)
 	for i, res := range results {
 		contextBuilder.WriteString(fmt.Sprintf("<doc id=\"%d\" score=\"%.2f\">\n%s\n</doc>\n\n", i+1, res.Similarity, res.Content))
 	}

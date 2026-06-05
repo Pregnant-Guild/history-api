@@ -2,9 +2,7 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
+	json "history-api/pkg/jsonx"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -51,9 +49,7 @@ func (r *entityRepository) WithTx(tx pgx.Tx) EntityRepository {
 }
 
 func (r *entityRepository) generateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func (r *entityRepository) getByIDsWithFallback(ctx context.Context, ids []string) ([]*models.EntityEntity, error) {
@@ -62,14 +58,14 @@ func (r *entityRepository) getByIDsWithFallback(ctx context.Context, ids []strin
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("entity:id:%s", id)
+		keys[i] = cache.Key("entity:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var entities []*models.EntityEntity
-	missingToCache := make(map[string]any)
+	entities := make([]*models.EntityEntity, 0, len(ids))
+	missingToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -80,7 +76,7 @@ func (r *entityRepository) getByIDsWithFallback(ctx context.Context, ids []strin
 		}
 	}
 
-	dbMap := make(map[string]*models.EntityEntity)
+	dbMap := make(map[string]*models.EntityEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetEntitiesByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -129,7 +125,7 @@ func (r *entityRepository) GetByIDs(ctx context.Context, ids []string) ([]*model
 }
 
 func (r *entityRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.EntityEntity, error) {
-	cacheId := fmt.Sprintf("entity:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("entity:id", convert.UUIDToString(id))
 	var entity models.EntityEntity
 	err := r.c.Get(ctx, cacheId, &entity)
 	if err == nil {
@@ -175,9 +171,9 @@ func (r *entityRepository) Search(ctx context.Context, params sqlc.SearchEntitie
 	if err != nil {
 		return nil, err
 	}
-	var entities []*models.EntityEntity
-	var ids []string
-	entityToCache := make(map[string]any)
+	entities := make([]*models.EntityEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	entityToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		entity := &models.EntityEntity{
@@ -195,7 +191,7 @@ func (r *entityRepository) Search(ctx context.Context, params sqlc.SearchEntitie
 		}
 		ids = append(ids, entity.ID)
 		entities = append(entities, entity)
-		entityToCache[fmt.Sprintf("entity:id:%s", entity.ID)] = entity
+		entityToCache[cache.Key("entity:id", entity.ID)] = entity
 	}
 
 	if len(entityToCache) > 0 {
@@ -248,8 +244,7 @@ func (r *entityRepository) Update(ctx context.Context, params sqlc.UpdateEntityP
 		CreatedAt:   convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt:   convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("entity:id:%s", entity.ID))
-	_ = r.c.Del(ctx, fmt.Sprintf("entity:slug:%s", entity.Slug))
+	_ = r.c.Del(ctx, cache.Key("entity:id", entity.ID), cache.Key("entity:slug", entity.Slug))
 	return &entity, nil
 }
 
@@ -258,12 +253,12 @@ func (r *entityRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 	if err != nil {
 		return err
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("entity:id:%s", convert.UUIDToString(id)))
+	_ = r.c.Del(ctx, cache.Key("entity:id", convert.UUIDToString(id)))
 	return nil
 }
 
 func (r *entityRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.EntityEntity, error) {
-	cacheKey := fmt.Sprintf("entity:project:%s", convert.UUIDToString(projectID))
+	cacheKey := cache.Key("entity:project", convert.UUIDToString(projectID))
 	var cachedIDs []string
 	err := r.c.Get(ctx, cacheKey, &cachedIDs)
 	if err == nil {
@@ -278,9 +273,9 @@ func (r *entityRepository) GetByProjectID(ctx context.Context, projectID pgtype.
 		return nil, err
 	}
 
-	var entities []*models.EntityEntity
-	var ids []string
-	entityToCache := make(map[string]any)
+	entities := make([]*models.EntityEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	entityToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		entity := &models.EntityEntity{
@@ -298,7 +293,7 @@ func (r *entityRepository) GetByProjectID(ctx context.Context, projectID pgtype.
 		}
 		ids = append(ids, entity.ID)
 		entities = append(entities, entity)
-		entityToCache[fmt.Sprintf("entity:id:%s", entity.ID)] = entity
+		entityToCache[cache.Key("entity:id", entity.ID)] = entity
 	}
 
 	if len(entityToCache) > 0 {
@@ -317,7 +312,7 @@ func (r *entityRepository) DeleteByIDs(ctx context.Context, ids []pgtype.UUID) e
 	if len(ids) > 0 {
 		keys := make([]string, len(ids))
 		for i, id := range ids {
-			keys[i] = fmt.Sprintf("entity:id:%s", convert.UUIDToString(id))
+			keys[i] = cache.Key("entity:id", convert.UUIDToString(id))
 		}
 		_ = r.c.Del(ctx, keys...)
 	}
@@ -325,7 +320,7 @@ func (r *entityRepository) DeleteByIDs(ctx context.Context, ids []pgtype.UUID) e
 }
 
 func (r *entityRepository) GetBySlug(ctx context.Context, slug string) (*models.EntityEntity, error) {
-	cacheKey := fmt.Sprintf("entity:slug:%s", slug)
+	cacheKey := cache.Key("entity:slug", slug)
 	var entity models.EntityEntity
 	err := r.c.Get(ctx, cacheKey, &entity)
 	if err == nil {
@@ -362,13 +357,13 @@ func (r *entityRepository) GetBySlugs(ctx context.Context, slugs []string) ([]*m
 	}
 	keys := make([]string, len(slugs))
 	for i, slug := range slugs {
-		keys[i] = fmt.Sprintf("entity:slug:%s", slug)
+		keys[i] = cache.Key("entity:slug", slug)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var entities []*models.EntityEntity
-	missingToCache := make(map[string]any)
-	var missingSlugs []string
+	entities := make([]*models.EntityEntity, 0, len(slugs))
+	missingToCache := make(map[string]any, len(slugs))
+	missingSlugs := make([]string, 0, len(slugs))
 
 	for i, b := range raws {
 		if len(b) == 0 {
@@ -376,7 +371,7 @@ func (r *entityRepository) GetBySlugs(ctx context.Context, slugs []string) ([]*m
 		}
 	}
 
-	dbMap := make(map[string]*models.EntityEntity)
+	dbMap := make(map[string]*models.EntityEntity, len(missingSlugs))
 	if len(missingSlugs) > 0 {
 		dbRows, err := r.q.GetEntitiesBySlugs(ctx, missingSlugs)
 		if err == nil {
@@ -427,13 +422,13 @@ func (r *entityRepository) GetEntityIDsByGeometryIDs(ctx context.Context, geomet
 
 	keys := make([]string, len(geometryIDs))
 	for i, id := range geometryIDs {
-		keys[i] = fmt.Sprintf("entity_geometries:geometry:%s", id)
+		keys[i] = cache.Key("entity_geometries:geometry", id)
 	}
 
 	raws := r.c.MGet(ctx, keys...)
-	result := make(map[string][]string)
-	var missingGeometryIDs []string
-	var missingPgIDs []pgtype.UUID
+	result := make(map[string][]string, len(geometryIDs))
+	missingGeometryIDs := make([]string, 0, len(geometryIDs))
+	missingPgIDs := make([]pgtype.UUID, 0, len(geometryIDs))
 
 	for i, b := range raws {
 		if len(b) > 0 {
@@ -456,7 +451,7 @@ func (r *entityRepository) GetEntityIDsByGeometryIDs(ctx context.Context, geomet
 			return nil, err
 		}
 
-		dbMap := make(map[string][]string)
+		dbMap := make(map[string][]string, len(missingGeometryIDs))
 		for _, id := range missingGeometryIDs {
 			dbMap[id] = []string{}
 		}
@@ -466,10 +461,10 @@ func (r *entityRepository) GetEntityIDsByGeometryIDs(ctx context.Context, geomet
 			dbMap[gID] = append(dbMap[gID], eID)
 		}
 
-		missingToCache := make(map[string]any)
+		missingToCache := make(map[string]any, len(dbMap))
 		for gID, eIDs := range dbMap {
 			result[gID] = eIDs
-			missingToCache[fmt.Sprintf("entity_geometries:geometry:%s", gID)] = eIDs
+			missingToCache[cache.Key("entity_geometries:geometry", gID)] = eIDs
 		}
 		if len(missingToCache) > 0 {
 			_ = r.c.MSet(ctx, missingToCache, constants.NormalCacheDuration)

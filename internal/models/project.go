@@ -1,9 +1,9 @@
 package models
 
 import (
-	"encoding/json"
 	"history-api/internal/dtos/response"
 	"history-api/pkg/constants"
+	json "history-api/pkg/jsonx"
 	"time"
 )
 
@@ -127,7 +127,7 @@ func (p *ProjectEntity) ToResponse() *response.ProjectResponse {
 }
 
 func ProjectsEntityToResponse(projects []*ProjectEntity) []*response.ProjectResponse {
-	out := make([]*response.ProjectResponse, 0)
+	out := make([]*response.ProjectResponse, 0, len(projects))
 	if projects == nil {
 		return out
 	}

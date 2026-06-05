@@ -57,9 +57,6 @@ func (h *GeometryController) GetGeometryById(c fiber.Ctx) error {
 // @Failure      500  {object}  response.CommonResponse
 // @Router       /geometries [get]
 func (h *GeometryController) SearchGeometries(c fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	dto := &request.SearchGeometryDto{}
 	if err := validator.ValidateQueryDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
@@ -68,7 +65,7 @@ func (h *GeometryController) SearchGeometries(c fiber.Ctx) error {
 		})
 	}
 
-	res, err := h.service.SearchGeometries(ctx, dto)
+	res, err := h.service.SearchGeometries(c.Context(), dto)
 	if err != nil {
 		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,

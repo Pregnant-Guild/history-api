@@ -2,14 +2,12 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
+	json "history-api/pkg/jsonx"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -49,13 +47,11 @@ func (v *verificationRepository) WithTx(tx pgx.Tx) VerificationRepository {
 }
 
 func (v *verificationRepository) generateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func (v *verificationRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.UserVerificationEntity, error) {
-	cacheId := fmt.Sprintf("verification:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("verification:id", convert.UUIDToString(id))
 	var verification models.UserVerificationEntity
 	err := v.c.Get(ctx, cacheId, &verification)
 	if err == nil {
@@ -101,14 +97,14 @@ func (v *verificationRepository) getByIDsWithFallback(ctx context.Context, ids [
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("verification:id:%s", id)
+		keys[i] = cache.Key("verification:id", id)
 	}
 	raws := v.c.MGet(ctx, keys...)
 
-	var verification []*models.UserVerificationEntity
-	missingVerificationToCache := make(map[string]any)
+	verification := make([]*models.UserVerificationEntity, 0, len(ids))
+	missingVerificationToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -119,7 +115,7 @@ func (v *verificationRepository) getByIDsWithFallback(ctx context.Context, ids [
 		}
 	}
 
-	dbMap := make(map[string]*models.UserVerificationEntity)
+	dbMap := make(map[string]*models.UserVerificationEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := v.q.GetUserVerificationsByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -212,7 +208,7 @@ func (v *verificationRepository) Create(ctx context.Context, params sqlc.CreateU
 		_ = v.c.DelByPattern(bgCtx, "verification:count*")
 	}()
 
-	_ = v.c.Del(ctx, fmt.Sprintf("verification:userId:%s", convert.UUIDToString(params.UserID)))
+	_ = v.c.Del(ctx, cache.Key("verification:userId", convert.UUIDToString(params.UserID)))
 
 	return &verification, nil
 }
@@ -222,7 +218,7 @@ func (v *verificationRepository) UpdateStatus(ctx context.Context, params sqlc.U
 	if err != nil {
 		return err
 	}
-	_ = v.c.Del(ctx, fmt.Sprintf("verification:id:%s", convert.UUIDToString(params.ID)))
+	_ = v.c.Del(ctx, cache.Key("verification:id", convert.UUIDToString(params.ID)))
 	return nil
 }
 
@@ -232,7 +228,7 @@ func (v *verificationRepository) Delete(ctx context.Context, id pgtype.UUID) err
 		return err
 	}
 
-	_ = v.c.Del(ctx, fmt.Sprintf("verification:id:%s", convert.UUIDToString(id)))
+	_ = v.c.Del(ctx, cache.Key("verification:id", convert.UUIDToString(id)))
 	go func() {
 		_ = v.c.DelByPattern(context.Background(), "verification:count*")
 	}()
@@ -249,13 +245,13 @@ func (v *verificationRepository) BulkVerificationMediaByMediaId(ctx context.Cont
 		return nil
 	}
 
-	listCacheId := make([]string, 0)
+	listCacheId := make([]string, 0, len(ids))
 	for _, it := range ids {
 		id := convert.UUIDToString(it)
 		if id == "" {
 			continue
 		}
-		listCacheId = append(listCacheId, fmt.Sprintf("verification:id:%s", id))
+		listCacheId = append(listCacheId, cache.Key("verification:id", id))
 	}
 
 	go func() {
@@ -276,7 +272,7 @@ func (v *verificationRepository) DeleteVerificationMedia(ctx context.Context, pa
 }
 
 func (v *verificationRepository) GetByUserID(ctx context.Context, userId pgtype.UUID) ([]*models.UserVerificationEntity, error) {
-	queryKey := fmt.Sprintf("verification:userId:%s", convert.UUIDToString(userId))
+	queryKey := cache.Key("verification:userId", convert.UUIDToString(userId))
 	var cachedIDs []string
 	err := v.c.Get(ctx, queryKey, &cachedIDs)
 	if err == nil {
@@ -299,9 +295,9 @@ func (v *verificationRepository) GetByUserID(ctx context.Context, userId pgtype.
 	if err != nil {
 		return nil, err
 	}
-	var items []*models.UserVerificationEntity
-	var ids []string
-	itemToCache := make(map[string]any)
+	items := make([]*models.UserVerificationEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	itemToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		verification := &models.UserVerificationEntity{
@@ -329,7 +325,7 @@ func (v *verificationRepository) GetByUserID(ctx context.Context, userId pgtype.
 		ids = append(ids, verification.ID)
 		items = append(items, verification)
 
-		itemToCache[fmt.Sprintf("verification:id:%s", verification.ID)] = verification
+		itemToCache[cache.Key("verification:id", verification.ID)] = verification
 	}
 
 	if len(itemToCache) > 0 {
@@ -365,9 +361,9 @@ func (v *verificationRepository) Search(ctx context.Context, params sqlc.SearchU
 	if err != nil {
 		return nil, err
 	}
-	var items []*models.UserVerificationEntity
-	var ids []string
-	itemToCache := make(map[string]any)
+	items := make([]*models.UserVerificationEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	itemToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		verification := &models.UserVerificationEntity{
@@ -396,7 +392,7 @@ func (v *verificationRepository) Search(ctx context.Context, params sqlc.SearchU
 		ids = append(ids, verification.ID)
 		items = append(items, verification)
 
-		itemToCache[fmt.Sprintf("verification:id:%s", verification.ID)] = verification
+		itemToCache[cache.Key("verification:id", verification.ID)] = verification
 	}
 
 	if len(itemToCache) > 0 {

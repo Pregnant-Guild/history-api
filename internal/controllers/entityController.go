@@ -111,9 +111,6 @@ func (h *EntityController) IsExistEntitySlug(c fiber.Ctx) error {
 // @Failure      500  {object}  response.CommonResponse
 // @Router       /entities [get]
 func (h *EntityController) SearchEntities(c fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	dto := &request.SearchEntityDto{}
 	if err := validator.ValidateQueryDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
@@ -122,7 +119,7 @@ func (h *EntityController) SearchEntities(c fiber.Ctx) error {
 		})
 	}
 
-	res, err := h.service.SearchEntities(ctx, dto)
+	res, err := h.service.SearchEntities(c.Context(), dto)
 	if err != nil {
 		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
@@ -172,4 +169,3 @@ func (h *EntityController) GetEntitiesByGeometryIDs(c fiber.Ctx) error {
 		Data:   res,
 	})
 }
-

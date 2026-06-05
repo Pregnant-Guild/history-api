@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"math"
 	"strconv"
 	"sync"
@@ -15,6 +14,7 @@ import (
 	"history-api/pkg/config"
 	"history-api/pkg/constants"
 	"history-api/pkg/database"
+	json "history-api/pkg/jsonx"
 	_ "history-api/pkg/log"
 
 	"github.com/redis/go-redis/v9"

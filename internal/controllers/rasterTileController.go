@@ -1,12 +1,10 @@
 package controllers
 
 import (
-	"context"
 	"fmt"
 	"history-api/internal/dtos/response"
 	"history-api/internal/services"
 	"strconv"
-	"time"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -29,10 +27,7 @@ func NewRasterTileController(svc services.RasterTileService) *RasterTileControll
 // @Failure 500 {object} response.CommonResponse
 // @Router /raster-tiles/metadata [get]
 func (h *RasterTileController) GetMetadata(c fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	res, err := h.service.GetMetadata(ctx)
+	res, err := h.service.GetMetadata(c.Context())
 	if err != nil {
 		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
@@ -59,9 +54,6 @@ func (h *RasterTileController) GetMetadata(c fiber.Ctx) error {
 // @Failure 500 {object} response.CommonResponse
 // @Router /raster-tiles/{z}/{x}/{y} [get]
 func (h *RasterTileController) GetTile(c fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	z, x, y, pErr := h.parseTileParams(c)
 	if pErr != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
@@ -70,7 +62,7 @@ func (h *RasterTileController) GetTile(c fiber.Ctx) error {
 		})
 	}
 
-	data, headers, err := h.service.GetTile(ctx, z, x, y)
+	tile, err := h.service.GetTile(c.Context(), z, x, y)
 	if err != nil {
 		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,
@@ -78,11 +70,14 @@ func (h *RasterTileController) GetTile(c fiber.Ctx) error {
 		})
 	}
 
-	for k, v := range headers {
-		c.Set(k, v)
+	if tile.ContentType != "" {
+		c.Set(fiber.HeaderContentType, tile.ContentType)
+	}
+	if tile.CacheControl != "" {
+		c.Set(fiber.HeaderCacheControl, tile.CacheControl)
 	}
 
-	return c.Status(fiber.StatusOK).Send(data)
+	return c.Status(fiber.StatusOK).Send(tile.Data)
 }
 
 func (h *RasterTileController) parseTileParams(c fiber.Ctx) (int, int, int, error) {

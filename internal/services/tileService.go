@@ -7,9 +7,18 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
+const tileCacheControl = "public, max-age=31536000, immutable"
+
+type TileResponse struct {
+	Data            []byte
+	ContentType     string
+	ContentEncoding string
+	CacheControl    string
+}
+
 type TileService interface {
 	GetMetadata(ctx context.Context) (map[string]string, *fiber.Error)
-	GetTile(ctx context.Context, z, x, y int) ([]byte, map[string]string, *fiber.Error)
+	GetTile(ctx context.Context, z, x, y int) (TileResponse, *fiber.Error)
 }
 
 type tileService struct {
@@ -32,29 +41,30 @@ func (t *tileService) GetMetadata(ctx context.Context) (map[string]string, *fibe
 	return metaData, nil
 }
 
-
-func (t *tileService) GetTile(ctx context.Context, z, x, y int) ([]byte, map[string]string, *fiber.Error) {
-	contentType := make(map[string]string)
-
+func (t *tileService) GetTile(ctx context.Context, z, x, y int) (TileResponse, *fiber.Error) {
 	data, format, isPBF, err := t.tileRepo.GetTile(ctx, z, x, y)
 	if err != nil {
-		return nil, contentType, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch tile data")
+		return TileResponse{}, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch tile data")
+	}
+
+	res := TileResponse{
+		Data:         data,
+		CacheControl: tileCacheControl,
 	}
 	switch format {
 	case "pbf":
-		contentType["Content-Type"] = "application/x-protobuf"
+		res.ContentType = "application/x-protobuf"
 	case "png":
-		contentType["Content-Type"] = "image/png"
+		res.ContentType = "image/png"
 	case "jpg", "jpeg":
-		contentType["Content-Type"] = "image/jpeg"
+		res.ContentType = "image/jpeg"
 	default:
-		contentType["Content-Type"] = "application/octet-stream"
+		res.ContentType = "application/octet-stream"
 	}
 
 	if isPBF {
-		contentType["Content-Encoding"] = "gzip"
+		res.ContentEncoding = "gzip"
 	}
 
-	return data, contentType, nil
-
+	return res, nil
 }

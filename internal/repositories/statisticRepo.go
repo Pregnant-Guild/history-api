@@ -2,14 +2,12 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
+	json "history-api/pkg/jsonx"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -47,9 +45,7 @@ func (r *statisticRepository) WithTx(tx pgx.Tx) StatisticRepository {
 }
 
 func (r *statisticRepository) generateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func mapToEntity(row sqlc.SystemStatistic) *models.StatisticEntity {
@@ -84,14 +80,14 @@ func (r *statisticRepository) getByIDsWithFallback(ctx context.Context, ids []st
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("statistic:id:%s", id)
+		keys[i] = cache.Key("statistic:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var stats []*models.StatisticEntity
-	missingStatsToCache := make(map[string]any)
+	stats := make([]*models.StatisticEntity, 0, len(ids))
+	missingStatsToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -102,7 +98,7 @@ func (r *statisticRepository) getByIDsWithFallback(ctx context.Context, ids []st
 		}
 	}
 
-	dbMap := make(map[string]*models.StatisticEntity)
+	dbMap := make(map[string]*models.StatisticEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetSystemStatisticsByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -151,15 +147,15 @@ func (r *statisticRepository) Search(ctx context.Context, params sqlc.SearchSyst
 		return nil, err
 	}
 
-	var ids []string
-	statsToCache := make(map[string]any)
-	var stats []*models.StatisticEntity
+	ids := make([]string, 0, len(rows))
+	statsToCache := make(map[string]any, len(rows))
+	stats := make([]*models.StatisticEntity, 0, len(rows))
 
 	for _, row := range rows {
 		entity := mapToEntity(row)
 		ids = append(ids, entity.ID)
 		stats = append(stats, entity)
-		statsToCache[fmt.Sprintf("statistic:id:%s", entity.ID)] = entity
+		statsToCache[cache.Key("statistic:id", entity.ID)] = entity
 	}
 
 	if len(statsToCache) > 0 {
@@ -171,7 +167,7 @@ func (r *statisticRepository) Search(ctx context.Context, params sqlc.SearchSyst
 }
 
 func (r *statisticRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.StatisticEntity, error) {
-	cacheId := fmt.Sprintf("statistic:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("statistic:id", convert.UUIDToString(id))
 	var stat models.StatisticEntity
 	err := r.c.Get(ctx, cacheId, &stat)
 	if err == nil {
@@ -194,7 +190,7 @@ func (r *statisticRepository) GetByID(ctx context.Context, id pgtype.UUID) (*mod
 
 func (r *statisticRepository) GetByDate(ctx context.Context, date time.Time) (*models.StatisticEntity, error) {
 	dateStr := date.Format("2006-01-02")
-	cacheId := fmt.Sprintf("statistic:date:%s", dateStr)
+	cacheId := cache.Key("statistic:date", dateStr)
 
 	var stat models.StatisticEntity
 	err := r.c.Get(ctx, cacheId, &stat)
@@ -213,7 +209,7 @@ func (r *statisticRepository) GetByDate(ctx context.Context, date time.Time) (*m
 	entity := mapToEntity(row)
 
 	_ = r.c.Set(ctx, cacheId, entity, constants.NormalCacheDuration)
-	_ = r.c.Set(ctx, fmt.Sprintf("statistic:id:%s", entity.ID), entity, constants.NormalCacheDuration)
+	_ = r.c.Set(ctx, cache.Key("statistic:id", entity.ID), entity, constants.NormalCacheDuration)
 
 	return entity, nil
 }
@@ -231,12 +227,10 @@ func (r *statisticRepository) Upsert(ctx context.Context, date time.Time) (*mode
 		_ = r.c.DelByPattern(bgCtx, "statistic:search*")
 		_ = r.c.Del(
 			bgCtx,
-			fmt.Sprintf("statistic:id:%s", entity.ID),
-			fmt.Sprintf("statistic:date:%s", date.Format("2006-01-02")),
+			cache.Key("statistic:id", entity.ID),
+			cache.Key("statistic:date", date.Format("2006-01-02")),
 		)
 	}()
 
 	return entity, nil
 }
-
-

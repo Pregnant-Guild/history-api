@@ -2,14 +2,12 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
+	json "history-api/pkg/jsonx"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -48,7 +46,7 @@ func (r *submissionRepository) WithTx(tx pgx.Tx) SubmissionRepository {
 }
 
 func (r *submissionRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.SubmissionEntity, error) {
-	cacheId := fmt.Sprintf("submission:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("submission:id", convert.UUIDToString(id))
 	var submission models.SubmissionEntity
 	err := r.c.Get(ctx, cacheId, &submission)
 	if err == nil {
@@ -82,9 +80,7 @@ func (r *submissionRepository) GetByID(ctx context.Context, id pgtype.UUID) (*mo
 }
 
 func (r *submissionRepository) generateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func (r *submissionRepository) getByIDsWithFallback(ctx context.Context, ids []string) ([]*models.SubmissionEntity, error) {
@@ -93,14 +89,14 @@ func (r *submissionRepository) getByIDsWithFallback(ctx context.Context, ids []s
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("submission:id:%s", id)
+		keys[i] = cache.Key("submission:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var submission []*models.SubmissionEntity
-	missingSubmisstionToCache := make(map[string]any)
+	submission := make([]*models.SubmissionEntity, 0, len(ids))
+	missingSubmisstionToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -111,7 +107,7 @@ func (r *submissionRepository) getByIDsWithFallback(ctx context.Context, ids []s
 		}
 	}
 
-	dbMap := make(map[string]*models.SubmissionEntity)
+	dbMap := make(map[string]*models.SubmissionEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetSubmissionsByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -164,7 +160,7 @@ func (r *submissionRepository) GetByIDs(ctx context.Context, ids []string) ([]*m
 }
 
 func (r *submissionRepository) Search(ctx context.Context, params sqlc.SearchSubmissionsParams) ([]*models.SubmissionEntity, error) {
-	queryKey := r.generateQueryKey("verification:search", params)
+	queryKey := r.generateQueryKey("submission:search", params)
 	var cachedIDs []string
 	err := r.c.Get(ctx, queryKey, &cachedIDs)
 	if err == nil {
@@ -187,9 +183,9 @@ func (r *submissionRepository) Search(ctx context.Context, params sqlc.SearchSub
 	if err != nil {
 		return nil, err
 	}
-	var items []*models.SubmissionEntity
-	var ids []string
-	itemToCache := make(map[string]any)
+	items := make([]*models.SubmissionEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	itemToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		entity := &models.SubmissionEntity{
@@ -213,7 +209,7 @@ func (r *submissionRepository) Search(ctx context.Context, params sqlc.SearchSub
 		ids = append(ids, entity.ID)
 		items = append(items, entity)
 
-		itemToCache[fmt.Sprintf("submission:id:%s", entity.ID)] = entity
+		itemToCache[cache.Key("submission:id", entity.ID)] = entity
 	}
 
 	if len(itemToCache) > 0 {
@@ -308,7 +304,7 @@ func (r *submissionRepository) Update(ctx context.Context, params sqlc.UpdateSub
 		return nil, err
 	}
 
-	_ = r.c.Del(ctx, fmt.Sprintf("submission:id:%s", submission.ID))
+	_ = r.c.Del(ctx, cache.Key("submission:id", submission.ID))
 
 	return &submission, nil
 }
@@ -319,7 +315,7 @@ func (r *submissionRepository) Delete(ctx context.Context, id pgtype.UUID) error
 		return err
 	}
 
-	_ = r.c.Del(ctx, fmt.Sprintf("submission:id:%s", convert.UUIDToString(id)))
+	_ = r.c.Del(ctx, cache.Key("submission:id", convert.UUIDToString(id)))
 	go func() {
 		bgCtx := context.Background()
 		_ = r.c.DelByPattern(bgCtx, "submission:search*")

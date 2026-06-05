@@ -6,8 +6,12 @@ import (
 	"fmt"
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
+	"strconv"
+	"sync"
 	"time"
 )
+
+const tileCacheDuration = 5 * time.Minute
 
 type TileRepository interface {
 	GetMetadata(ctx context.Context) (map[string]string, error)
@@ -15,8 +19,10 @@ type TileRepository interface {
 }
 
 type tileRepository struct {
-	db *sql.DB
-	c  cache.Cache
+	db         *sql.DB
+	c          cache.Cache
+	metadataMu sync.RWMutex
+	metadata   map[string]string
 }
 
 func NewTileRepository(db *sql.DB, c cache.Cache) TileRepository {
@@ -27,11 +33,27 @@ func NewTileRepository(db *sql.DB, c cache.Cache) TileRepository {
 }
 
 func (r *tileRepository) GetMetadata(ctx context.Context) (map[string]string, error) {
+	r.metadataMu.RLock()
+	if r.metadata != nil {
+		metadata := r.metadata
+		r.metadataMu.RUnlock()
+		return metadata, nil
+	}
+	r.metadataMu.RUnlock()
+
+	r.metadataMu.Lock()
+	defer r.metadataMu.Unlock()
+
+	if r.metadata != nil {
+		return r.metadata, nil
+	}
+
 	cacheId := "tile:metadata"
 
 	var cached map[string]string
 	err := r.c.Get(ctx, cacheId, &cached)
 	if err == nil {
+		r.metadata = cached
 		return cached, nil
 	}
 
@@ -41,7 +63,7 @@ func (r *tileRepository) GetMetadata(ctx context.Context) (map[string]string, er
 	}
 	defer rows.Close()
 
-	metadata := make(map[string]string)
+	metadata := make(map[string]string, 8)
 
 	for rows.Next() {
 		var name, value string
@@ -50,8 +72,12 @@ func (r *tileRepository) GetMetadata(ctx context.Context) (map[string]string, er
 		}
 		metadata[name] = value
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	_ = r.c.Set(ctx, cacheId, metadata, constants.NormalCacheDuration)
+	r.metadata = metadata
 
 	return metadata, nil
 }
@@ -61,13 +87,16 @@ func (r *tileRepository) GetTile(ctx context.Context, z, x, y int) ([]byte, stri
 		return nil, "", false, fmt.Errorf("invalid tile coordinates")
 	}
 
-	cacheId := fmt.Sprintf("tile:%d:%d:%d", z, x, y)
+	cacheId := "tile:raw:" + strconv.Itoa(z) + ":" + strconv.Itoa(x) + ":" + strconv.Itoa(y)
 
-	var cached []byte
-	err := r.c.Get(ctx, cacheId, &cached)
+	cached, err := r.c.GetRawClient().Get(ctx, cacheId).Bytes()
 	if err == nil {
-		meta, _ := r.GetMetadata(ctx)
-		return cached, meta["format"], meta["format"] == "pbf", nil
+		meta, err := r.GetMetadata(ctx)
+		if err != nil {
+			return nil, "", false, err
+		}
+		format := meta["format"]
+		return cached, format, format == "pbf", nil
 	}
 
 	// XYZ -> TMS
@@ -92,7 +121,7 @@ func (r *tileRepository) GetTile(ctx context.Context, z, x, y int) ([]byte, stri
 		return nil, "", false, err
 	}
 
-	_ = r.c.Set(ctx, cacheId, tileData, 5*time.Minute)
+	_ = r.c.GetRawClient().Set(ctx, cacheId, tileData, tileCacheDuration).Err()
 
 	return tileData, meta["format"], meta["format"] == "pbf", nil
 }

@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
 	"history-api/internal/gen/sqlc"
@@ -92,7 +91,8 @@ func (v *verificationService) CreateVerification(ctx context.Context, userId str
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Invalid verification ID")
 	}
 
-	mediaIdList := make([]pgtype.UUID, 0)
+	mediaIdList := make([]pgtype.UUID, 0, len(mediaList))
+	item.Media = make([]*models.MediaSimpleEntity, 0, len(mediaList))
 	for _, it := range mediaList {
 		mediaId, err := convert.StringToUUID(it.ID)
 		if err != nil {
@@ -185,6 +185,7 @@ func (m *verificationService) fillSearchArgs(arg *sqlc.SearchUserVerificationsPa
 	}
 
 	if len(dto.Statuses) > 0 {
+		arg.Statuses = make([]int16, 0, len(dto.Statuses))
 		for _, id := range dto.Statuses {
 			if u := constants.ParseStatusTypeText(id); u != constants.StatusTypeUnknown {
 				arg.Statuses = append(arg.Statuses, u.Int16())
@@ -193,6 +194,7 @@ func (m *verificationService) fillSearchArgs(arg *sqlc.SearchUserVerificationsPa
 	}
 
 	if len(dto.VerifyTypes) > 0 {
+		arg.VerifyTypes = make([]int16, 0, len(dto.VerifyTypes))
 		for _, id := range dto.VerifyTypes {
 			if u := constants.ParseVerifyTypeText(id); u != constants.VerifyTypeUnknown {
 				arg.VerifyTypes = append(arg.VerifyTypes, u.Int16())
@@ -201,6 +203,7 @@ func (m *verificationService) fillSearchArgs(arg *sqlc.SearchUserVerificationsPa
 	}
 
 	if len(dto.UserIDs) > 0 {
+		arg.UserIds = make([]pgtype.UUID, 0, len(dto.UserIDs))
 		for _, id := range dto.UserIDs {
 			if u, err := convert.StringToUUID(id); err == nil {
 				arg.UserIds = append(arg.UserIds, u)
@@ -355,8 +358,8 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 	}
 
 	if statusType == constants.StatusTypeApproved {
-		roleIdList := make([]pgtype.UUID, 0)
 		userVerification.Roles = append(userVerification.Roles, historianRole.ToRoleSimple())
+		roleIdList := make([]pgtype.UUID, 0, len(userVerification.Roles)+1)
 
 		roleIdList = append(roleIdList, historianRoleID)
 
@@ -395,8 +398,8 @@ func (v *verificationService) UpdateStatusVerification(ctx context.Context, user
 		}
 
 		mapCache := map[string]any{
-			fmt.Sprintf("user:email:%s", userVerification.Email): userVerification,
-			fmt.Sprintf("user:id:%s", userVerification.ID):       userVerification,
+			cache.Key("user:email", userVerification.Email): userVerification,
+			cache.Key("user:id", userVerification.ID):       userVerification,
 		}
 		_ = v.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 	} else {

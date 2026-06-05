@@ -2,9 +2,7 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
+	json "history-api/pkg/jsonx"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -60,9 +58,7 @@ func (r *geometryRepository) WithTx(tx pgx.Tx) GeometryRepository {
 }
 
 func (r *geometryRepository) generateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func (r *geometryRepository) getByIDsWithFallback(ctx context.Context, ids []string) ([]*models.GeometryEntity, error) {
@@ -71,14 +67,14 @@ func (r *geometryRepository) getByIDsWithFallback(ctx context.Context, ids []str
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("geometry:id:%s", id)
+		keys[i] = cache.Key("geometry:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var geometries []*models.GeometryEntity
-	missingToCache := make(map[string]any)
+	geometries := make([]*models.GeometryEntity, 0, len(ids))
+	missingToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -89,7 +85,7 @@ func (r *geometryRepository) getByIDsWithFallback(ctx context.Context, ids []str
 		}
 	}
 
-	dbMap := make(map[string]*models.GeometryEntity)
+	dbMap := make(map[string]*models.GeometryEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetGeometriesByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -143,7 +139,7 @@ func (r *geometryRepository) GetByIDs(ctx context.Context, ids []string) ([]*mod
 }
 
 func (r *geometryRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.GeometryEntity, error) {
-	cacheId := fmt.Sprintf("geometry:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("geometry:id", convert.UUIDToString(id))
 	var geometry models.GeometryEntity
 	err := r.c.Get(ctx, cacheId, &geometry)
 	if err == nil {
@@ -194,9 +190,9 @@ func (r *geometryRepository) Search(ctx context.Context, params sqlc.SearchGeome
 	if err != nil {
 		return nil, err
 	}
-	var geometries []*models.GeometryEntity
-	var ids []string
-	geometryToCache := make(map[string]any)
+	geometries := make([]*models.GeometryEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	geometryToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		geometry := &models.GeometryEntity{
@@ -219,7 +215,7 @@ func (r *geometryRepository) Search(ctx context.Context, params sqlc.SearchGeome
 		}
 		ids = append(ids, geometry.ID)
 		geometries = append(geometries, geometry)
-		geometryToCache[fmt.Sprintf("geometry:id:%s", geometry.ID)] = geometry
+		geometryToCache[cache.Key("geometry:id", geometry.ID)] = geometry
 	}
 
 	if len(geometryToCache) > 0 {
@@ -281,7 +277,7 @@ func (r *geometryRepository) Update(ctx context.Context, params sqlc.UpdateGeome
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("geometry:id:%s", geometry.ID))
+	_ = r.c.Del(ctx, cache.Key("geometry:id", geometry.ID))
 	return &geometry, nil
 }
 
@@ -290,7 +286,7 @@ func (r *geometryRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 	if err != nil {
 		return err
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("geometry:id:%s", convert.UUIDToString(id)))
+	_ = r.c.Del(ctx, cache.Key("geometry:id", convert.UUIDToString(id)))
 	return nil
 }
 
@@ -311,7 +307,7 @@ func (r *geometryRepository) BulkDeleteEntityGeometriesByEntityId(ctx context.Co
 }
 
 func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.GeometryEntity, error) {
-	cacheKey := fmt.Sprintf("geometry:project:%s", convert.UUIDToString(projectID))
+	cacheKey := cache.Key("geometry:project", convert.UUIDToString(projectID))
 	var cachedIDs []string
 	err := r.c.Get(ctx, cacheKey, &cachedIDs)
 	if err == nil {
@@ -326,9 +322,9 @@ func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtyp
 		return nil, err
 	}
 
-	var geometries []*models.GeometryEntity
-	var ids []string
-	geometryToCache := make(map[string]any)
+	geometries := make([]*models.GeometryEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	geometryToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		geometry := &models.GeometryEntity{
@@ -351,7 +347,7 @@ func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtyp
 		}
 		ids = append(ids, geometry.ID)
 		geometries = append(geometries, geometry)
-		geometryToCache[fmt.Sprintf("geometry:id:%s", geometry.ID)] = geometry
+		geometryToCache[cache.Key("geometry:id", geometry.ID)] = geometry
 	}
 
 	if len(geometryToCache) > 0 {
@@ -363,7 +359,7 @@ func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtyp
 }
 
 func (r *geometryRepository) GetGeometriesByBoundWith(ctx context.Context, boundWith pgtype.UUID) ([]*models.GeometryEntity, error) {
-	cacheKey := fmt.Sprintf("geometry:bound_with:%s", convert.UUIDToString(boundWith))
+	cacheKey := cache.Key("geometry:bound_with", convert.UUIDToString(boundWith))
 	var cachedIDs []string
 	err := r.c.Get(ctx, cacheKey, &cachedIDs)
 	if err == nil {
@@ -378,9 +374,9 @@ func (r *geometryRepository) GetGeometriesByBoundWith(ctx context.Context, bound
 		return nil, err
 	}
 
-	var geometries []*models.GeometryEntity
-	var ids []string
-	geometryToCache := make(map[string]any)
+	geometries := make([]*models.GeometryEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	geometryToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		geometry := &models.GeometryEntity{
@@ -403,7 +399,7 @@ func (r *geometryRepository) GetGeometriesByBoundWith(ctx context.Context, bound
 		}
 		ids = append(ids, geometry.ID)
 		geometries = append(geometries, geometry)
-		geometryToCache[fmt.Sprintf("geometry:id:%s", geometry.ID)] = geometry
+		geometryToCache[cache.Key("geometry:id", geometry.ID)] = geometry
 	}
 
 	if len(geometryToCache) > 0 {
@@ -421,7 +417,7 @@ func (r *geometryRepository) DeleteByIDs(ctx context.Context, ids []pgtype.UUID)
 	if len(ids) > 0 {
 		keys := make([]string, len(ids))
 		for i, id := range ids {
-			keys[i] = fmt.Sprintf("geometry:id:%s", convert.UUIDToString(id))
+			keys[i] = cache.Key("geometry:id", convert.UUIDToString(id))
 		}
 		_ = r.c.Del(ctx, keys...)
 	}
@@ -445,15 +441,15 @@ func (r *geometryRepository) getSearchByIDsWithFallback(ctx context.Context, pai
 	}
 	keys := make([]string, len(pairs))
 	for i, pair := range pairs {
-		keys[i] = fmt.Sprintf("geometry:search:item:%s", pair)
+		keys[i] = cache.Key("geometry:search:item", pair)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var results []*models.EntityGeometriesSearchEntity
-	missingToCache := make(map[string]any)
+	results := make([]*models.EntityGeometriesSearchEntity, 0, len(pairs))
+	missingToCache := make(map[string]any, len(pairs))
 
-	var missingEntityIds []pgtype.UUID
-	var missingGeometryIds []pgtype.UUID
+	missingEntityIds := make([]pgtype.UUID, 0, len(pairs))
+	missingGeometryIds := make([]pgtype.UUID, 0, len(pairs))
 
 	for i, b := range raws {
 		if len(b) == 0 {
@@ -471,7 +467,7 @@ func (r *geometryRepository) getSearchByIDsWithFallback(ctx context.Context, pai
 		}
 	}
 
-	dbMap := make(map[string]*models.EntityGeometriesSearchEntity)
+	dbMap := make(map[string]*models.EntityGeometriesSearchEntity, len(missingEntityIds))
 	if len(missingEntityIds) > 0 {
 		dbRows, err := r.q.GetEntityGeometriesByPairs(ctx, sqlc.GetEntityGeometriesByPairsParams{
 			EntityIds:   missingEntityIds,
@@ -490,7 +486,7 @@ func (r *geometryRepository) getSearchByIDsWithFallback(ctx context.Context, pai
 					TimeStart:         convert.Int4ToPtr(row.TimeStart),
 					TimeEnd:           convert.Int4ToPtr(row.TimeEnd),
 				}
-				key := fmt.Sprintf("%s:%s", item.EntityID, item.GeometryID)
+				key := cache.Key(item.EntityID, item.GeometryID)
 				dbMap[key] = item
 			}
 		}
@@ -533,9 +529,9 @@ func (r *geometryRepository) SearchByEntityName(ctx context.Context, params sqlc
 	if err != nil {
 		return nil, err
 	}
-	var geometries []*models.EntityGeometriesSearchEntity
-	var pairs []string
-	geometryToCache := make(map[string]any)
+	geometries := make([]*models.EntityGeometriesSearchEntity, 0, len(rows))
+	pairs := make([]string, 0, len(rows))
+	geometryToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		item := &models.EntityGeometriesSearchEntity{
@@ -549,10 +545,10 @@ func (r *geometryRepository) SearchByEntityName(ctx context.Context, params sqlc
 			TimeStart:         convert.Int4ToPtr(row.TimeStart),
 			TimeEnd:           convert.Int4ToPtr(row.TimeEnd),
 		}
-		pair := fmt.Sprintf("%s:%s", item.EntityID, item.GeometryID)
+		pair := cache.Key(item.EntityID, item.GeometryID)
 		geometries = append(geometries, item)
 		pairs = append(pairs, pair)
-		geometryToCache[fmt.Sprintf("geometry:search:item:%s", pair)] = item
+		geometryToCache[cache.Key("geometry:search:item", pair)] = item
 	}
 
 	if len(geometryToCache) > 0 {

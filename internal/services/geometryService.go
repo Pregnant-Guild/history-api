@@ -57,6 +57,9 @@ func (s *geometryService) GetGeometriesByBoundWith(ctx context.Context, boundWit
 
 func (s *geometryService) SearchGeometries(ctx context.Context, req *request.SearchGeometryDto) ([]*response.GeometryResponse, *fiber.Error) {
 	params := sqlc.SearchGeometriesParams{}
+	if req.Limit > 0 {
+		params.LimitCount = int32(req.Limit)
+	}
 
 	if req.MinLng != nil && req.MinLat != nil && req.MaxLng != nil && req.MaxLat != nil {
 		if *req.MaxLng < *req.MinLng || *req.MaxLat < *req.MinLat {
@@ -133,8 +136,8 @@ func (s *geometryService) SearchGeometriesByEntityName(
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to search geometries by entity name")
 	}
 
-	byEntity := make(map[string]*response.EntityGeometriesSearchItem)
-	order := make([]string, 0)
+	byEntity := make(map[string]*response.EntityGeometriesSearchItem, len(rows))
+	order := make([]string, 0, len(rows))
 
 	for _, row := range rows {
 		item := byEntity[row.EntityID]
@@ -143,7 +146,7 @@ func (s *geometryService) SearchGeometriesByEntityName(
 				EntityID:    row.EntityID,
 				Name:        row.EntityName,
 				Description: row.EntityDescription,
-				Geometries:  make([]*response.EntityGeometrySearchGeo, 0),
+				Geometries:  make([]*response.EntityGeometrySearchGeo, 0, 1),
 			}
 			byEntity[row.EntityID] = item
 			order = append(order, row.EntityID)

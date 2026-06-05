@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"strconv"
 	"sync"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"history-api/pkg/config"
 	"history-api/pkg/constants"
 	"history-api/pkg/email"
+	json "history-api/pkg/jsonx"
 	_ "history-api/pkg/log"
 
 	"github.com/redis/go-redis/v9"
@@ -87,7 +87,7 @@ func runSingleWorker(ctx context.Context, rdb *redis.Client, consumerID int) {
 						continue
 					}
 				}
-				
+
 				if taskType == constants.TaskTypeAdminUserAction.String() {
 					var data models.AdminUserActionPayload
 					if err := json.Unmarshal([]byte(payloadStr), &data); err != nil {

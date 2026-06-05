@@ -2,9 +2,7 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
+	json "history-api/pkg/jsonx"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -52,9 +50,7 @@ func (r *roleRepository) WithTx(tx pgx.Tx) RoleRepository {
 }
 
 func (r *roleRepository) generateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func (r *roleRepository) getByIDsWithFallback(ctx context.Context, ids []string) ([]*models.RoleEntity, error) {
@@ -63,14 +59,14 @@ func (r *roleRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("role:id:%s", id)
+		keys[i] = cache.Key("role:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var roles []*models.RoleEntity
-	missingRolesToCache := make(map[string]any)
+	roles := make([]*models.RoleEntity, 0, len(ids))
+	missingRolesToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -81,7 +77,7 @@ func (r *roleRepository) getByIDsWithFallback(ctx context.Context, ids []string)
 		}
 	}
 
-	dbMap := make(map[string]*models.RoleEntity)
+	dbMap := make(map[string]*models.RoleEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetRolesByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -124,7 +120,7 @@ func (r *roleRepository) GetByIDs(ctx context.Context, ids []string) ([]*models.
 }
 
 func (r *roleRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.RoleEntity, error) {
-	cacheId := fmt.Sprintf("role:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("role:id", convert.UUIDToString(id))
 	var role models.RoleEntity
 	err := r.c.Get(ctx, cacheId, &role)
 	if err == nil {
@@ -150,7 +146,7 @@ func (r *roleRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.R
 }
 
 func (r *roleRepository) GetByName(ctx context.Context, name string) (*models.RoleEntity, error) {
-	cacheId := fmt.Sprintf("role:name:%s", name)
+	cacheId := cache.Key("role:name", name)
 	var role models.RoleEntity
 	err := r.c.Get(ctx, cacheId, &role)
 	if err == nil {
@@ -208,7 +204,7 @@ func (r *roleRepository) Update(ctx context.Context, params sqlc.UpdateRoleParam
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
 
-	_ = r.c.Del(ctx, fmt.Sprintf("role:id:%s", convert.UUIDToString(row.ID)), fmt.Sprintf("role:name:%s", row.Name))
+	_ = r.c.Del(ctx, cache.Key("role:id", convert.UUIDToString(row.ID)), cache.Key("role:name", row.Name))
 	return &role, nil
 }
 
@@ -236,9 +232,9 @@ func (r *roleRepository) All(ctx context.Context) ([]*models.RoleEntity, error) 
 	if err != nil {
 		return nil, err
 	}
-	var roles []*models.RoleEntity
-	var ids []string
-	roleToCache := make(map[string]any)
+	roles := make([]*models.RoleEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	roleToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		role := &models.RoleEntity{
@@ -251,7 +247,7 @@ func (r *roleRepository) All(ctx context.Context) ([]*models.RoleEntity, error) 
 		ids = append(ids, role.ID)
 		roles = append(roles, role)
 
-		roleToCache[fmt.Sprintf("role:id:%s", role.ID)] = role
+		roleToCache[cache.Key("role:id", role.ID)] = role
 	}
 
 	if len(roleToCache) > 0 {
@@ -273,7 +269,7 @@ func (r *roleRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 	if err != nil {
 		return err
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("role:id:%s", role.ID), fmt.Sprintf("role:name:%s", role.Name))
+	_ = r.c.Del(ctx, cache.Key("role:id", role.ID), cache.Key("role:name", role.Name))
 	return nil
 }
 
@@ -282,7 +278,7 @@ func (r *roleRepository) Restore(ctx context.Context, id pgtype.UUID) error {
 	if err != nil {
 		return err
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("role:id:%s", convert.UUIDToString(id)))
+	_ = r.c.Del(ctx, cache.Key("role:id", convert.UUIDToString(id)))
 	return nil
 }
 

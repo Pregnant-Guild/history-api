@@ -111,9 +111,6 @@ func (h *WikiController) IsExistWikiSlug(c fiber.Ctx) error {
 // @Failure      500  {object}  response.CommonResponse
 // @Router       /wikis [get]
 func (h *WikiController) SearchWikis(c fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	dto := &request.SearchWikiDto{}
 	if err := validator.ValidateQueryDto(c, dto); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(response.CommonResponse{
@@ -122,7 +119,7 @@ func (h *WikiController) SearchWikis(c fiber.Ctx) error {
 		})
 	}
 
-	res, err := h.service.SearchWikis(ctx, dto)
+	res, err := h.service.SearchWikis(c.Context(), dto)
 	if err != nil {
 		return c.Status(err.Code).JSON(response.CommonResponse{
 			Status:  false,

@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"fmt"
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"time"
@@ -25,7 +24,7 @@ func NewUsageRepository(c cache.Cache) UsageRepository {
 
 func (r *usageRepository) getUsageKey(userID string) string {
 	dateStr := time.Now().Format("20060102")
-	return fmt.Sprintf("usage:ai:%s:%s", userID, dateStr)
+	return cache.Key2("usage:ai", userID, dateStr)
 }
 
 func (r *usageRepository) GetAIUsage(ctx context.Context, userID string) (int, error) {

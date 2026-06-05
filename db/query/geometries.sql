@@ -91,7 +91,8 @@ WHERE g.is_deleted = false
     sqlc.narg('has_bound')::boolean = true OR
     g.bound_with IS NULL
   )
-ORDER BY g.id DESC;
+ORDER BY g.id DESC
+LIMIT NULLIF(sqlc.arg('limit_count')::int, 0);
 
 -- name: SearchGeometriesByEntityName :many
 WITH matched_entities AS (

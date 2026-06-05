@@ -2,10 +2,11 @@ package cache
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"history-api/pkg/config"
 	"history-api/pkg/constants"
+	json "history-api/pkg/jsonx"
+	"runtime"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -27,16 +28,39 @@ type RedisClient struct {
 	client *redis.Client
 }
 
+func defaultRedisPoolSize() int {
+	poolSize := runtime.NumCPU() * 32
+	if poolSize < 64 {
+		return 64
+	}
+	if poolSize > 256 {
+		return 256
+	}
+	return poolSize
+}
+
 func NewRedisClient() (Cache, error) {
 	uri, err := config.GetConfig("REDIS_CONNECTION_URI")
 	if err != nil {
 		return nil, err
 	}
 
+	poolSize := config.GetIntConfigWithDefault("REDIS_POOL_SIZE", defaultRedisPoolSize())
+	if poolSize < 1 {
+		poolSize = defaultRedisPoolSize()
+	}
+	minIdleConns := config.GetIntConfigWithDefault("REDIS_MIN_IDLE_CONNS", poolSize/8)
+	if minIdleConns < 0 {
+		minIdleConns = 0
+	}
+	if minIdleConns > poolSize {
+		minIdleConns = poolSize
+	}
+
 	rdb := redis.NewClient(&redis.Options{
 		Addr:         uri,
-		PoolSize:     500,
-		MinIdleConns: 50,
+		PoolSize:     poolSize,
+		MinIdleConns: minIdleConns,
 		DialTimeout:  5 * time.Second,
 		ReadTimeout:  3 * time.Second,
 		WriteTimeout: 3 * time.Second,
@@ -83,8 +107,8 @@ func (r *RedisClient) DelByPattern(ctx context.Context, pattern string) error {
 
 		if len(keys) > 0 {
 			if err := r.client.Unlink(ctx, keys...).Err(); err != nil {
-                return fmt.Errorf("error unlinking keys during scan: %v", err)
-            }
+				return fmt.Errorf("error unlinking keys during scan: %v", err)
+			}
 		}
 
 		cursor = nextCursor
@@ -155,7 +179,7 @@ func (r *RedisClient) PublishTask(ctx context.Context, streamName string, taskTy
 
 func GetMultiple[T any](ctx context.Context, c Cache, keys []string) ([]T, error) {
 	raws := c.MGet(ctx, keys...)
-	final := make([]T, 0)
+	final := make([]T, 0, len(raws))
 	for _, b := range raws {
 		if b == nil {
 			continue

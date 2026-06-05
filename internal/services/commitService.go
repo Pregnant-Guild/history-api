@@ -2,8 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
 	"history-api/internal/gen/sqlc"
@@ -12,6 +10,7 @@ import (
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
+	json "history-api/pkg/jsonx"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -52,7 +51,7 @@ func (s *commitService) checkWritePermission(ctx context.Context, userID string,
 		return fiber.NewError(fiber.StatusNotFound, "Project not found")
 	}
 
-	lockKey := fmt.Sprintf("project:lock:%s", convert.UUIDToString(projectUUID))
+	lockKey := cache.Key("project:lock", convert.UUIDToString(projectUUID))
 	var lockUser string
 	if err := s.c.Get(ctx, lockKey, &lockUser); err == nil && lockUser != "" && lockUser != userID {
 		return fiber.NewError(fiber.StatusConflict, "Cannot commit: Project is locked by another user who is editing")
@@ -141,7 +140,7 @@ func (s *commitService) CreateCommit(ctx context.Context, userID string, project
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to commit transaction")
 	}
 
-	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", projectID), fmt.Sprintf("commit:project:%s", projectID))
+	_ = s.c.Del(ctx, cache.Key("project:id", projectID), cache.Key("commit:project", projectID))
 
 	return commit.ToResponse(), nil
 }
@@ -178,7 +177,7 @@ func (s *commitService) RestoreCommit(ctx context.Context, userID string, projec
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to restore commit")
 	}
 
-	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", projectID), fmt.Sprintf("commit:project:%s", projectID))
+	_ = s.c.Del(ctx, cache.Key("project:id", projectID), cache.Key("commit:project", projectID))
 	return nil
 }
 

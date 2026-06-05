@@ -212,7 +212,7 @@ func (s *s3Storage) BulkDelete(ctx context.Context, keys []string) error {
 		}
 
 		batch := keys[i:end]
-		var objects []types.ObjectIdentifier
+		objects := make([]types.ObjectIdentifier, 0, len(batch))
 		for _, k := range batch {
 			objects = append(objects, types.ObjectIdentifier{Key: aws.String(k)})
 		}

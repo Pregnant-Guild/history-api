@@ -61,9 +61,16 @@ func (s *battleReplayService) GetByGeometryIDs(ctx context.Context, req *request
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to get battle replays")
 	}
 
-	result := make(map[string][]*response.BattleReplayResponse)
+	counts := make(map[string]int, len(req.GeometryIDs))
+	for _, replay := range replays {
+		if replay != nil {
+			counts[replay.GeometryID]++
+		}
+	}
+
+	result := make(map[string][]*response.BattleReplayResponse, len(req.GeometryIDs))
 	for _, idStr := range req.GeometryIDs {
-		result[idStr] = make([]*response.BattleReplayResponse, 0)
+		result[idStr] = make([]*response.BattleReplayResponse, 0, counts[idStr])
 	}
 
 	for _, replay := range replays {

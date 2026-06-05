@@ -1,9 +1,9 @@
 package models
 
 import (
-	"encoding/json"
 	"history-api/internal/dtos/response"
 	"history-api/pkg/constants"
+	json "history-api/pkg/jsonx"
 	"time"
 )
 
@@ -77,7 +77,7 @@ func (u *UserVerificationEntity) ToResponse() *response.UserVerificationResponse
 }
 
 func UserVerificationsEntitiesToResponse(entities []*UserVerificationEntity) []*response.UserVerificationResponse {
-	responses := make([]*response.UserVerificationResponse, 0)
+	responses := make([]*response.UserVerificationResponse, 0, len(entities))
 	if entities == nil {
 		return responses
 	}

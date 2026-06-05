@@ -26,8 +26,8 @@ func (w *WikiEntity) ToResponse() *response.WikiResponse {
 	if w == nil {
 		return nil
 	}
-	
-	var contentSample []response.WikiContentSample
+
+	contentSample := make([]response.WikiContentSample, 0, len(w.ContentSample))
 	for _, c := range w.ContentSample {
 		contentSample = append(contentSample, response.WikiContentSample{
 			ID:        c.ID,
@@ -49,10 +49,10 @@ func (w *WikiEntity) ToResponse() *response.WikiResponse {
 }
 
 func WikisEntityToResponse(ws []*WikiEntity) []*response.WikiResponse {
-	out := make([]*response.WikiResponse, 0)
 	if ws == nil {
-		return out
+		return []*response.WikiResponse{}
 	}
+	out := make([]*response.WikiResponse, 0, len(ws))
 	for _, w := range ws {
 		if w == nil {
 			continue

@@ -1,18 +1,14 @@
 package convert
 
 import (
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
+	"history-api/pkg/cache"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func GenerateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:query:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func UUIDToString(v pgtype.UUID) string {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
 	"history-api/internal/gen/sqlc"
@@ -103,7 +102,7 @@ func (u *userService) CreateUser(ctx context.Context, dto *request.CreateUserDto
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create user profile")
 	}
 
-	var roleIdList []pgtype.UUID
+	roleIdList := make([]pgtype.UUID, 0, len(dto.Roles))
 	for _, rId := range dto.Roles {
 		rid, err := convert.StringToUUID(rId)
 		if err == nil {
@@ -339,8 +338,8 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 		}
 	}
 
-	user.Roles = make([]*models.RoleSimple, 0)
-	roleIdList := make([]pgtype.UUID, 0)
+	user.Roles = make([]*models.RoleSimple, 0, len(newListRole))
+	roleIdList := make([]pgtype.UUID, 0, len(newListRole))
 	for _, role := range newListRole {
 		roleID, err := convert.StringToUUID(role.ID)
 		if err != nil {
@@ -378,8 +377,8 @@ func (u *userService) ChangeRoleUser(ctx context.Context, userId string, claims 
 	}
 
 	mapCache := map[string]any{
-		fmt.Sprintf("user:email:%s", user.Email): user,
-		fmt.Sprintf("user:id:%s", user.ID):       user,
+		cache.Key("user:email", user.Email): user,
+		cache.Key("user:id", user.ID):       user,
 	}
 	_ = u.c.MSet(ctx, mapCache, constants.NormalCacheDuration)
 
@@ -489,6 +488,7 @@ func (m *userService) fillSearchArgs(arg *sqlc.SearchUsersParams, dto *request.S
 	}
 
 	if len(dto.RoleIDs) > 0 {
+		arg.RoleIds = make([]pgtype.UUID, 0, len(dto.RoleIDs))
 		for _, id := range dto.RoleIDs {
 			if u, err := convert.StringToUUID(id); err == nil {
 				arg.RoleIds = append(arg.RoleIds, u)

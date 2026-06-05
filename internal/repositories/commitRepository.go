@@ -2,14 +2,13 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
 	"encoding/json"
-	"fmt"
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
+	"history-api/pkg/jsonx"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -62,7 +61,7 @@ func (r *commitRepository) Create(ctx context.Context, params sqlc.CreateCommitP
 }
 
 func (r *commitRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.CommitEntity, error) {
-	cacheId := fmt.Sprintf("commit:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("commit:id", convert.UUIDToString(id))
 	var commit models.CommitEntity
 	err := r.c.Get(ctx, cacheId, &commit)
 	if err == nil {
@@ -92,9 +91,7 @@ func (r *commitRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models
 }
 
 func (r *commitRepository) generateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:query:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func (r *commitRepository) getByIDsWithFallback(ctx context.Context, ids []string) ([]*models.CommitEntity, error) {
@@ -103,14 +100,14 @@ func (r *commitRepository) getByIDsWithFallback(ctx context.Context, ids []strin
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("commit:id:%s", id)
+		keys[i] = cache.Key("commit:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var commits []*models.CommitEntity
-	missingToCache := make(map[string]any)
+	commits := make([]*models.CommitEntity, 0, len(ids))
+	missingToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -121,7 +118,7 @@ func (r *commitRepository) getByIDsWithFallback(ctx context.Context, ids []strin
 		}
 	}
 
-	dbMap := make(map[string]*models.CommitEntity)
+	dbMap := make(map[string]*models.CommitEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetCommitsByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -144,7 +141,7 @@ func (r *commitRepository) getByIDsWithFallback(ctx context.Context, ids []strin
 	for i, b := range raws {
 		if len(b) > 0 {
 			var c models.CommitEntity
-			if err := json.Unmarshal(b, &c); err == nil {
+			if err := jsonx.Unmarshal(b, &c); err == nil {
 				commits = append(commits, &c)
 			}
 		} else {
@@ -163,7 +160,7 @@ func (r *commitRepository) getByIDsWithFallback(ctx context.Context, ids []strin
 }
 
 func (r *commitRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.CommitEntity, error) {
-	queryKey := fmt.Sprintf("commit:project:%s", convert.UUIDToString(projectID))
+	queryKey := cache.Key("commit:project", convert.UUIDToString(projectID))
 	var cachedIDs []string
 	err := r.c.Get(ctx, queryKey, &cachedIDs)
 	if err == nil {
@@ -180,7 +177,7 @@ func (r *commitRepository) GetByProjectID(ctx context.Context, projectID pgtype.
 
 	entities := make([]*models.CommitEntity, 0, len(rows))
 	ids := make([]string, len(rows))
-	commitToCache := make(map[string]any)
+	commitToCache := make(map[string]any, len(rows))
 	for i, row := range rows {
 		item := &models.CommitEntity{
 			ID:           convert.UUIDToString(row.ID),
@@ -194,7 +191,7 @@ func (r *commitRepository) GetByProjectID(ctx context.Context, projectID pgtype.
 		}
 		entities = append(entities, item)
 		ids[i] = item.ID
-		commitToCache[fmt.Sprintf("commit:id:%s", item.ID)] = item
+		commitToCache[cache.Key("commit:id", item.ID)] = item
 	}
 	if len(commitToCache) > 0 {
 		_ = r.c.MSet(ctx, commitToCache, constants.NormalCacheDuration)
@@ -217,9 +214,9 @@ func (r *commitRepository) Search(ctx context.Context, params sqlc.SearchCommits
 	if err != nil {
 		return nil, err
 	}
-	var commits []*models.CommitEntity
-	var ids []string
-	commitToCache := make(map[string]any)
+	commits := make([]*models.CommitEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	commitToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		commit := &models.CommitEntity{
@@ -234,7 +231,7 @@ func (r *commitRepository) Search(ctx context.Context, params sqlc.SearchCommits
 		}
 		ids = append(ids, commit.ID)
 		commits = append(commits, commit)
-		commitToCache[fmt.Sprintf("commit:id:%s", commit.ID)] = commit
+		commitToCache[cache.Key("commit:id", commit.ID)] = commit
 	}
 
 	if len(commitToCache) > 0 {
@@ -253,7 +250,7 @@ func (r *commitRepository) UpdateSnapshot(ctx context.Context, id pgtype.UUID, s
 	if err != nil {
 		return nil, err
 	}
-	r.c.Del(ctx, fmt.Sprintf("commit:id:%s", convert.UUIDToString(id)))
+	r.c.Del(ctx, cache.Key("commit:id", convert.UUIDToString(id)))
 
 	return &models.CommitEntity{
 		ID:           convert.UUIDToString(row.ID),

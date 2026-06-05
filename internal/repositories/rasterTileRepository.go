@@ -6,8 +6,12 @@ import (
 	"fmt"
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
+	"strconv"
+	"sync"
 	"time"
 )
+
+const rasterTileCacheDuration = 5 * time.Minute
 
 type RasterTileRepository interface {
 	GetMetadata(ctx context.Context) (map[string]string, error)
@@ -15,8 +19,10 @@ type RasterTileRepository interface {
 }
 
 type rasterTileRepository struct {
-	db *sql.DB
-	c  cache.Cache
+	db         *sql.DB
+	c          cache.Cache
+	metadataMu sync.RWMutex
+	metadata   map[string]string
 }
 
 func NewRasterTileRepository(db *sql.DB, c cache.Cache) RasterTileRepository {
@@ -27,11 +33,27 @@ func NewRasterTileRepository(db *sql.DB, c cache.Cache) RasterTileRepository {
 }
 
 func (r *rasterTileRepository) GetMetadata(ctx context.Context) (map[string]string, error) {
+	r.metadataMu.RLock()
+	if r.metadata != nil {
+		metadata := r.metadata
+		r.metadataMu.RUnlock()
+		return metadata, nil
+	}
+	r.metadataMu.RUnlock()
+
+	r.metadataMu.Lock()
+	defer r.metadataMu.Unlock()
+
+	if r.metadata != nil {
+		return r.metadata, nil
+	}
+
 	cacheId := "rasterTile:metadata"
 
 	var cached map[string]string
 	err := r.c.Get(ctx, cacheId, &cached)
 	if err == nil {
+		r.metadata = cached
 		return cached, nil
 	}
 
@@ -41,7 +63,7 @@ func (r *rasterTileRepository) GetMetadata(ctx context.Context) (map[string]stri
 	}
 	defer rows.Close()
 
-	metadata := make(map[string]string)
+	metadata := make(map[string]string, 8)
 
 	for rows.Next() {
 		var name, value string
@@ -50,8 +72,12 @@ func (r *rasterTileRepository) GetMetadata(ctx context.Context) (map[string]stri
 		}
 		metadata[name] = value
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	_ = r.c.Set(ctx, cacheId, metadata, constants.NormalCacheDuration)
+	r.metadata = metadata
 
 	return metadata, nil
 }
@@ -61,12 +87,14 @@ func (r *rasterTileRepository) GetTile(ctx context.Context, z, x, y int) ([]byte
 		return nil, "", fmt.Errorf("invalid tile coordinates")
 	}
 
-	cacheId := fmt.Sprintf("rasterTile:%d:%d:%d", z, x, y)
+	cacheId := "rasterTile:raw:" + strconv.Itoa(z) + ":" + strconv.Itoa(x) + ":" + strconv.Itoa(y)
 
-	var cached []byte
-	err := r.c.Get(ctx, cacheId, &cached)
+	cached, err := r.c.GetRawClient().Get(ctx, cacheId).Bytes()
 	if err == nil {
-		meta, _ := r.GetMetadata(ctx)
+		meta, err := r.GetMetadata(ctx)
+		if err != nil {
+			return nil, "", err
+		}
 		return cached, meta["format"], nil
 	}
 
@@ -92,7 +120,7 @@ func (r *rasterTileRepository) GetTile(ctx context.Context, z, x, y int) ([]byte
 		return nil, "", err
 	}
 
-	_ = r.c.Set(ctx, cacheId, tileData, 5*time.Minute)
+	_ = r.c.GetRawClient().Set(ctx, cacheId, tileData, rasterTileCacheDuration).Err()
 
 	return tileData, meta["format"], nil
 }

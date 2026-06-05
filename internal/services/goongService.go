@@ -70,7 +70,7 @@ func (s *goongService) ProxyRequest(ctx context.Context, method string, targetUR
 	parsedUrl.RawQuery = q.Encode()
 	finalURL := parsedUrl.String()
 
-	cacheKey := fmt.Sprintf("goong_proxy_v2:%s", finalURL)
+	cacheKey := cache.Key("goong_proxy_v2", finalURL)
 
 	if method == http.MethodGet {
 		var entry CacheEntry
@@ -180,7 +180,7 @@ func (s *goongService) ProxyRequest(ctx context.Context, method string, targetUR
 			Msg("Goong Map proxy request returned non-200 status code")
 	}
 
-	respHeaders := make(map[string]string)
+	respHeaders := make(map[string]string, len(resp.Header))
 	for k, v := range resp.Header {
 		lowerK := strings.ToLower(k)
 		// Skip hop-by-hop/transport headers in response

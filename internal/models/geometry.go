@@ -52,10 +52,10 @@ func (g *GeometryEntity) ToResponse() *response.GeometryResponse {
 }
 
 func GeometriesEntityToResponse(gs []*GeometryEntity) []*response.GeometryResponse {
-	out := make([]*response.GeometryResponse, 0)
 	if gs == nil {
-		return out
+		return []*response.GeometryResponse{}
 	}
+	out := make([]*response.GeometryResponse, 0, len(gs))
 	for _, g := range gs {
 		if g == nil {
 			continue

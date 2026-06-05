@@ -90,7 +90,7 @@ func (e *MediaEntity) ToSimpleEntity() *MediaSimpleEntity {
 }
 
 func MediaEntitiesToResponse(entities []*MediaEntity) []*response.MediaResponse {
-	responses := make([]*response.MediaResponse, 0)
+	responses := make([]*response.MediaResponse, 0, len(entities))
 	if entities == nil {
 		return responses
 	}
@@ -104,7 +104,7 @@ func MediaEntitiesToResponse(entities []*MediaEntity) []*response.MediaResponse 
 }
 
 func MediaEntitiesToStorageEntity(entities []*MediaEntity) []*MediaStorageEntity {
-	responses := make([]*MediaStorageEntity, 0)
+	responses := make([]*MediaStorageEntity, 0, len(entities))
 	if entities == nil {
 		return responses
 	}
@@ -118,7 +118,7 @@ func MediaEntitiesToStorageEntity(entities []*MediaEntity) []*MediaStorageEntity
 }
 
 func MediaSimpleEntitiesToResponse(entities []*MediaSimpleEntity) []*response.MediaSimpleResponse {
-	responses := make([]*response.MediaSimpleResponse, 0)
+	responses := make([]*response.MediaSimpleResponse, 0, len(entities))
 	if entities == nil {
 		return responses
 	}

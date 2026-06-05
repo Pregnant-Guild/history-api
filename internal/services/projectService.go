@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -87,7 +86,7 @@ func (s *projectService) GetProjectByID(ctx context.Context, id string) (*respon
 	}
 
 	res := project.ToResponse()
-	lockKey := fmt.Sprintf("project:lock:%s", id)
+	lockKey := cache.Key("project:lock", id)
 	var lockUser string
 	if err := s.c.Get(ctx, lockKey, &lockUser); err == nil && lockUser != "" {
 		res.LockedBy = &lockUser
@@ -141,6 +140,7 @@ func (s *projectService) fillSearchArgs(arg *sqlc.SearchProjectsParams, dto *req
 	}
 
 	if len(dto.Statuses) > 0 {
+		arg.Statuses = make([]int16, 0, len(dto.Statuses))
 		for _, statusStr := range dto.Statuses {
 			statusType := constants.ParseProjectStatusTypeText(statusStr)
 			if statusType != constants.ProjectStatusTypeUnknow {
@@ -150,6 +150,7 @@ func (s *projectService) fillSearchArgs(arg *sqlc.SearchProjectsParams, dto *req
 	}
 
 	if len(dto.UserIDs) > 0 {
+		arg.UserIds = make([]pgtype.UUID, 0, len(dto.UserIDs))
 		for _, id := range dto.UserIDs {
 			if u, err := convert.StringToUUID(id); err == nil {
 				arg.UserIds = append(arg.UserIds, u)
@@ -464,7 +465,7 @@ func (s *projectService) LockProject(ctx context.Context, userID string, project
 		return fiber.NewError(fiber.StatusNotFound, "Project not found")
 	}
 
-	lockKey := fmt.Sprintf("project:lock:%s", projectID)
+	lockKey := cache.Key("project:lock", projectID)
 	var lockUser string
 	err = s.c.Get(ctx, lockKey, &lockUser)
 	if err == nil && lockUser != "" {
@@ -487,7 +488,7 @@ func (s *projectService) LockProject(ctx context.Context, userID string, project
 }
 
 func (s *projectService) UnlockProject(ctx context.Context, userID string, projectID string) *fiber.Error {
-	lockKey := fmt.Sprintf("project:lock:%s", projectID)
+	lockKey := cache.Key("project:lock", projectID)
 	var lockUser string
 	err := s.c.Get(ctx, lockKey, &lockUser)
 	if err != nil || lockUser == "" {
@@ -503,7 +504,7 @@ func (s *projectService) UnlockProject(ctx context.Context, userID string, proje
 }
 
 func (s *projectService) HeartbeatProject(ctx context.Context, userID string, projectID string) *fiber.Error {
-	lockKey := fmt.Sprintf("project:lock:%s", projectID)
+	lockKey := cache.Key("project:lock", projectID)
 	var lockUser string
 	err := s.c.Get(ctx, lockKey, &lockUser)
 	if err != nil || lockUser == "" {

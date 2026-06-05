@@ -137,8 +137,13 @@ func (s *wikiService) GetWikisByEntityIDs(ctx context.Context, req *request.GetW
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch wiki IDs by entity IDs")
 	}
 
-	wikiIDMap := make(map[string]struct{})
-	var allWikiIDs []string
+	totalWikiIDs := 0
+	for _, wIDs := range mapping {
+		totalWikiIDs += len(wIDs)
+	}
+
+	wikiIDMap := make(map[string]struct{}, totalWikiIDs)
+	allWikiIDs := make([]string, 0, totalWikiIDs)
 	for _, wIDs := range mapping {
 		for _, wID := range wIDs {
 			if _, ok := wikiIDMap[wID]; !ok {
@@ -153,15 +158,16 @@ func (s *wikiService) GetWikisByEntityIDs(ctx context.Context, req *request.GetW
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch wikis")
 	}
 
-	wikisByID := make(map[string]*models.WikiEntity)
+	wikisByID := make(map[string]*models.WikiEntity, len(wikis))
 	for _, w := range wikis {
 		wikisByID[w.ID] = w
 	}
 
-	result := make(map[string][]*response.WikiResponse)
+	result := make(map[string][]*response.WikiResponse, len(req.EntityIDs))
 	for _, idStr := range req.EntityIDs {
-		result[idStr] = make([]*response.WikiResponse, 0)
-		if wIDs, exists := mapping[idStr]; exists {
+		wIDs, exists := mapping[idStr]
+		result[idStr] = make([]*response.WikiResponse, 0, len(wIDs))
+		if exists {
 			for _, wID := range wIDs {
 				if w, found := wikisByID[wID]; found {
 					result[idStr] = append(result[idStr], w.ToResponse())
@@ -179,7 +185,7 @@ func (s *wikiService) GetWikiContentsPreviewByIDs(ctx context.Context, req *requ
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch wiki contents")
 	}
 
-	var results []*response.WikiContentPreviewResponse
+	results := make([]*response.WikiContentPreviewResponse, 0, len(contents))
 	for _, c := range contents {
 		results = append(results, &response.WikiContentPreviewResponse{
 			ID:        c.ID,

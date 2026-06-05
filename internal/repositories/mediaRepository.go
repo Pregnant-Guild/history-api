@@ -2,14 +2,12 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
 	"history-api/internal/gen/sqlc"
 	"history-api/internal/models"
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
+	json "history-api/pkg/jsonx"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -47,9 +45,7 @@ func (r *mediaRepository) WithTx(tx pgx.Tx) MediaRepository {
 }
 
 func (r *mediaRepository) generateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func (r *mediaRepository) getByIDsWithFallback(ctx context.Context, ids []string) ([]*models.MediaEntity, error) {
@@ -58,14 +54,14 @@ func (r *mediaRepository) getByIDsWithFallback(ctx context.Context, ids []string
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("media:id:%s", id)
+		keys[i] = cache.Key("media:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var medias []*models.MediaEntity
-	missingMediasToCache := make(map[string]any)
+	medias := make([]*models.MediaEntity, 0, len(ids))
+	missingMediasToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -76,7 +72,7 @@ func (r *mediaRepository) getByIDsWithFallback(ctx context.Context, ids []string
 		}
 	}
 
-	dbMap := make(map[string]*models.MediaEntity)
+	dbMap := make(map[string]*models.MediaEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetMediaByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -123,7 +119,7 @@ func (r *mediaRepository) GetByIDs(ctx context.Context, ids []string) ([]*models
 }
 
 func (r *mediaRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.MediaEntity, error) {
-	cacheId := fmt.Sprintf("media:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("media:id", convert.UUIDToString(id))
 	var media models.MediaEntity
 	err := r.c.Get(ctx, cacheId, &media)
 	if err == nil {
@@ -165,7 +161,7 @@ func (r *mediaRepository) Create(ctx context.Context, params sqlc.CreateMediaPar
 		_ = r.c.DelByPattern(bgCtx, "media:count*")
 	}()
 
-	_ = r.c.Del(ctx, fmt.Sprintf("media:userId:%s", convert.UUIDToString(params.UserID)))
+	_ = r.c.Del(ctx, cache.Key("media:userId", convert.UUIDToString(params.UserID)))
 
 	media := models.MediaEntity{
 		ID:           convert.UUIDToString(row.ID),
@@ -188,7 +184,7 @@ func (r *mediaRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 		return err
 	}
 
-	cacheId := fmt.Sprintf("media:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("media:id", convert.UUIDToString(id))
 	_ = r.c.Del(ctx, cacheId)
 	go func() {
 		_ = r.c.DelByPattern(context.Background(), "media:count*")
@@ -206,7 +202,7 @@ func (r *mediaRepository) BulkDelete(ctx context.Context, ids []pgtype.UUID) err
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("media:id:%s", convert.UUIDToString(id))
+		keys[i] = cache.Key("media:id", convert.UUIDToString(id))
 	}
 	_ = r.c.Del(ctx, keys...)
 
@@ -237,9 +233,9 @@ func (r *mediaRepository) Search(ctx context.Context, params sqlc.SearchMediasPa
 	if err != nil {
 		return nil, err
 	}
-	var medias []*models.MediaEntity
-	var ids []string
-	mediasToCache := make(map[string]any)
+	medias := make([]*models.MediaEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	mediasToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		media := &models.MediaEntity{
@@ -256,7 +252,7 @@ func (r *mediaRepository) Search(ctx context.Context, params sqlc.SearchMediasPa
 		ids = append(ids, media.ID)
 		medias = append(medias, media)
 
-		mediasToCache[fmt.Sprintf("media:id:%s", media.ID)] = media
+		mediasToCache[cache.Key("media:id", media.ID)] = media
 	}
 
 	if len(mediasToCache) > 0 {
@@ -284,7 +280,7 @@ func (r *mediaRepository) Count(ctx context.Context, params sqlc.CountMediasPara
 }
 
 func (r *mediaRepository) GetByUserID(ctx context.Context, userId pgtype.UUID) ([]*models.MediaEntity, error) {
-	queryKey := fmt.Sprintf("media:userId:%s", convert.UUIDToString(userId))
+	queryKey := cache.Key("media:userId", convert.UUIDToString(userId))
 	var cachedIDs []string
 	err := r.c.Get(ctx, queryKey, &cachedIDs)
 	if err == nil {
@@ -307,9 +303,9 @@ func (r *mediaRepository) GetByUserID(ctx context.Context, userId pgtype.UUID) (
 	if err != nil {
 		return nil, err
 	}
-	var medias []*models.MediaEntity
-	var ids []string
-	mediasToCache := make(map[string]any)
+	medias := make([]*models.MediaEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	mediasToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		media := &models.MediaEntity{
@@ -326,7 +322,7 @@ func (r *mediaRepository) GetByUserID(ctx context.Context, userId pgtype.UUID) (
 		ids = append(ids, media.ID)
 		medias = append(medias, media)
 
-		mediasToCache[fmt.Sprintf("media:id:%s", media.ID)] = media
+		mediasToCache[cache.Key("media:id", media.ID)] = media
 	}
 
 	if len(mediasToCache) > 0 {

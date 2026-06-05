@@ -63,8 +63,9 @@ func (ctrl *goongController) Proxy(c fiber.Ctx) error {
 		}
 	}
 
-	headers := make(map[string]string)
-	for k, v := range c.GetReqHeaders() {
+	reqHeaders := c.GetReqHeaders()
+	headers := make(map[string]string, len(reqHeaders))
+	for k, v := range reqHeaders {
 		if len(v) > 0 {
 			headers[k] = v[0]
 		}

@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/rs/zerolog/log"
 )
 
@@ -114,15 +115,19 @@ func StartServer() {
 	Singleton = serverHttp
 
 	done := make(chan bool, 1)
+	go gracefulShutdown(serverHttp, done)
 
-	err = serverHttp.App.Listen(fmt.Sprintf("%s:%s", serverIp, httpPort))
+	err = serverHttp.App.Listen(
+		fmt.Sprintf("%s:%s", serverIp, httpPort),
+		fiber.ListenConfig{
+			DisableStartupMessage: config.GetBoolConfigWithDefault("DISABLE_STARTUP_MESSAGE", false),
+			EnablePrefork:         config.GetBoolConfigWithDefault("ENABLE_PREFORK", false),
+		},
+	)
 	if err != nil {
 		log.Error().Msgf("Error: app failed to start on port %s, %v", httpPort, err)
 		panic(err)
 	}
-
-	// Run graceful shutdown in a separate goroutine
-	go gracefulShutdown(serverHttp, done)
 
 	// Wait for the graceful shutdown to complete
 	<-done

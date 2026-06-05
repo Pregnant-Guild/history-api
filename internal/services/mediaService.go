@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"history-api/internal/dtos/request"
 	"history-api/internal/dtos/response"
@@ -12,6 +11,7 @@ import (
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
+	json "history-api/pkg/jsonx"
 	"history-api/pkg/storage"
 	"io"
 	"mime/multipart"
@@ -98,8 +98,8 @@ func (m *mediaService) BulkDeleteMedia(ctx context.Context, claims *response.JWT
 	if slices.Contains(claims.Roles, constants.RoleTypeAdmin) || slices.Contains(claims.Roles, constants.RoleTypeMod) {
 		shoudDelete = true
 	}
-	listMediaIds := make([]pgtype.UUID, 0)
-	listMediaStorageEntities := make([]*models.MediaStorageEntity, 0)
+	listMediaIds := make([]pgtype.UUID, 0, len(listMedia))
+	listMediaStorageEntities := make([]*models.MediaStorageEntity, 0, len(listMedia))
 	for _, media := range listMedia {
 		if media.UserID != claims.UId && !shoudDelete {
 			return fiber.NewError(fiber.StatusForbidden, "You don't have permission to delete media "+media.ID)
@@ -171,6 +171,7 @@ func (m *mediaService) fillSearchArgs(arg *sqlc.SearchMediasParams, dto *request
 	}
 
 	if len(dto.UserIDs) > 0 {
+		arg.UserIds = make([]pgtype.UUID, 0, len(dto.UserIDs))
 		for _, id := range dto.UserIDs {
 			if u, err := convert.StringToUUID(id); err == nil {
 				arg.UserIds = append(arg.UserIds, u)

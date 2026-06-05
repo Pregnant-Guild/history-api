@@ -10,8 +10,11 @@ import (
 	"history-api/internal/services"
 	"history-api/pkg/ai"
 	"history-api/pkg/cache"
+	"history-api/pkg/config"
+	"history-api/pkg/jsonx"
 	"history-api/pkg/storage"
 	"os"
+	"strings"
 	"time"
 
 	swagger "github.com/gofiber/contrib/v3/swaggerui"
@@ -19,6 +22,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/compress"
 	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/pprof"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 	"golang.org/x/oauth2"
@@ -35,20 +39,29 @@ type FiberServer struct {
 func NewHttpServer() *FiberServer {
 	server := &FiberServer{
 		App: fiber.New(fiber.Config{
-			ServerHeader: "http-server",
-			AppName:      "http-server",
+			ServerHeader:      "http-server",
+			AppName:           "http-server",
+			BodyLimit:         config.GetIntConfigWithDefault("FIBER_BODY_LIMIT", 0),
+			Concurrency:       config.GetIntConfigWithDefault("FIBER_CONCURRENCY", 0),
+			ReadBufferSize:    config.GetIntConfigWithDefault("FIBER_READ_BUFFER_SIZE", 0),
+			WriteBufferSize:   config.GetIntConfigWithDefault("FIBER_WRITE_BUFFER_SIZE", 0),
+			ReduceMemoryUsage: config.GetBoolConfigWithDefault("FIBER_REDUCE_MEMORY_USAGE", false),
+			JSONEncoder:       jsonx.Marshal,
+			JSONDecoder:       jsonx.Unmarshal,
 		}),
 	}
-	cfg := swagger.Config{
-		BasePath:    "/",
-		FileContent: docs.SwaggerJSON,
-		Path:        "swagger",
-		Title:       "Swagger API Docs",
+	if !config.GetBoolConfigWithDefault("DISABLE_SWAGGER", false) {
+		cfg := swagger.Config{
+			BasePath:    "/",
+			FileContent: docs.SwaggerJSON,
+			Path:        "swagger",
+			Title:       "Swagger API Docs",
+		}
+
+		server.App.Use(swagger.New(cfg))
 	}
 
-	server.App.Use(swagger.New(cfg))
-
-	if os.Getenv("DISABLE_REQUEST_LOG") != "true" {
+	if !config.GetBoolConfigWithDefault("DISABLE_REQUEST_LOG", false) {
 		logger := zerolog.New(zerolog.ConsoleWriter{
 			Out:        os.Stderr,
 			TimeFormat: time.RFC3339,
@@ -58,6 +71,11 @@ func NewHttpServer() *FiberServer {
 		}))
 	}
 	return server
+}
+
+func isTilePath(c fiber.Ctx) bool {
+	path := c.Path()
+	return strings.HasPrefix(path, "/tiles/") || strings.HasPrefix(path, "/raster-tiles/")
 }
 
 func (s *FiberServer) SetupServer(
@@ -88,10 +106,18 @@ func (s *FiberServer) SetupServer(
 		AllowCredentials: true,
 	}))
 
-	// Apply Compress middleware (Brotli/Gzip/Deflate on-the-fly)
-	s.App.Use(compress.New(compress.Config{
-		Level: compress.LevelBestSpeed, // Optimize for high throughput and low CPU usage
-	}))
+	if !config.GetBoolConfigWithDefault("DISABLE_RESPONSE_COMPRESSION", false) {
+		s.App.Use(compress.New(compress.Config{
+			Level: compress.LevelBestSpeed,
+			Next:  isTilePath,
+		}))
+	}
+
+	if config.GetBoolConfigWithDefault("ENABLE_PPROF", false) {
+		s.App.Use(pprof.New(pprof.Config{
+			Prefix: config.GetConfigWithDefault("PPROF_PREFIX", ""),
+		}))
+	}
 
 	// repo setup
 	userRepo := repositories.NewUserRepository(poolPg, redis)

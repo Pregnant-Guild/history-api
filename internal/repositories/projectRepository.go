@@ -2,9 +2,7 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/json"
-	"fmt"
+	json "history-api/pkg/jsonx"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -53,9 +51,7 @@ func (r *projectRepository) WithTx(tx pgx.Tx) ProjectRepository {
 	}
 }
 func (r *projectRepository) generateQueryKey(prefix string, params any) string {
-	b, _ := json.Marshal(params)
-	hash := fmt.Sprintf("%x", md5.Sum(b))
-	return fmt.Sprintf("%s:%s", prefix, hash)
+	return cache.QueryKey(prefix, params)
 }
 
 func (r *projectRepository) getByIDsWithFallback(ctx context.Context, ids []string) ([]*models.ProjectEntity, error) {
@@ -64,14 +60,14 @@ func (r *projectRepository) getByIDsWithFallback(ctx context.Context, ids []stri
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("project:id:%s", id)
+		keys[i] = cache.Key("project:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var projects []*models.ProjectEntity
-	missingToCache := make(map[string]any)
+	projects := make([]*models.ProjectEntity, 0, len(ids))
+	missingToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -82,7 +78,7 @@ func (r *projectRepository) getByIDsWithFallback(ctx context.Context, ids []stri
 		}
 	}
 
-	dbMap := make(map[string]*models.ProjectEntity)
+	dbMap := make(map[string]*models.ProjectEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetProjectsByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -134,7 +130,7 @@ func (r *projectRepository) GetByIDs(ctx context.Context, ids []string) ([]*mode
 }
 
 func (r *projectRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.ProjectEntity, error) {
-	cacheId := fmt.Sprintf("project:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("project:id", convert.UUIDToString(id))
 	var project models.ProjectEntity
 	err := r.c.Get(ctx, cacheId, &project)
 	if err == nil {
@@ -185,9 +181,9 @@ func (r *projectRepository) GetByUserID(ctx context.Context, params sqlc.GetProj
 		return nil, err
 	}
 
-	var projects []*models.ProjectEntity
-	var ids []string
-	projectToCache := make(map[string]any)
+	projects := make([]*models.ProjectEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	projectToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		project := &models.ProjectEntity{
@@ -209,7 +205,7 @@ func (r *projectRepository) GetByUserID(ctx context.Context, params sqlc.GetProj
 
 		ids = append(ids, project.ID)
 		projects = append(projects, project)
-		projectToCache[fmt.Sprintf("project:id:%s", project.ID)] = project
+		projectToCache[cache.Key("project:id", project.ID)] = project
 	}
 
 	if len(projectToCache) > 0 {
@@ -235,9 +231,9 @@ func (r *projectRepository) Search(ctx context.Context, params sqlc.SearchProjec
 	if err != nil {
 		return nil, err
 	}
-	var projects []*models.ProjectEntity
-	var ids []string
-	projectToCache := make(map[string]any)
+	projects := make([]*models.ProjectEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	projectToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		project := &models.ProjectEntity{
@@ -259,7 +255,7 @@ func (r *projectRepository) Search(ctx context.Context, params sqlc.SearchProjec
 
 		ids = append(ids, project.ID)
 		projects = append(projects, project)
-		projectToCache[fmt.Sprintf("project:id:%s", project.ID)] = project
+		projectToCache[cache.Key("project:id", project.ID)] = project
 	}
 
 	if len(projectToCache) > 0 {
@@ -340,7 +336,7 @@ func (r *projectRepository) Update(ctx context.Context, params sqlc.UpdateProjec
 	_ = project.ParseSubmissions(row.Submissions)
 	_ = project.ParseMembers(row.Members)
 
-	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", project.ID))
+	_ = r.c.Del(ctx, cache.Key("project:id", project.ID))
 	return &project, nil
 }
 
@@ -349,7 +345,7 @@ func (r *projectRepository) Delete(ctx context.Context, id pgtype.UUID) error {
 	if err != nil {
 		return err
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", convert.UUIDToString(id)))
+	_ = r.c.Del(ctx, cache.Key("project:id", convert.UUIDToString(id)))
 	go func() {
 		bgCtx := context.Background()
 		_ = r.c.DelByPattern(bgCtx, "project:search*")
@@ -367,8 +363,8 @@ func (r *projectRepository) AddMember(ctx context.Context, params sqlc.AddProjec
 	go func() {
 		_ = r.c.DelByPattern(context.Background(), "project:user*")
 	}()
-	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", convert.UUIDToString(params.ProjectID)))
-	_ = r.c.Del(ctx, fmt.Sprintf("project:perm:%s:%s", convert.UUIDToString(params.ProjectID), convert.UUIDToString(params.UserID)))
+	_ = r.c.Del(ctx, cache.Key("project:id", convert.UUIDToString(params.ProjectID)))
+	_ = r.c.Del(ctx, cache.Key2("project:perm", convert.UUIDToString(params.ProjectID), convert.UUIDToString(params.UserID)))
 	return nil
 }
 
@@ -380,8 +376,8 @@ func (r *projectRepository) UpdateMemberRole(ctx context.Context, params sqlc.Up
 	go func() {
 		_ = r.c.DelByPattern(context.Background(), "project:user*")
 	}()
-	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", convert.UUIDToString(params.ProjectID)))
-	_ = r.c.Del(ctx, fmt.Sprintf("project:perm:%s:%s", convert.UUIDToString(params.ProjectID), convert.UUIDToString(params.UserID)))
+	_ = r.c.Del(ctx, cache.Key("project:id", convert.UUIDToString(params.ProjectID)))
+	_ = r.c.Del(ctx, cache.Key2("project:perm", convert.UUIDToString(params.ProjectID), convert.UUIDToString(params.UserID)))
 	return nil
 }
 
@@ -393,13 +389,13 @@ func (r *projectRepository) RemoveMember(ctx context.Context, params sqlc.Remove
 	go func() {
 		_ = r.c.DelByPattern(context.Background(), "project:user*")
 	}()
-	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", convert.UUIDToString(params.ProjectID)))
-	_ = r.c.Del(ctx, fmt.Sprintf("project:perm:%s:%s", convert.UUIDToString(params.ProjectID), convert.UUIDToString(params.UserID)))
+	_ = r.c.Del(ctx, cache.Key("project:id", convert.UUIDToString(params.ProjectID)))
+	_ = r.c.Del(ctx, cache.Key2("project:perm", convert.UUIDToString(params.ProjectID), convert.UUIDToString(params.UserID)))
 	return nil
 }
 
 func (r *projectRepository) CheckPermission(ctx context.Context, params sqlc.CheckProjectPermissionParams) (int16, error) {
-	cacheKey := fmt.Sprintf("project:perm:%s:%s", convert.UUIDToString(params.ProjectID), convert.UUIDToString(params.UserID))
+	cacheKey := cache.Key2("project:perm", convert.UUIDToString(params.ProjectID), convert.UUIDToString(params.UserID))
 	var role int16
 	if err := r.c.Get(ctx, cacheKey, &role); err == nil {
 		return role, nil
@@ -420,9 +416,9 @@ func (r *projectRepository) ChangeOwner(ctx context.Context, params sqlc.ChangeP
 		return err
 	}
 	projectID := convert.UUIDToString(params.ID)
-	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", projectID))
+	_ = r.c.Del(ctx, cache.Key("project:id", projectID))
 	go func() {
-		_ = r.c.DelByPattern(context.Background(), fmt.Sprintf("project:perm:%s:*", projectID))
+		_ = r.c.DelByPattern(context.Background(), "project:perm:"+projectID+":*")
 	}()
 	return nil
 }
@@ -432,6 +428,6 @@ func (r *projectRepository) UpdateLatestCommit(ctx context.Context, params sqlc.
 	if err != nil {
 		return err
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("project:id:%s", convert.UUIDToString(params.ID)))
+	_ = r.c.Del(ctx, cache.Key("project:id", convert.UUIDToString(params.ID)))
 	return nil
 }

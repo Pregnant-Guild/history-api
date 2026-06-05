@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"history-api/internal/dtos/request"
@@ -14,6 +13,7 @@ import (
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
+	json "history-api/pkg/jsonx"
 	"regexp"
 	"slices"
 	"strconv"
@@ -110,8 +110,8 @@ func (s *submissionService) CreateSubmission(ctx context.Context, userID string,
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to parse commit snapshot")
 	}
 
-	var entitySlugs []string
-	entitySlugToID := make(map[string]string)
+	entitySlugs := make([]string, 0, len(snapshotData.Entities))
+	entitySlugToID := make(map[string]string, len(snapshotData.Entities))
 	for _, entity := range snapshotData.Entities {
 		if entity.Source == "inline" && entity.Slug != nil {
 			entitySlugs = append(entitySlugs, *entity.Slug)
@@ -133,8 +133,8 @@ func (s *submissionService) CreateSubmission(ctx context.Context, userID string,
 		}
 	}
 
-	var wikiSlugs []string
-	wikiSlugToID := make(map[string]string)
+	wikiSlugs := make([]string, 0, len(snapshotData.Wikis))
+	wikiSlugToID := make(map[string]string, len(snapshotData.Wikis))
 	for _, wiki := range snapshotData.Wikis {
 		if wiki.Source == "inline" && wiki.Slug != nil {
 			wikiSlugs = append(wikiSlugs, *wiki.Slug)
@@ -180,7 +180,7 @@ func (s *submissionService) CreateSubmission(ctx context.Context, userID string,
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create submission")
 	}
 
-	_ = s.c.Del(ctx, fmt.Sprintf("project:id:%s", project.ID))
+	_ = s.c.Del(ctx, cache.Key("project:id", project.ID))
 
 	return submission.ToResponse(), nil
 }
@@ -277,11 +277,11 @@ func (s *submissionService) UpdateSubmissionStatus(ctx context.Context, reviewer
 	}
 
 	_ = s.c.Del(ctx,
-		fmt.Sprintf("project:id:%s", submission.ProjectID),
-		fmt.Sprintf("entity:project:%s", submission.ProjectID),
-		fmt.Sprintf("geometry:project:%s", submission.ProjectID),
-		fmt.Sprintf("wiki:project:%s", submission.ProjectID),
-		fmt.Sprintf("battle_replay:project:%s", submission.ProjectID),
+		cache.Key("project:id", submission.ProjectID),
+		cache.Key("entity:project", submission.ProjectID),
+		cache.Key("geometry:project", submission.ProjectID),
+		cache.Key("wiki:project", submission.ProjectID),
+		cache.Key("battle_replay:project", submission.ProjectID),
 	)
 
 	return updatedSubmission.ToResponse(), nil
@@ -300,6 +300,7 @@ func (m *submissionService) fillSearchArgs(arg *sqlc.SearchSubmissionsParams, dt
 	}
 
 	if len(dto.Statuses) > 0 {
+		arg.Statuses = make([]int16, 0, len(dto.Statuses))
 		for _, id := range dto.Statuses {
 			if u := constants.ParseStatusTypeText(id); u != constants.StatusTypeUnknown {
 				arg.Statuses = append(arg.Statuses, u.Int16())
@@ -308,6 +309,7 @@ func (m *submissionService) fillSearchArgs(arg *sqlc.SearchSubmissionsParams, dt
 	}
 
 	if len(dto.UserIDs) > 0 {
+		arg.UserIds = make([]pgtype.UUID, 0, len(dto.UserIDs))
 		for _, id := range dto.UserIDs {
 			if u, err := convert.StringToUUID(id); err == nil {
 				arg.UserIds = append(arg.UserIds, u)
@@ -503,11 +505,11 @@ func (s *submissionService) DeleteSubmission(ctx context.Context, userID string,
 	}
 
 	_ = s.c.Del(ctx,
-		fmt.Sprintf("project:id:%s", submission.ProjectID),
-		fmt.Sprintf("entity:project:%s", submission.ProjectID),
-		fmt.Sprintf("geometry:project:%s", submission.ProjectID),
-		fmt.Sprintf("wiki:project:%s", submission.ProjectID),
-		fmt.Sprintf("battle_replay:project:%s", submission.ProjectID),
+		cache.Key("project:id", submission.ProjectID),
+		cache.Key("entity:project", submission.ProjectID),
+		cache.Key("geometry:project", submission.ProjectID),
+		cache.Key("wiki:project", submission.ProjectID),
+		cache.Key("battle_replay:project", submission.ProjectID),
 	)
 
 	return nil
@@ -521,10 +523,10 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 
 	projectIDStr := convert.UUIDToString(projectUUID)
 	_ = s.c.Del(ctx,
-		fmt.Sprintf("entity:project:%s", projectIDStr),
-		fmt.Sprintf("geometry:project:%s", projectIDStr),
-		fmt.Sprintf("wiki:project:%s", projectIDStr),
-		fmt.Sprintf("battle_replay:project:%s", projectIDStr),
+		cache.Key("entity:project", projectIDStr),
+		cache.Key("geometry:project", projectIDStr),
+		cache.Key("wiki:project", projectIDStr),
+		cache.Key("battle_replay:project", projectIDStr),
 	)
 
 	currentEntity, err := entityRepo.GetByProjectID(ctx, projectUUID)
@@ -547,44 +549,44 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 		return fiber.NewError(fiber.StatusNotFound, "Battle replay not found: "+err.Error())
 	}
 
-	persistEntityIDs := make(map[string]struct{})
+	persistEntityIDs := make(map[string]struct{}, len(snapshotData.Entities))
 	for _, item := range snapshotData.Entities {
 		persistEntityIDs[item.ID] = struct{}{}
 	}
-	persistGeometryIDs := make(map[string]struct{})
+	persistGeometryIDs := make(map[string]struct{}, len(snapshotData.Geometries))
 	for _, item := range snapshotData.Geometries {
 		persistGeometryIDs[item.ID] = struct{}{}
 	}
-	persistWikiIDs := make(map[string]struct{})
+	persistWikiIDs := make(map[string]struct{}, len(snapshotData.Wikis))
 	for _, item := range snapshotData.Wikis {
 		persistWikiIDs[item.ID] = struct{}{}
 	}
-	persistReplayIDs := make(map[string]struct{})
+	persistReplayIDs := make(map[string]struct{}, len(snapshotData.Replays))
 	for _, item := range snapshotData.Replays {
 		persistReplayIDs[item.ID] = struct{}{}
 	}
 
-	persistCurrentEntityIDs := make(map[string]struct{})
+	persistCurrentEntityIDs := make(map[string]struct{}, len(currentEntity))
 	for _, item := range currentEntity {
 		persistCurrentEntityIDs[item.ID] = struct{}{}
 	}
-	persistCurrentGeometryIDs := make(map[string]struct{})
+	persistCurrentGeometryIDs := make(map[string]struct{}, len(currentGeometry))
 	for _, item := range currentGeometry {
 		persistCurrentGeometryIDs[item.ID] = struct{}{}
 	}
-	persistCurrentWikiIDs := make(map[string]struct{})
+	persistCurrentWikiIDs := make(map[string]struct{}, len(currentWiki))
 	for _, item := range currentWiki {
 		persistCurrentWikiIDs[item.ID] = struct{}{}
 	}
-	persistCurrentReplayIDs := make(map[string]struct{})
+	persistCurrentReplayIDs := make(map[string]struct{}, len(currentBattleReplay))
 	for _, item := range currentBattleReplay {
 		persistCurrentReplayIDs[item.ID] = struct{}{}
 	}
 
-	listDeleteEntities := make([]pgtype.UUID, 0)
-	listDeleteWikis := make([]pgtype.UUID, 0)
-	listDeleteGeometries := make([]pgtype.UUID, 0)
-	listDeleteBattleReplays := make([]pgtype.UUID, 0)
+	listDeleteEntities := make([]pgtype.UUID, 0, len(currentEntity))
+	listDeleteWikis := make([]pgtype.UUID, 0, len(currentWiki))
+	listDeleteGeometries := make([]pgtype.UUID, 0, len(currentGeometry))
+	listDeleteBattleReplays := make([]pgtype.UUID, 0, len(currentBattleReplay))
 
 	for _, e := range currentEntity {
 		if _, ok := persistEntityIDs[e.ID]; !ok {
@@ -654,7 +656,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 		}
 	}
 
-	refEntityIDs := []string{}
+	refEntityIDs := make([]string, 0, len(snapshotData.Entities))
 	for _, e := range snapshotData.Entities {
 		if e.Source == "ref" {
 			refEntityIDs = append(refEntityIDs, e.ID)
@@ -662,7 +664,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 	}
 
 	refEntities, _ := entityRepo.GetByIDs(ctx, refEntityIDs)
-	refEntityMap := make(map[string]bool)
+	refEntityMap := make(map[string]bool, len(refEntities))
 	for _, e := range refEntities {
 		refEntityMap[e.ID] = true
 	}
@@ -722,19 +724,19 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 	}
 	snapshotData.Entities = newEntities
 
-	refGeometryIDs := []string{}
+	refGeometryIDs := make([]string, 0, len(snapshotData.Geometries))
 	for _, g := range snapshotData.Geometries {
 		if g.Source == "ref" {
 			refGeometryIDs = append(refGeometryIDs, g.ID)
 		}
 	}
 	refGeometries, _ := geometryRepo.GetByIDs(ctx, refGeometryIDs)
-	refGeometryMap := make(map[string]bool)
+	refGeometryMap := make(map[string]bool, len(refGeometries))
 	for _, g := range refGeometries {
 		refGeometryMap[g.ID] = true
 	}
 
-	validGeometries := make(map[string]bool)
+	validGeometries := make(map[string]bool, len(snapshotData.Geometries))
 	for _, g := range snapshotData.Geometries {
 		if g.Operation != "delete" {
 			validGeometries[g.ID] = true
@@ -851,14 +853,14 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 		}
 	}
 
-	refWikiIDs := []string{}
+	refWikiIDs := make([]string, 0, len(snapshotData.Wikis))
 	for _, w := range snapshotData.Wikis {
 		if w.Source == "ref" {
 			refWikiIDs = append(refWikiIDs, w.ID)
 		}
 	}
 	refWikis, _ := wikiRepo.GetByIDs(ctx, refWikiIDs)
-	refWikiMap := make(map[string]bool)
+	refWikiMap := make(map[string]bool, len(refWikis))
 	for _, w := range refWikis {
 		refWikiMap[w.ID] = true
 	}
@@ -906,7 +908,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 				return fiber.NewError(fiber.StatusInternalServerError, "Failed to create wiki content: "+err.Error())
 			}
 
-			_ = s.c.Del(ctx, fmt.Sprintf("wiki:id:%s", wikiUUID.String()), fmt.Sprintf("wiki:slug:%s", *wiki.Slug))
+			_ = s.c.Del(ctx, cache.Key("wiki:id", wikiUUID.String()), cache.Key("wiki:slug", *wiki.Slug))
 
 			newWikis = append(newWikis, snapshotData.Wikis[i])
 
@@ -936,7 +938,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 				return fiber.NewError(fiber.StatusInternalServerError, "Failed to create wiki content: "+err.Error())
 			}
 
-			_ = s.c.Del(ctx, fmt.Sprintf("wiki:id:%s", wikiUUID.String()), fmt.Sprintf("wiki:slug:%s", *wiki.Slug))
+			_ = s.c.Del(ctx, cache.Key("wiki:id", wikiUUID.String()), cache.Key("wiki:slug", *wiki.Slug))
 
 			newWikis = append(newWikis, snapshotData.Wikis[i])
 
@@ -998,17 +1000,17 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to delete wiki entity: "+err.Error())
 	}
 
-	validEntities := make(map[string]bool)
+	validEntities := make(map[string]bool, len(snapshotData.Entities))
 	for _, e := range snapshotData.Entities {
 		validEntities[e.ID] = true
 	}
-	validWikis := make(map[string]bool)
+	validWikis := make(map[string]bool, len(snapshotData.Wikis))
 	for _, w := range snapshotData.Wikis {
 		validWikis[w.ID] = true
 	}
 
 	if len(snapshotData.GeometryEntity) > 0 {
-		geomLinks := make(map[string][]pgtype.UUID)
+		geomLinks := make(map[string][]pgtype.UUID, len(snapshotData.GeometryEntity))
 		for _, link := range snapshotData.GeometryEntity {
 			if link.Operation == "delete" {
 				continue
@@ -1034,7 +1036,7 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 	}
 
 	if len(snapshotData.EntityWiki) > 0 {
-		wikiLinks := make(map[string][]pgtype.UUID)
+		wikiLinks := make(map[string][]pgtype.UUID, len(snapshotData.EntityWiki))
 		for _, link := range snapshotData.EntityWiki {
 			if link.Operation == "delete" || (link.IsDeleted != nil && *link.IsDeleted == 1) {
 				continue
@@ -1059,8 +1061,8 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 		}
 	}
 
-	wikiDeleteIDs := make([]string, 0)
-	entityDeleteIDs := make([]string, 0)
+	wikiDeleteIDs := make([]string, 0, len(listDeleteWikis)+len(snapshotData.Wikis))
+	entityDeleteIDs := make([]string, 0, len(listDeleteEntities)+len(snapshotData.Entities))
 
 	for _, id := range listDeleteWikis {
 		wikiDeleteIDs = append(wikiDeleteIDs, convert.UUIDToString(id))
@@ -1084,6 +1086,8 @@ func (s *submissionService) applySnapshot(ctx context.Context, tx pgx.Tx, projec
 		ProjectID:       convert.UUIDToString(projectUUID),
 		DeleteWikiIDs:   wikiDeleteIDs,
 		DeleteEntityIDs: entityDeleteIDs,
+		Wikis:           make([]*models.RagWikiItem, 0, len(snapshotData.Wikis)),
+		Entities:        make([]*models.RagEntityItem, 0, len(snapshotData.Entities)),
 	}
 
 	for _, wiki := range snapshotData.Wikis {
@@ -1118,10 +1122,10 @@ func (s *submissionService) clearProjectItems(ctx context.Context, tx pgx.Tx, pr
 
 	projectIDStr := convert.UUIDToString(projectUUID)
 	_ = s.c.Del(ctx,
-		fmt.Sprintf("entity:project:%s", projectIDStr),
-		fmt.Sprintf("geometry:project:%s", projectIDStr),
-		fmt.Sprintf("wiki:project:%s", projectIDStr),
-		fmt.Sprintf("battle_replay:project:%s", projectIDStr),
+		cache.Key("entity:project", projectIDStr),
+		cache.Key("geometry:project", projectIDStr),
+		cache.Key("wiki:project", projectIDStr),
+		cache.Key("battle_replay:project", projectIDStr),
 	)
 
 	currentEntity, _ := entityRepo.GetByProjectID(ctx, projectUUID)
@@ -1129,28 +1133,28 @@ func (s *submissionService) clearProjectItems(ctx context.Context, tx pgx.Tx, pr
 	currentWiki, _ := wikiRepo.GetByProjectID(ctx, projectUUID)
 	currentBattleReplay, _ := battleReplayRepo.GetByProjectID(ctx, projectUUID)
 
-	var entityIDs []pgtype.UUID
+	entityIDs := make([]pgtype.UUID, 0, len(currentEntity))
 	for _, e := range currentEntity {
 		id, err := convert.StringToUUID(e.ID)
 		if err == nil {
 			entityIDs = append(entityIDs, id)
 		}
 	}
-	var geometryIDs []pgtype.UUID
+	geometryIDs := make([]pgtype.UUID, 0, len(currentGeometry))
 	for _, g := range currentGeometry {
 		id, err := convert.StringToUUID(g.ID)
 		if err == nil {
 			geometryIDs = append(geometryIDs, id)
 		}
 	}
-	var wikiIDs []pgtype.UUID
+	wikiIDs := make([]pgtype.UUID, 0, len(currentWiki))
 	for _, w := range currentWiki {
 		id, err := convert.StringToUUID(w.ID)
 		if err == nil {
 			wikiIDs = append(wikiIDs, id)
 		}
 	}
-	var replayIDs []pgtype.UUID
+	replayIDs := make([]pgtype.UUID, 0, len(currentBattleReplay))
 	for _, br := range currentBattleReplay {
 		id, err := convert.StringToUUID(br.ID)
 		if err == nil {
@@ -1161,7 +1165,7 @@ func (s *submissionService) clearProjectItems(ctx context.Context, tx pgx.Tx, pr
 	if len(entityIDs) > 0 {
 		_ = entityRepo.DeleteByIDs(ctx, entityIDs)
 		for _, e := range currentEntity {
-			_ = s.c.Del(ctx, fmt.Sprintf("entity:slug:%s", e.Slug))
+			_ = s.c.Del(ctx, cache.Key("entity:slug", e.Slug))
 		}
 	}
 	if len(geometryIDs) > 0 {
@@ -1170,7 +1174,7 @@ func (s *submissionService) clearProjectItems(ctx context.Context, tx pgx.Tx, pr
 	if len(wikiIDs) > 0 {
 		_ = wikiRepo.DeleteByIDs(ctx, wikiIDs)
 		for _, w := range currentWiki {
-			_ = s.c.Del(ctx, fmt.Sprintf("wiki:slug:%s", w.Slug))
+			_ = s.c.Del(ctx, cache.Key("wiki:slug", w.Slug))
 		}
 	}
 	if len(replayIDs) > 0 {
@@ -1180,11 +1184,11 @@ func (s *submissionService) clearProjectItems(ctx context.Context, tx pgx.Tx, pr
 	_ = geometryRepo.DeleteEntityGeometriesByProjectID(ctx, projectUUID)
 	_ = wikiRepo.DeleteEntityWikisByProjectID(ctx, projectUUID)
 
-	var entityDeleteIDs []string
+	entityDeleteIDs := make([]string, 0, len(currentEntity))
 	for _, e := range currentEntity {
 		entityDeleteIDs = append(entityDeleteIDs, e.ID)
 	}
-	var wikiDeleteIDs []string
+	wikiDeleteIDs := make([]string, 0, len(currentWiki))
 	for _, w := range currentWiki {
 		wikiDeleteIDs = append(wikiDeleteIDs, w.ID)
 	}

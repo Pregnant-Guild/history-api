@@ -2,10 +2,10 @@ package repositories
 
 import (
 	"context"
-	"fmt"
 	"history-api/internal/models"
 	"history-api/pkg/cache"
 	"history-api/pkg/constants"
+	"strconv"
 )
 
 type TokenRepository interface {
@@ -33,23 +33,27 @@ func NewTokenRepository(c cache.Cache) TokenRepository {
 	}
 }
 
+func tokenTypeValue(t constants.TokenType) string {
+	return strconv.Itoa(int(t.Value()))
+}
+
 func (t *tokenRepository) CreateVerified(ctx context.Context, email string, tokenType constants.TokenType, id string) error {
-	cacheKey := fmt.Sprintf("token:verified:%d:%s:%s", tokenType.Value(), email, id)
+	cacheKey := cache.Key2("token:verified:"+tokenTypeValue(tokenType), email, id)
 	return t.c.Set(ctx, cacheKey, true, constants.TokenVerifiedDuration)
 }
 
 func (t *tokenRepository) DeleteVerified(ctx context.Context, email string, tokenType constants.TokenType, id string) error {
-	cacheKey := fmt.Sprintf("token:verified:%d:%s:%s", tokenType.Value(), email, id)
+	cacheKey := cache.Key2("token:verified:"+tokenTypeValue(tokenType), email, id)
 	return t.c.Del(ctx, cacheKey)
 }
 func (t *tokenRepository) CheckVerified(ctx context.Context, email string, tokenType constants.TokenType, id string) (bool, error) {
-	cacheKey := fmt.Sprintf("token:verified:%d:%s:%s", tokenType.Value(), email, id)
+	cacheKey := cache.Key2("token:verified:"+tokenTypeValue(tokenType), email, id)
 	exists, err := t.c.Exists(ctx, cacheKey)
 	return exists, err
 }
 
 func (t *tokenRepository) CreateUploadToken(ctx context.Context, userId string, token *models.TokenUploadEntity) error {
-	cacheKey := fmt.Sprintf("token:%d:%s:%s", constants.TokenTypeUpload.Value(), userId, token.ID)
+	cacheKey := cache.Key2("token:"+tokenTypeValue(constants.TokenTypeUpload), userId, token.ID)
 	err := t.c.Set(ctx, cacheKey, token, constants.TokenUploadDuration)
 	if err != nil {
 		return err
@@ -58,7 +62,7 @@ func (t *tokenRepository) CreateUploadToken(ctx context.Context, userId string, 
 }
 
 func (t *tokenRepository) GetUploadToken(ctx context.Context, userId string, id string) (*models.TokenUploadEntity, error) {
-	cacheKey := fmt.Sprintf("token:%d:%s:%s", constants.TokenTypeUpload.Value(), userId, id)
+	cacheKey := cache.Key2("token:"+tokenTypeValue(constants.TokenTypeUpload), userId, id)
 	var token models.TokenUploadEntity
 	err := t.c.Get(ctx, cacheKey, &token)
 	if err != nil {
@@ -68,35 +72,35 @@ func (t *tokenRepository) GetUploadToken(ctx context.Context, userId string, id 
 }
 
 func (t *tokenRepository) DeleteUploadToken(ctx context.Context, userId string, id string) error {
-	cacheKey := fmt.Sprintf("token:%d:%s:%s", constants.TokenTypeUpload.Value(), userId, id)
+	cacheKey := cache.Key2("token:"+tokenTypeValue(constants.TokenTypeUpload), userId, id)
 	return t.c.Del(ctx, cacheKey)
 }
 
 func (t *tokenRepository) CheckCooldown(ctx context.Context, email string, tokenType constants.TokenType) (bool, error) {
-	cacheKey := fmt.Sprintf("token:cooldown:%d:%s", tokenType.Value(), email)
+	cacheKey := cache.Key("token:cooldown:"+tokenTypeValue(tokenType), email)
 	exists, err := t.c.Exists(ctx, cacheKey)
 	return exists, err
 }
 
 func (t *tokenRepository) Create(ctx context.Context, token *models.TokenEntity) error {
-	cacheKey := fmt.Sprintf("token:%d:%s", token.TokenType.Value(), token.Email)
+	cacheKey := cache.Key("token:"+tokenTypeValue(token.TokenType), token.Email)
 	err := t.c.Set(ctx, cacheKey, token, constants.TokenExpirationDuration)
 	if err != nil {
 		return err
 	}
-	cooldownKey := fmt.Sprintf("token:cooldown:%d:%s", token.TokenType.Value(), token.Email)
+	cooldownKey := cache.Key("token:cooldown:"+tokenTypeValue(token.TokenType), token.Email)
 	return t.c.Set(ctx, cooldownKey, true, constants.TokenCooldownDuration)
 }
 
 func (t *tokenRepository) Delete(ctx context.Context, email string, tokenType constants.TokenType) error {
-	cacheKey := fmt.Sprintf("token:%d:%s", tokenType.Value(), email)
-	cooldownKey := fmt.Sprintf("token:cooldown:%d:%s", tokenType.Value(), email)
+	cacheKey := cache.Key("token:"+tokenTypeValue(tokenType), email)
+	cooldownKey := cache.Key("token:cooldown:"+tokenTypeValue(tokenType), email)
 	_ = t.c.Del(ctx, cooldownKey)
 	return t.c.Del(ctx, cacheKey)
 }
 
 func (t *tokenRepository) Get(ctx context.Context, email string, tokenType constants.TokenType) (*models.TokenEntity, error) {
-	cacheKey := fmt.Sprintf("token:%d:%s", tokenType.Value(), email)
+	cacheKey := cache.Key("token:"+tokenTypeValue(tokenType), email)
 	var token models.TokenEntity
 	err := t.c.Get(ctx, cacheKey, &token)
 	if err != nil {

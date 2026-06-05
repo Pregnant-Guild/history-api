@@ -34,7 +34,7 @@ func (b *BattleReplayEntity) ToResponse() *response.BattleReplayResponse {
 }
 
 func BattleReplaysEntityToResponse(bs []*BattleReplayEntity) []*response.BattleReplayResponse {
-	out := make([]*response.BattleReplayResponse, 0)
+	out := make([]*response.BattleReplayResponse, 0, len(bs))
 	if bs == nil {
 		return out
 	}

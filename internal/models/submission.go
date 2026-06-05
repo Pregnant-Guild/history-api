@@ -1,9 +1,9 @@
 package models
 
 import (
-	"encoding/json"
 	"history-api/internal/dtos/response"
 	"history-api/pkg/constants"
+	json "history-api/pkg/jsonx"
 	"time"
 )
 
@@ -65,7 +65,7 @@ func (s *SubmissionEntity) ToResponse() *response.SubmissionResponse {
 }
 
 func SubmissionsEntityToResponse(submissions []*SubmissionEntity) []*response.SubmissionResponse {
-	out := make([]*response.SubmissionResponse, 0)
+	out := make([]*response.SubmissionResponse, 0, len(submissions))
 	if submissions == nil {
 		return out
 	}

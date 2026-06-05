@@ -61,7 +61,7 @@ func (r *RoleEntity) ToRoleSimple() *RoleSimple {
 }
 
 func RolesEntityToResponse(rs []*RoleEntity) []*response.RoleResponse {
-	out := make([]*response.RoleResponse, 0)
+	out := make([]*response.RoleResponse, 0, len(rs))
 	if rs == nil {
 		return out
 	}
@@ -75,7 +75,7 @@ func RolesEntityToResponse(rs []*RoleEntity) []*response.RoleResponse {
 }
 
 func RolesEntityToRoleConstant(rs []*RoleSimple) []constants.RoleType {
-	out := make([]constants.RoleType, 0)
+	out := make([]constants.RoleType, 0, len(rs))
 	if rs == nil {
 		return out
 	}

@@ -19,6 +19,8 @@ type RagUtils struct {
 	embedder *embeddings.EmbedderImpl
 }
 
+var htmlTagRegex = regexp.MustCompile(`<[^>]*>`)
+
 func NewRagUtils() (*RagUtils, error) {
 	openRouterAPIKey, err := config.GetConfig("OPEN_ROUTER_API")
 	if err != nil {
@@ -57,8 +59,7 @@ func NewRagUtils() (*RagUtils, error) {
 }
 
 func (u *RagUtils) StripHTML(text string) string {
-	re := regexp.MustCompile(`<[^>]*>`)
-	text = re.ReplaceAllString(text, " ")
+	text = htmlTagRegex.ReplaceAllString(text, " ")
 	return html.UnescapeString(text)
 }
 

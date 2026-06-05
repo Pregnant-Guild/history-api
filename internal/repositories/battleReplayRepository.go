@@ -2,8 +2,7 @@ package repositories
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	json "history-api/pkg/jsonx"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -66,14 +65,14 @@ func (r *battleReplayRepository) getByIDsWithFallback(ctx context.Context, ids [
 	}
 	keys := make([]string, len(ids))
 	for i, id := range ids {
-		keys[i] = fmt.Sprintf("battle_replay:id:%s", id)
+		keys[i] = cache.Key("battle_replay:id", id)
 	}
 	raws := r.c.MGet(ctx, keys...)
 
-	var items []*models.BattleReplayEntity
-	missingToCache := make(map[string]any)
+	items := make([]*models.BattleReplayEntity, 0, len(ids))
+	missingToCache := make(map[string]any, len(ids))
 
-	var missingPgIds []pgtype.UUID
+	missingPgIds := make([]pgtype.UUID, 0, len(ids))
 	for i, b := range raws {
 		if len(b) == 0 {
 			pgId := pgtype.UUID{}
@@ -84,7 +83,7 @@ func (r *battleReplayRepository) getByIDsWithFallback(ctx context.Context, ids [
 		}
 	}
 
-	dbMap := make(map[string]*models.BattleReplayEntity)
+	dbMap := make(map[string]*models.BattleReplayEntity, len(missingPgIds))
 	if len(missingPgIds) > 0 {
 		dbRows, err := r.q.GetBattleReplaysByIDs(ctx, missingPgIds)
 		if err == nil {
@@ -121,7 +120,7 @@ func (r *battleReplayRepository) GetByIDs(ctx context.Context, ids []string) ([]
 }
 
 func (r *battleReplayRepository) GetByID(ctx context.Context, id pgtype.UUID) (*models.BattleReplayEntity, error) {
-	cacheId := fmt.Sprintf("battle_replay:id:%s", convert.UUIDToString(id))
+	cacheId := cache.Key("battle_replay:id", convert.UUIDToString(id))
 	var item models.BattleReplayEntity
 	err := r.c.Get(ctx, cacheId, &item)
 	if err == nil {
@@ -141,7 +140,7 @@ func (r *battleReplayRepository) GetByID(ctx context.Context, id pgtype.UUID) (*
 }
 
 func (r *battleReplayRepository) GetByGeometryID(ctx context.Context, geometryID pgtype.UUID) ([]*models.BattleReplayEntity, error) {
-	cacheKey := fmt.Sprintf("battle_replay:geometry:%s", convert.UUIDToString(geometryID))
+	cacheKey := cache.Key("battle_replay:geometry", convert.UUIDToString(geometryID))
 	var cachedIDs []string
 	err := r.c.Get(ctx, cacheKey, &cachedIDs)
 	if err == nil {
@@ -156,15 +155,15 @@ func (r *battleReplayRepository) GetByGeometryID(ctx context.Context, geometryID
 		return nil, err
 	}
 
-	var items []*models.BattleReplayEntity
-	var ids []string
-	itemToCache := make(map[string]any)
+	items := make([]*models.BattleReplayEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	itemToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		item := r.rowToEntity(row)
 		ids = append(ids, item.ID)
 		items = append(items, item)
-		itemToCache[fmt.Sprintf("battle_replay:id:%s", item.ID)] = item
+		itemToCache[cache.Key("battle_replay:id", item.ID)] = item
 	}
 
 	if len(itemToCache) > 0 {
@@ -180,7 +179,7 @@ func (r *battleReplayRepository) GetByGeometryIDs(ctx context.Context, geometryI
 		return []*models.BattleReplayEntity{}, nil
 	}
 
-	var pgIds []pgtype.UUID
+	pgIds := make([]pgtype.UUID, 0, len(geometryIDs))
 	for _, id := range geometryIDs {
 		pgId := pgtype.UUID{}
 		if err := pgId.Scan(id); err == nil {
@@ -193,13 +192,13 @@ func (r *battleReplayRepository) GetByGeometryIDs(ctx context.Context, geometryI
 		return nil, err
 	}
 
-	var items []*models.BattleReplayEntity
-	itemToCache := make(map[string]any)
+	items := make([]*models.BattleReplayEntity, 0, len(rows))
+	itemToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		item := r.rowToEntity(row)
 		items = append(items, item)
-		itemToCache[fmt.Sprintf("battle_replay:id:%s", item.ID)] = item
+		itemToCache[cache.Key("battle_replay:id", item.ID)] = item
 	}
 
 	if len(itemToCache) > 0 {
@@ -210,7 +209,7 @@ func (r *battleReplayRepository) GetByGeometryIDs(ctx context.Context, geometryI
 }
 
 func (r *battleReplayRepository) GetByProjectID(ctx context.Context, projectID pgtype.UUID) ([]*models.BattleReplayEntity, error) {
-	cacheKey := fmt.Sprintf("battle_replay:project:%s", convert.UUIDToString(projectID))
+	cacheKey := cache.Key("battle_replay:project", convert.UUIDToString(projectID))
 	var cachedIDs []string
 	err := r.c.Get(ctx, cacheKey, &cachedIDs)
 	if err == nil {
@@ -225,15 +224,15 @@ func (r *battleReplayRepository) GetByProjectID(ctx context.Context, projectID p
 		return nil, err
 	}
 
-	var items []*models.BattleReplayEntity
-	var ids []string
-	itemToCache := make(map[string]any)
+	items := make([]*models.BattleReplayEntity, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	itemToCache := make(map[string]any, len(rows))
 
 	for _, row := range rows {
 		item := r.rowToEntity(row)
 		ids = append(ids, item.ID)
 		items = append(items, item)
-		itemToCache[fmt.Sprintf("battle_replay:id:%s", item.ID)] = item
+		itemToCache[cache.Key("battle_replay:id", item.ID)] = item
 	}
 
 	if len(itemToCache) > 0 {
@@ -252,8 +251,8 @@ func (r *battleReplayRepository) Create(ctx context.Context, params sqlc.CreateB
 
 	entity := r.rowToEntity(row)
 
-	_ = r.c.Del(ctx, fmt.Sprintf("battle_replay:project:%s", entity.ProjectID))
-	_ = r.c.Del(ctx, fmt.Sprintf("battle_replay:geometry:%s", entity.GeometryID))
+	_ = r.c.Del(ctx, cache.Key("battle_replay:project", entity.ProjectID))
+	_ = r.c.Del(ctx, cache.Key("battle_replay:geometry", entity.GeometryID))
 
 	return entity, nil
 }
@@ -265,7 +264,7 @@ func (r *battleReplayRepository) Update(ctx context.Context, params sqlc.UpdateB
 	}
 
 	entity := r.rowToEntity(row)
-	_ = r.c.Del(ctx, fmt.Sprintf("battle_replay:id:%s", entity.ID))
+	_ = r.c.Del(ctx, cache.Key("battle_replay:id", entity.ID))
 	return entity, nil
 }
 
@@ -274,7 +273,7 @@ func (r *battleReplayRepository) Delete(ctx context.Context, id pgtype.UUID) err
 	if err != nil {
 		return err
 	}
-	_ = r.c.Del(ctx, fmt.Sprintf("battle_replay:id:%s", convert.UUIDToString(id)))
+	_ = r.c.Del(ctx, cache.Key("battle_replay:id", convert.UUIDToString(id)))
 	return nil
 }
 
@@ -286,7 +285,7 @@ func (r *battleReplayRepository) DeleteByIDs(ctx context.Context, ids []pgtype.U
 	if len(ids) > 0 {
 		keys := make([]string, len(ids))
 		for i, id := range ids {
-			keys[i] = fmt.Sprintf("battle_replay:id:%s", convert.UUIDToString(id))
+			keys[i] = cache.Key("battle_replay:id", convert.UUIDToString(id))
 		}
 		_ = r.c.Del(ctx, keys...)
 	}

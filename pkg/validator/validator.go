@@ -107,9 +107,10 @@ type ErrorResponse struct {
 
 func formatValidationError(err error) []*ErrorResponse {
 	var validationErrors validator.ValidationErrors
-	var errorsList []*ErrorResponse
+	errorsList := make([]*ErrorResponse, 0, 1)
 
 	if errors.As(err, &validationErrors) {
+		errorsList = make([]*ErrorResponse, 0, len(validationErrors))
 		for _, fieldError := range validationErrors {
 			message := ""
 			switch fieldError.Tag() {

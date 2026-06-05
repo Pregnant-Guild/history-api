@@ -109,8 +109,13 @@ func (s *entityService) GetEntitiesByGeometryIDs(ctx context.Context, req *reque
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch entity IDs by geometry IDs")
 	}
 
-	entityIDMap := make(map[string]struct{})
-	var allEntityIDs []string
+	totalEntityIDs := 0
+	for _, eIDs := range mapping {
+		totalEntityIDs += len(eIDs)
+	}
+
+	entityIDMap := make(map[string]struct{}, totalEntityIDs)
+	allEntityIDs := make([]string, 0, totalEntityIDs)
 	for _, eIDs := range mapping {
 		for _, eID := range eIDs {
 			if _, ok := entityIDMap[eID]; !ok {
@@ -125,15 +130,16 @@ func (s *entityService) GetEntitiesByGeometryIDs(ctx context.Context, req *reque
 		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch entities")
 	}
 
-	entitiesByID := make(map[string]*models.EntityEntity)
+	entitiesByID := make(map[string]*models.EntityEntity, len(entities))
 	for _, e := range entities {
 		entitiesByID[e.ID] = e
 	}
 
-	result := make(map[string][]*response.EntityResponse)
+	result := make(map[string][]*response.EntityResponse, len(req.GeometryIDs))
 	for _, idStr := range req.GeometryIDs {
-		result[idStr] = make([]*response.EntityResponse, 0)
-		if eIDs, exists := mapping[idStr]; exists {
+		eIDs, exists := mapping[idStr]
+		result[idStr] = make([]*response.EntityResponse, 0, len(eIDs))
+		if exists {
 			for _, eID := range eIDs {
 				if e, found := entitiesByID[eID]; found {
 					result[idStr] = append(result[idStr], e.ToResponse())
