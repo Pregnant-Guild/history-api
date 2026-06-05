@@ -150,12 +150,14 @@ func normalizeAnswer(s string) string {
 	end := strings.LastIndex(s, "</answer>")
 
 	if start >= 0 && end > start {
-		return strings.TrimSpace(s[start : end+len("</answer>")])
+		return strings.TrimSpace(s[start+len("<answer>") : end])
 	}
 
 	s = strings.TrimSpace(strings.TrimPrefix(s, "Answer:"))
+	s = strings.TrimSpace(strings.TrimPrefix(s, "<answer>"))
+	s = strings.TrimSpace(strings.TrimSuffix(s, "</answer>"))
 
-	return fmt.Sprintf("<answer>%s</answer>", s)
+	return s
 }
 func (s *chatbotService) GetHistory(ctx context.Context, userID string, dto *request.GetChatbotHistoryDto) ([]*models.ChatbotHistoryEntity, error) {
 	pgUserID, err := convert.StringToUUID(userID)
