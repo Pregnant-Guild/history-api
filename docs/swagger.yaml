@@ -2681,6 +2681,8 @@ paths:
         - entity-wiki
         - geometry-entity
         - entity-geometry
+        - entity-geometry-child
+        - entity-geometry-alone
         in: query
         name: type
         required: true

@@ -2970,7 +2970,9 @@ const docTemplate = `{
                             "wiki-entity",
                             "entity-wiki",
                             "geometry-entity",
-                            "entity-geometry"
+                            "entity-geometry",
+                            "entity-geometry-child",
+                            "entity-geometry-alone"
                         ],
                         "type": "string",
                         "name": "type",
