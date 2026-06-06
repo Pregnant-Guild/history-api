@@ -32,6 +32,7 @@ type GeometryRepository interface {
 	BulkDeleteEntityGeometriesByGeometryID(ctx context.Context, geometryID pgtype.UUID) error
 	DeleteEntityGeometry(ctx context.Context, entityID pgtype.UUID, geometryID pgtype.UUID) error
 	DeleteEntityGeometriesByProjectID(ctx context.Context, projectID pgtype.UUID) error
+	GetGeometryIDsByEntityIDs(ctx context.Context, entityIDs []string) (map[string][]string, error)
 	WithTx(tx pgx.Tx) GeometryRepository
 }
 
@@ -565,3 +566,63 @@ func (r *geometryRepository) SearchByEntityName(ctx context.Context, params sqlc
 
 	return geometries, nil
 }
+
+func (r *geometryRepository) GetGeometryIDsByEntityIDs(ctx context.Context, entityIDs []string) (map[string][]string, error) {
+	if len(entityIDs) == 0 {
+		return make(map[string][]string), nil
+	}
+
+	keys := make([]string, len(entityIDs))
+	for i, id := range entityIDs {
+		keys[i] = cache.Key("entity_geometries:entity", id)
+	}
+
+	raws := r.c.MGet(ctx, keys...)
+	result := make(map[string][]string, len(entityIDs))
+	missingEntityIDs := make([]string, 0, len(entityIDs))
+	missingPgIDs := make([]pgtype.UUID, 0, len(entityIDs))
+
+	for i, b := range raws {
+		if len(b) > 0 {
+			var geometryIDs []string
+			if err := json.Unmarshal(b, &geometryIDs); err == nil {
+				result[entityIDs[i]] = geometryIDs
+				continue
+			}
+		}
+		missingEntityIDs = append(missingEntityIDs, entityIDs[i])
+		pgID, err := convert.StringToUUID(entityIDs[i])
+		if err == nil {
+			missingPgIDs = append(missingPgIDs, pgID)
+		}
+	}
+
+	if len(missingPgIDs) > 0 {
+		rows, err := r.q.GetGeometryIDsByEntityIDs(ctx, missingPgIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		dbMap := make(map[string][]string, len(missingEntityIDs))
+		for _, id := range missingEntityIDs {
+			dbMap[id] = []string{}
+		}
+		for _, row := range rows {
+			eID := convert.UUIDToString(row.EntityID)
+			gID := convert.UUIDToString(row.GeometryID)
+			dbMap[eID] = append(dbMap[eID], gID)
+		}
+
+		missingToCache := make(map[string]any, len(dbMap))
+		for eID, gIDs := range dbMap {
+			result[eID] = gIDs
+			missingToCache[cache.Key("entity_geometries:entity", eID)] = gIDs
+		}
+		if len(missingToCache) > 0 {
+			_ = r.c.MSet(ctx, missingToCache, constants.NormalCacheDuration)
+		}
+	}
+
+	return result, nil
+}
+

@@ -162,6 +162,7 @@ func (s *FiberServer) SetupServer(
 	statisticService := services.NewStatisticService(statisticRepo)
 	battleReplayService := services.NewBattleReplayService(battleReplayRepo)
 	goongService := services.NewGoongService(redis)
+	relationService := services.NewRelationService(wikiRepo, entityRepo, geometryRepo)
 
 	// controller setup
 	authController := controllers.NewAuthController(authService, oauth)
@@ -181,6 +182,7 @@ func (s *FiberServer) SetupServer(
 	statisticController := controllers.NewStatisticController(statisticService)
 	battleReplayController := controllers.NewBattleReplayController(battleReplayService)
 	goongController := controllers.NewGoongController(goongService)
+	relationController := controllers.NewRelationController(relationService)
 
 	// route setup
 	routes.AuthRoutes(s.App, authController, userRepo)
@@ -193,11 +195,12 @@ func (s *FiberServer) SetupServer(
 	routes.EntityRoutes(s.App, entityController)
 	routes.GeometryRoutes(s.App, geometryController)
 	routes.WikiRoutes(s.App, wikiController)
-	routes.RelationRoutes(s.App, wikiController, entityController)
+	routes.RelationRoutes(s.App, wikiController, entityController, relationController)
 	routes.ProjectRoutes(s.App, projectController, commitController, userRepo)
 	routes.SubmissionRoutes(s.App, submissionController, userRepo)
 	routes.ChatbotRoutes(s.App, chatbotController, userRepo)
 	routes.StatisticRoutes(s.App, statisticController, userRepo)
+
 	routes.BattleReplayRoutes(s.App, battleReplayController)
 	routes.GoongRoutes(s.App, goongController)
 	routes.NotFoundRoute(s.App)

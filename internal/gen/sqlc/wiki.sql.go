@@ -188,6 +188,37 @@ func (q *Queries) DeleteWikisByIDs(ctx context.Context, dollar_1 []pgtype.UUID) 
 	return err
 }
 
+const getEntityIDsByWikiIDs = `-- name: GetEntityIDsByWikiIDs :many
+SELECT wiki_id, entity_id
+FROM entity_wikis
+WHERE wiki_id = ANY($1::uuid[])
+`
+
+type GetEntityIDsByWikiIDsRow struct {
+	WikiID   pgtype.UUID `json:"wiki_id"`
+	EntityID pgtype.UUID `json:"entity_id"`
+}
+
+func (q *Queries) GetEntityIDsByWikiIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetEntityIDsByWikiIDsRow, error) {
+	rows, err := q.db.Query(ctx, getEntityIDsByWikiIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetEntityIDsByWikiIDsRow{}
+	for rows.Next() {
+		var i GetEntityIDsByWikiIDsRow
+		if err := rows.Scan(&i.WikiID, &i.EntityID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getWikiById = `-- name: GetWikiById :one
 SELECT id, project_id, title, slug, is_deleted, created_at, updated_at
 FROM wikis

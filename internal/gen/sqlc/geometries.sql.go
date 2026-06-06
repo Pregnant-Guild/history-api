@@ -538,6 +538,37 @@ func (q *Queries) GetGeometryById(ctx context.Context, id pgtype.UUID) (GetGeome
 	return i, err
 }
 
+const getGeometryIDsByEntityIDs = `-- name: GetGeometryIDsByEntityIDs :many
+SELECT entity_id, geometry_id
+FROM entity_geometries
+WHERE entity_id = ANY($1::uuid[])
+`
+
+type GetGeometryIDsByEntityIDsRow struct {
+	EntityID   pgtype.UUID `json:"entity_id"`
+	GeometryID pgtype.UUID `json:"geometry_id"`
+}
+
+func (q *Queries) GetGeometryIDsByEntityIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetGeometryIDsByEntityIDsRow, error) {
+	rows, err := q.db.Query(ctx, getGeometryIDsByEntityIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetGeometryIDsByEntityIDsRow{}
+	for rows.Next() {
+		var i GetGeometryIDsByEntityIDsRow
+		if err := rows.Scan(&i.EntityID, &i.GeometryID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchGeometries = `-- name: SearchGeometries :many
 SELECT 
     g.id, g.geo_type, g.draw_geometry, g.bound_with, g.time_start, g.time_end, g.project_id,

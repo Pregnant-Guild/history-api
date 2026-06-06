@@ -82,6 +82,7 @@ definitions:
       project_id:
         type: string
       question:
+        maxLength: 500
         type: string
     required:
     - question
@@ -1327,6 +1328,11 @@ paths:
       - in: query
         name: has_bound
         type: boolean
+      - in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
       - in: query
         maximum: 90
         minimum: -90
@@ -2655,6 +2661,48 @@ paths:
       summary: Get raster tile metadata
       tags:
       - Tile
+  /relations:
+    get:
+      consumes:
+      - application/json
+      description: Get relations by type (wiki-entity, entity-wiki, geometry-entity,
+        entity-geometry) and list of IDs
+      parameters:
+      - collectionFormat: csv
+        in: query
+        items:
+          type: string
+        minItems: 1
+        name: ids
+        required: true
+        type: array
+      - enum:
+        - wiki-entity
+        - entity-wiki
+        - geometry-entity
+        - entity-geometry
+        in: query
+        name: type
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/history-api_internal_dtos_response.CommonResponse'
+      summary: Get generalized batch relations
+      tags:
+      - Relations
   /relations/entities-by-geometries:
     get:
       consumes:

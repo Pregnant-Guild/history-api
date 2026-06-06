@@ -896,6 +896,13 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
                         "maximum": 90,
                         "minimum": -90,
                         "type": "number",
@@ -2933,6 +2940,66 @@ const docTemplate = `{
                 }
             }
         },
+        "/relations": {
+            "get": {
+                "description": "Get relations by type (wiki-entity, entity-wiki, geometry-entity, entity-geometry) and list of IDs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Relations"
+                ],
+                "summary": "Get generalized batch relations",
+                "parameters": [
+                    {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "name": "ids",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "wiki-entity",
+                            "entity-wiki",
+                            "geometry-entity",
+                            "entity-geometry"
+                        ],
+                        "type": "string",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/history-api_internal_dtos_response.CommonResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/relations/entities-by-geometries": {
             "get": {
                 "description": "Get entities grouped by geometry IDs",
@@ -4900,7 +4967,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "question": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 500
                 }
             }
         },

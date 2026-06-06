@@ -6,9 +6,16 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func RelationRoutes(router fiber.Router, wikiController *controllers.WikiController, entityController *controllers.EntityController) {
+func RelationRoutes(
+	router fiber.Router,
+	wikiController *controllers.WikiController,
+	entityController *controllers.EntityController,
+	relationController *controllers.RelationController,
+) {
 	relation := router.Group("/relations")
+	relation.Get("", relationController.GetRelations)
 	relation.Get("/wikis-by-entities", wikiController.GetWikisByEntityIDs)
 	relation.Get("/entities-by-geometries", entityController.GetEntitiesByGeometryIDs)
 	relation.Get("/wiki-contents/preview", wikiController.GetWikiContentsPreviewByIDs)
 }
+

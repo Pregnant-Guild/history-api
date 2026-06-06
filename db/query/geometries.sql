@@ -248,3 +248,9 @@ SELECT
     )::uuid[] AS replay_ids
 FROM geometries
 WHERE geometries.bound_with = $1 AND geometries.is_deleted = false;
+
+-- name: GetGeometryIDsByEntityIDs :many
+SELECT entity_id, geometry_id
+FROM entity_geometries
+WHERE entity_id = ANY($1::uuid[]);
+

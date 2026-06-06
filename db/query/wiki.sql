@@ -132,3 +132,9 @@ ORDER BY created_at DESC;
 SELECT entity_id, wiki_id
 FROM entity_wikis
 WHERE entity_id = ANY($1::uuid[]);
+
+-- name: GetEntityIDsByWikiIDs :many
+SELECT wiki_id, entity_id
+FROM entity_wikis
+WHERE wiki_id = ANY($1::uuid[]);
+
