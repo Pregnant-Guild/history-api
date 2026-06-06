@@ -21,7 +21,7 @@ type GetGeometriesByEntityIDsDto struct {
 }
 
 type GetRelationsDto struct {
-	Type string   `json:"type" query:"type" validate:"required,oneof=wiki-entity entity-wiki geometry-entity entity-geometry"`
+	Type string   `json:"type" query:"type" validate:"required,oneof=wiki-entity entity-wiki geometry-entity entity-geometry entity-geometry-bound-with"`
 	IDs  []string `json:"ids" query:"ids" validate:"required,min=1,dive,uuid"`
 }
 

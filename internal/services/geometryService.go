@@ -182,3 +182,4 @@ func (s *geometryService) SearchGeometriesByEntityName(
 		NextCursor: nextCursor,
 	}, nil
 }
+

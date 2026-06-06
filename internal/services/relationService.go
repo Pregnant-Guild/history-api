@@ -42,6 +42,10 @@ func (s *relationService) GetRelations(ctx context.Context, req *request.GetRela
 		return s.getEntitiesByGeometryIDs(ctx, req.IDs)
 	case "entity-geometry":
 		return s.getGeometriesByEntityIDs(ctx, req.IDs)
+	case "entity-geometry-child":
+		return s.getGeometriesByEntityIDsFiltered(ctx, req.IDs, true)
+	case "entity-geometry-alone":
+		return s.getGeometriesByEntityIDsFiltered(ctx, req.IDs, false)
 	default:
 		return nil, fiber.NewError(fiber.StatusBadRequest, "Unsupported relation type")
 	}
@@ -238,3 +242,55 @@ func (s *relationService) getGeometriesByEntityIDs(ctx context.Context, entityID
 
 	return result, nil
 }
+
+func (s *relationService) getGeometriesByEntityIDsFiltered(ctx context.Context, entityIDs []string, keepBoundWith bool) (map[string][]*response.GeometryResponse, *fiber.Error) {
+	mapping, err := s.geometryRepo.GetGeometryIDsByEntityIDs(ctx, entityIDs)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch geometry IDs by entity IDs")
+	}
+
+	totalGeometryIDs := 0
+	for _, gIDs := range mapping {
+		totalGeometryIDs += len(gIDs)
+	}
+
+	geometryIDMap := make(map[string]struct{}, totalGeometryIDs)
+	allGeometryIDs := make([]string, 0, totalGeometryIDs)
+	for _, gIDs := range mapping {
+		for _, gID := range gIDs {
+			if _, ok := geometryIDMap[gID]; !ok {
+				geometryIDMap[gID] = struct{}{}
+				allGeometryIDs = append(allGeometryIDs, gID)
+			}
+		}
+	}
+
+	geometries, err := s.geometryRepo.GetByIDs(ctx, allGeometryIDs)
+	if err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch geometries")
+	}
+
+	geometriesByID := make(map[string]*models.GeometryEntity, len(geometries))
+	for _, g := range geometries {
+		geometriesByID[g.ID] = g
+	}
+
+	result := make(map[string][]*response.GeometryResponse, len(entityIDs))
+	for _, idStr := range entityIDs {
+		gIDs, exists := mapping[idStr]
+		result[idStr] = make([]*response.GeometryResponse, 0, len(gIDs))
+		if exists {
+			for _, gID := range gIDs {
+				if g, found := geometriesByID[gID]; found {
+					hasBoundWith := g.BoundWith != nil && *g.BoundWith != ""
+					if (keepBoundWith && hasBoundWith) || (!keepBoundWith && !hasBoundWith) {
+						result[idStr] = append(result[idStr], g.ToResponse())
+					}
+				}
+			}
+		}
+	}
+
+	return result, nil
+}
+

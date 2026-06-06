@@ -142,3 +142,4 @@ func (h *GeometryController) GetGeometriesByBoundWith(c fiber.Ctx) error {
 		Data:   res,
 	})
 }
+

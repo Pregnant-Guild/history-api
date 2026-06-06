@@ -626,3 +626,4 @@ func (r *geometryRepository) GetGeometryIDsByEntityIDs(ctx context.Context, enti
 	return result, nil
 }
 
+
