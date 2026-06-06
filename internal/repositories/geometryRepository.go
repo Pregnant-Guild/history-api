@@ -105,6 +105,7 @@ func (r *geometryRepository) getByIDsWithFallback(ctx context.Context, ids []str
 					},
 					ProjectID: convert.UUIDToString(row.ProjectID),
 					IsDeleted: row.IsDeleted,
+					ReplayIDs: convert.ListUUIDToString(row.ReplayIds),
 					CreatedAt: convert.TimeToPtr(row.CreatedAt),
 					UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 				}
@@ -167,6 +168,7 @@ func (r *geometryRepository) GetByID(ctx context.Context, id pgtype.UUID) (*mode
 		},
 		ProjectID: convert.UUIDToString(row.ProjectID),
 		IsDeleted: row.IsDeleted,
+		ReplayIDs: convert.ListUUIDToString(row.ReplayIds),
 		CreatedAt: convert.TimeToPtr(row.CreatedAt),
 		UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 	}
@@ -210,6 +212,7 @@ func (r *geometryRepository) Search(ctx context.Context, params sqlc.SearchGeome
 			},
 			ProjectID: convert.UUIDToString(row.ProjectID),
 			IsDeleted: row.IsDeleted,
+			ReplayIDs: convert.ListUUIDToString(row.ReplayIds),
 			CreatedAt: convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 		}
@@ -342,6 +345,7 @@ func (r *geometryRepository) GetByProjectID(ctx context.Context, projectID pgtyp
 			},
 			ProjectID: convert.UUIDToString(row.ProjectID),
 			IsDeleted: row.IsDeleted,
+			ReplayIDs: convert.ListUUIDToString(row.ReplayIds),
 			CreatedAt: convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 		}
@@ -394,6 +398,7 @@ func (r *geometryRepository) GetGeometriesByBoundWith(ctx context.Context, bound
 			},
 			ProjectID: convert.UUIDToString(row.ProjectID),
 			IsDeleted: row.IsDeleted,
+			ReplayIDs: convert.ListUUIDToString(row.ReplayIds),
 			CreatedAt: convert.TimeToPtr(row.CreatedAt),
 			UpdatedAt: convert.TimeToPtr(row.UpdatedAt),
 		}
@@ -485,6 +490,7 @@ func (r *geometryRepository) getSearchByIDsWithFallback(ctx context.Context, pai
 					BoundWith:         convert.UUIDToStringPtr(row.BoundWith),
 					TimeStart:         convert.Int4ToPtr(row.TimeStart),
 					TimeEnd:           convert.Int4ToPtr(row.TimeEnd),
+					ReplayIDs:         convert.ListUUIDToString(row.ReplayIds),
 				}
 				key := cache.Key(item.EntityID, item.GeometryID)
 				dbMap[key] = item
@@ -544,6 +550,7 @@ func (r *geometryRepository) SearchByEntityName(ctx context.Context, params sqlc
 			BoundWith:         convert.UUIDToStringPtr(row.BoundWith),
 			TimeStart:         convert.Int4ToPtr(row.TimeStart),
 			TimeEnd:           convert.Int4ToPtr(row.TimeEnd),
+			ReplayIDs:         convert.ListUUIDToString(row.ReplayIds),
 		}
 		pair := cache.Key(item.EntityID, item.GeometryID)
 		geometries = append(geometries, item)

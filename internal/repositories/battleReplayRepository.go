@@ -253,6 +253,7 @@ func (r *battleReplayRepository) Create(ctx context.Context, params sqlc.CreateB
 
 	_ = r.c.Del(ctx, cache.Key("battle_replay:project", entity.ProjectID))
 	_ = r.c.Del(ctx, cache.Key("battle_replay:geometry", entity.GeometryID))
+	_ = r.c.Del(ctx, cache.Key("geometry:id", entity.GeometryID))
 
 	return entity, nil
 }
@@ -265,10 +266,16 @@ func (r *battleReplayRepository) Update(ctx context.Context, params sqlc.UpdateB
 
 	entity := r.rowToEntity(row)
 	_ = r.c.Del(ctx, cache.Key("battle_replay:id", entity.ID))
+	_ = r.c.Del(ctx, cache.Key("battle_replay:geometry", entity.GeometryID))
+	_ = r.c.Del(ctx, cache.Key("geometry:id", entity.GeometryID))
 	return entity, nil
 }
 
 func (r *battleReplayRepository) Delete(ctx context.Context, id pgtype.UUID) error {
+	if item, err := r.GetByID(ctx, id); err == nil && item != nil {
+		_ = r.c.Del(ctx, cache.Key("geometry:id", item.GeometryID))
+		_ = r.c.Del(ctx, cache.Key("battle_replay:geometry", item.GeometryID))
+	}
 	err := r.q.DeleteBattleReplay(ctx, id)
 	if err != nil {
 		return err
@@ -278,6 +285,20 @@ func (r *battleReplayRepository) Delete(ctx context.Context, id pgtype.UUID) err
 }
 
 func (r *battleReplayRepository) DeleteByIDs(ctx context.Context, ids []pgtype.UUID) error {
+	if len(ids) > 0 {
+		strIDs := make([]string, len(ids))
+		for i, id := range ids {
+			strIDs[i] = convert.UUIDToString(id)
+		}
+		if items, err := r.GetByIDs(ctx, strIDs); err == nil {
+			for _, item := range items {
+				if item != nil {
+					_ = r.c.Del(ctx, cache.Key("geometry:id", item.GeometryID))
+					_ = r.c.Del(ctx, cache.Key("battle_replay:geometry", item.GeometryID))
+				}
+			}
+		}
+	}
 	err := r.q.DeleteBattleReplaysByIDs(ctx, ids)
 	if err != nil {
 		return err

@@ -201,7 +201,13 @@ SELECT
     g.draw_geometry,
     g.bound_with,
     g.time_start,
-    g.time_end
+    g.time_end,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = g.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM (
     SELECT unnest($1::uuid[]) as eid, unnest($2::uuid[]) as gid
 ) as pairs
@@ -227,6 +233,7 @@ type GetEntityGeometriesByPairsRow struct {
 	BoundWith         pgtype.UUID     `json:"bound_with"`
 	TimeStart         pgtype.Int4     `json:"time_start"`
 	TimeEnd           pgtype.Int4     `json:"time_end"`
+	ReplayIds         []pgtype.UUID   `json:"replay_ids"`
 }
 
 func (q *Queries) GetEntityGeometriesByPairs(ctx context.Context, arg GetEntityGeometriesByPairsParams) ([]GetEntityGeometriesByPairsRow, error) {
@@ -248,6 +255,7 @@ func (q *Queries) GetEntityGeometriesByPairs(ctx context.Context, arg GetEntityG
 			&i.BoundWith,
 			&i.TimeStart,
 			&i.TimeEnd,
+			&i.ReplayIds,
 		); err != nil {
 			return nil, err
 		}
@@ -261,14 +269,20 @@ func (q *Queries) GetEntityGeometriesByPairs(ctx context.Context, arg GetEntityG
 
 const getGeometriesByBoundWith = `-- name: GetGeometriesByBoundWith :many
 SELECT 
-    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
-    ST_XMin(bbox)::float8 as min_lng, 
-    ST_YMin(bbox)::float8 as min_lat, 
-    ST_XMax(bbox)::float8 as max_lng, 
-    ST_YMax(bbox)::float8 as max_lat,
-    is_deleted, created_at, updated_at
+    geometries.id, geometries.geo_type, geometries.draw_geometry, geometries.bound_with, geometries.time_start, geometries.time_end, geometries.project_id,
+    ST_XMin(geometries.bbox)::float8 as min_lng, 
+    ST_YMin(geometries.bbox)::float8 as min_lat, 
+    ST_XMax(geometries.bbox)::float8 as max_lng, 
+    ST_YMax(geometries.bbox)::float8 as max_lat,
+    geometries.is_deleted, geometries.created_at, geometries.updated_at,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = geometries.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM geometries
-WHERE bound_with = $1 AND is_deleted = false
+WHERE geometries.bound_with = $1 AND geometries.is_deleted = false
 `
 
 type GetGeometriesByBoundWithRow struct {
@@ -286,6 +300,7 @@ type GetGeometriesByBoundWithRow struct {
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ReplayIds    []pgtype.UUID      `json:"replay_ids"`
 }
 
 func (q *Queries) GetGeometriesByBoundWith(ctx context.Context, boundWith pgtype.UUID) ([]GetGeometriesByBoundWithRow, error) {
@@ -312,6 +327,7 @@ func (q *Queries) GetGeometriesByBoundWith(ctx context.Context, boundWith pgtype
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ReplayIds,
 		); err != nil {
 			return nil, err
 		}
@@ -325,14 +341,20 @@ func (q *Queries) GetGeometriesByBoundWith(ctx context.Context, boundWith pgtype
 
 const getGeometriesByIDs = `-- name: GetGeometriesByIDs :many
 SELECT 
-    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
-    ST_XMin(bbox)::float8 as min_lng, 
-    ST_YMin(bbox)::float8 as min_lat, 
-    ST_XMax(bbox)::float8 as max_lng, 
-    ST_YMax(bbox)::float8 as max_lat,
-    is_deleted, created_at, updated_at
+    geometries.id, geometries.geo_type, geometries.draw_geometry, geometries.bound_with, geometries.time_start, geometries.time_end, geometries.project_id,
+    ST_XMin(geometries.bbox)::float8 as min_lng, 
+    ST_YMin(geometries.bbox)::float8 as min_lat, 
+    ST_XMax(geometries.bbox)::float8 as max_lng, 
+    ST_YMax(geometries.bbox)::float8 as max_lat,
+    geometries.is_deleted, geometries.created_at, geometries.updated_at,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = geometries.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM geometries 
-WHERE id = ANY($1::uuid[]) AND is_deleted = false
+WHERE geometries.id = ANY($1::uuid[]) AND geometries.is_deleted = false
 `
 
 type GetGeometriesByIDsRow struct {
@@ -350,6 +372,7 @@ type GetGeometriesByIDsRow struct {
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ReplayIds    []pgtype.UUID      `json:"replay_ids"`
 }
 
 func (q *Queries) GetGeometriesByIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetGeometriesByIDsRow, error) {
@@ -376,6 +399,7 @@ func (q *Queries) GetGeometriesByIDs(ctx context.Context, dollar_1 []pgtype.UUID
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ReplayIds,
 		); err != nil {
 			return nil, err
 		}
@@ -389,14 +413,20 @@ func (q *Queries) GetGeometriesByIDs(ctx context.Context, dollar_1 []pgtype.UUID
 
 const getGeometriesByProjectId = `-- name: GetGeometriesByProjectId :many
 SELECT 
-    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
-    ST_XMin(bbox)::float8 as min_lng, 
-    ST_YMin(bbox)::float8 as min_lat, 
-    ST_XMax(bbox)::float8 as max_lng, 
-    ST_YMax(bbox)::float8 as max_lat,
-    is_deleted, created_at, updated_at
+    geometries.id, geometries.geo_type, geometries.draw_geometry, geometries.bound_with, geometries.time_start, geometries.time_end, geometries.project_id,
+    ST_XMin(geometries.bbox)::float8 as min_lng, 
+    ST_YMin(geometries.bbox)::float8 as min_lat, 
+    ST_XMax(geometries.bbox)::float8 as max_lng, 
+    ST_YMax(geometries.bbox)::float8 as max_lat,
+    geometries.is_deleted, geometries.created_at, geometries.updated_at,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = geometries.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM geometries
-WHERE project_id = $1 AND is_deleted = false
+WHERE geometries.project_id = $1 AND geometries.is_deleted = false
 `
 
 type GetGeometriesByProjectIdRow struct {
@@ -414,6 +444,7 @@ type GetGeometriesByProjectIdRow struct {
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ReplayIds    []pgtype.UUID      `json:"replay_ids"`
 }
 
 func (q *Queries) GetGeometriesByProjectId(ctx context.Context, projectID pgtype.UUID) ([]GetGeometriesByProjectIdRow, error) {
@@ -440,6 +471,7 @@ func (q *Queries) GetGeometriesByProjectId(ctx context.Context, projectID pgtype
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ReplayIds,
 		); err != nil {
 			return nil, err
 		}
@@ -452,11 +484,17 @@ func (q *Queries) GetGeometriesByProjectId(ctx context.Context, projectID pgtype
 }
 
 const getGeometryById = `-- name: GetGeometryById :one
-SELECT id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
-    ST_XMin(bbox)::float8 as min_lng, ST_YMin(bbox)::float8 as min_lat, ST_XMax(bbox)::float8 as max_lng, ST_YMax(bbox)::float8 as max_lat,
-    is_deleted, created_at, updated_at
+SELECT geometries.id, geometries.geo_type, geometries.draw_geometry, geometries.bound_with, geometries.time_start, geometries.time_end, geometries.project_id,
+    ST_XMin(geometries.bbox)::float8 as min_lng, ST_YMin(geometries.bbox)::float8 as min_lat, ST_XMax(geometries.bbox)::float8 as max_lng, ST_YMax(geometries.bbox)::float8 as max_lat,
+    geometries.is_deleted, geometries.created_at, geometries.updated_at,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = geometries.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM geometries
-WHERE id = $1 AND is_deleted = false
+WHERE geometries.id = $1 AND geometries.is_deleted = false
 `
 
 type GetGeometryByIdRow struct {
@@ -474,6 +512,7 @@ type GetGeometryByIdRow struct {
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ReplayIds    []pgtype.UUID      `json:"replay_ids"`
 }
 
 func (q *Queries) GetGeometryById(ctx context.Context, id pgtype.UUID) (GetGeometryByIdRow, error) {
@@ -494,6 +533,7 @@ func (q *Queries) GetGeometryById(ctx context.Context, id pgtype.UUID) (GetGeome
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ReplayIds,
 	)
 	return i, err
 }
@@ -505,7 +545,13 @@ SELECT
     ST_YMin(g.bbox)::float8 as min_lat, 
     ST_XMax(g.bbox)::float8 as max_lng, 
     ST_YMax(g.bbox)::float8 as max_lat,
-    g.is_deleted, g.created_at, g.updated_at
+    g.is_deleted, g.created_at, g.updated_at,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = g.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM geometries g
 WHERE g.is_deleted = false
   AND ($1::uuid IS NULL OR g.project_id = $1::uuid)
@@ -576,6 +622,7 @@ type SearchGeometriesRow struct {
 	IsDeleted    bool               `json:"is_deleted"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ReplayIds    []pgtype.UUID      `json:"replay_ids"`
 }
 
 func (q *Queries) SearchGeometries(ctx context.Context, arg SearchGeometriesParams) ([]SearchGeometriesRow, error) {
@@ -613,6 +660,7 @@ func (q *Queries) SearchGeometries(ctx context.Context, arg SearchGeometriesPara
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ReplayIds,
 		); err != nil {
 			return nil, err
 		}
@@ -646,7 +694,13 @@ SELECT
     g.draw_geometry,
     g.bound_with,
     g.time_start,
-    g.time_end
+    g.time_end,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = g.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM matched_entities me
 LEFT JOIN entity_geometries eg
     ON eg.entity_id = me.id
@@ -663,15 +717,16 @@ type SearchGeometriesByEntityNameParams struct {
 }
 
 type SearchGeometriesByEntityNameRow struct {
-	EntityID          pgtype.UUID `json:"entity_id"`
-	EntityName        string      `json:"entity_name"`
-	EntityDescription pgtype.Text `json:"entity_description"`
-	GeometryID        pgtype.UUID `json:"geometry_id"`
-	GeoType           pgtype.Int2 `json:"geo_type"`
-	DrawGeometry      []byte      `json:"draw_geometry"`
-	BoundWith         pgtype.UUID `json:"bound_with"`
-	TimeStart         pgtype.Int4 `json:"time_start"`
-	TimeEnd           pgtype.Int4 `json:"time_end"`
+	EntityID          pgtype.UUID   `json:"entity_id"`
+	EntityName        string        `json:"entity_name"`
+	EntityDescription pgtype.Text   `json:"entity_description"`
+	GeometryID        pgtype.UUID   `json:"geometry_id"`
+	GeoType           pgtype.Int2   `json:"geo_type"`
+	DrawGeometry      []byte        `json:"draw_geometry"`
+	BoundWith         pgtype.UUID   `json:"bound_with"`
+	TimeStart         pgtype.Int4   `json:"time_start"`
+	TimeEnd           pgtype.Int4   `json:"time_end"`
+	ReplayIds         []pgtype.UUID `json:"replay_ids"`
 }
 
 func (q *Queries) SearchGeometriesByEntityName(ctx context.Context, arg SearchGeometriesByEntityNameParams) ([]SearchGeometriesByEntityNameRow, error) {
@@ -693,6 +748,7 @@ func (q *Queries) SearchGeometriesByEntityName(ctx context.Context, arg SearchGe
 			&i.BoundWith,
 			&i.TimeStart,
 			&i.TimeEnd,
+			&i.ReplayIds,
 		); err != nil {
 			return nil, err
 		}

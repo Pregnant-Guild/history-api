@@ -9,11 +9,17 @@ RETURNING id, geo_type, draw_geometry, bound_with, time_start, time_end, project
     is_deleted, created_at, updated_at;
 
 -- name: GetGeometryById :one
-SELECT id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
-    ST_XMin(bbox)::float8 as min_lng, ST_YMin(bbox)::float8 as min_lat, ST_XMax(bbox)::float8 as max_lng, ST_YMax(bbox)::float8 as max_lat,
-    is_deleted, created_at, updated_at
+SELECT geometries.id, geometries.geo_type, geometries.draw_geometry, geometries.bound_with, geometries.time_start, geometries.time_end, geometries.project_id,
+    ST_XMin(geometries.bbox)::float8 as min_lng, ST_YMin(geometries.bbox)::float8 as min_lat, ST_XMax(geometries.bbox)::float8 as max_lng, ST_YMax(geometries.bbox)::float8 as max_lat,
+    geometries.is_deleted, geometries.created_at, geometries.updated_at,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = geometries.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM geometries
-WHERE id = $1 AND is_deleted = false;
+WHERE geometries.id = $1 AND geometries.is_deleted = false;
 
 -- name: UpdateGeometry :one
 UPDATE geometries
@@ -52,7 +58,13 @@ SELECT
     ST_YMin(g.bbox)::float8 as min_lat, 
     ST_XMax(g.bbox)::float8 as max_lng, 
     ST_YMax(g.bbox)::float8 as max_lat,
-    g.is_deleted, g.created_at, g.updated_at
+    g.is_deleted, g.created_at, g.updated_at,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = g.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM geometries g
 WHERE g.is_deleted = false
   AND (sqlc.narg('project_id')::uuid IS NULL OR g.project_id = sqlc.narg('project_id')::uuid)
@@ -116,7 +128,13 @@ SELECT
     g.draw_geometry,
     g.bound_with,
     g.time_start,
-    g.time_end
+    g.time_end,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = g.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM matched_entities me
 LEFT JOIN entity_geometries eg
     ON eg.entity_id = me.id
@@ -143,25 +161,37 @@ WHERE project_id = $1;
 
 -- name: GetGeometriesByIDs :many
 SELECT 
-    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
-    ST_XMin(bbox)::float8 as min_lng, 
-    ST_YMin(bbox)::float8 as min_lat, 
-    ST_XMax(bbox)::float8 as max_lng, 
-    ST_YMax(bbox)::float8 as max_lat,
-    is_deleted, created_at, updated_at
+    geometries.id, geometries.geo_type, geometries.draw_geometry, geometries.bound_with, geometries.time_start, geometries.time_end, geometries.project_id,
+    ST_XMin(geometries.bbox)::float8 as min_lng, 
+    ST_YMin(geometries.bbox)::float8 as min_lat, 
+    ST_XMax(geometries.bbox)::float8 as max_lng, 
+    ST_YMax(geometries.bbox)::float8 as max_lat,
+    geometries.is_deleted, geometries.created_at, geometries.updated_at,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = geometries.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM geometries 
-WHERE id = ANY($1::uuid[]) AND is_deleted = false;
+WHERE geometries.id = ANY($1::uuid[]) AND geometries.is_deleted = false;
 
 -- name: GetGeometriesByProjectId :many
 SELECT 
-    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
-    ST_XMin(bbox)::float8 as min_lng, 
-    ST_YMin(bbox)::float8 as min_lat, 
-    ST_XMax(bbox)::float8 as max_lng, 
-    ST_YMax(bbox)::float8 as max_lat,
-    is_deleted, created_at, updated_at
+    geometries.id, geometries.geo_type, geometries.draw_geometry, geometries.bound_with, geometries.time_start, geometries.time_end, geometries.project_id,
+    ST_XMin(geometries.bbox)::float8 as min_lng, 
+    ST_YMin(geometries.bbox)::float8 as min_lat, 
+    ST_XMax(geometries.bbox)::float8 as max_lng, 
+    ST_YMax(geometries.bbox)::float8 as max_lat,
+    geometries.is_deleted, geometries.created_at, geometries.updated_at,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = geometries.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM geometries
-WHERE project_id = $1 AND is_deleted = false;
+WHERE geometries.project_id = $1 AND geometries.is_deleted = false;
 
 -- name: DeleteGeometriesByIDs :exec
 UPDATE geometries
@@ -186,7 +216,13 @@ SELECT
     g.draw_geometry,
     g.bound_with,
     g.time_start,
-    g.time_end
+    g.time_end,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = g.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM (
     SELECT unnest(@entity_ids::uuid[]) as eid, unnest(@geometry_ids::uuid[]) as gid
 ) as pairs
@@ -198,11 +234,17 @@ AND g.is_deleted = false;
 
 -- name: GetGeometriesByBoundWith :many
 SELECT 
-    id, geo_type, draw_geometry, bound_with, time_start, time_end, project_id,
-    ST_XMin(bbox)::float8 as min_lng, 
-    ST_YMin(bbox)::float8 as min_lat, 
-    ST_XMax(bbox)::float8 as max_lng, 
-    ST_YMax(bbox)::float8 as max_lat,
-    is_deleted, created_at, updated_at
+    geometries.id, geometries.geo_type, geometries.draw_geometry, geometries.bound_with, geometries.time_start, geometries.time_end, geometries.project_id,
+    ST_XMin(geometries.bbox)::float8 as min_lng, 
+    ST_YMin(geometries.bbox)::float8 as min_lat, 
+    ST_XMax(geometries.bbox)::float8 as max_lng, 
+    ST_YMax(geometries.bbox)::float8 as max_lat,
+    geometries.is_deleted, geometries.created_at, geometries.updated_at,
+    COALESCE(
+        (SELECT ARRAY_AGG(br.id) FROM battle_replays br
+         WHERE br.geometry_id = geometries.id
+           AND br.is_deleted = false),
+        '{}'::uuid[]
+    )::uuid[] AS replay_ids
 FROM geometries
-WHERE bound_with = $1 AND is_deleted = false;
+WHERE geometries.bound_with = $1 AND geometries.is_deleted = false;

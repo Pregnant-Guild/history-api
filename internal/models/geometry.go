@@ -16,6 +16,7 @@ type GeometryEntity struct {
 	Bbox         *response.Bbox  `json:"bbox"`
 	ProjectID    string          `json:"project_id"`
 	IsDeleted    bool            `json:"is_deleted"`
+	ReplayIDs    []string        `json:"replay_ids"`
 	CreatedAt    *time.Time      `json:"created_at"`
 	UpdatedAt    *time.Time      `json:"updated_at"`
 }
@@ -30,6 +31,7 @@ type EntityGeometriesSearchEntity struct {
 	BoundWith         *string         `json:"bound_with,omitempty"`
 	TimeStart         *int32          `json:"time_start,omitempty"`
 	TimeEnd           *int32          `json:"time_end,omitempty"`
+	ReplayIDs         []string        `json:"replay_ids,omitempty"`
 }
 
 func (g *GeometryEntity) ToResponse() *response.GeometryResponse {
@@ -46,6 +48,7 @@ func (g *GeometryEntity) ToResponse() *response.GeometryResponse {
 		Bbox:         g.Bbox,
 		ProjectID:    g.ProjectID,
 		IsDeleted:    g.IsDeleted,
+		ReplayIDs:    g.ReplayIDs,
 		CreatedAt:    g.CreatedAt,
 		UpdatedAt:    g.UpdatedAt,
 	}

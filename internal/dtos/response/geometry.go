@@ -22,6 +22,7 @@ type GeometryResponse struct {
 	Bbox         *Bbox           `json:"bbox,omitempty"`
 	ProjectID    string          `json:"project_id"`
 	IsDeleted    bool            `json:"is_deleted,omitempty"`
+	ReplayIDs    []string        `json:"replay_ids,omitempty"`
 	CreatedAt    *time.Time      `json:"created_at,omitempty"`
 	UpdatedAt    *time.Time      `json:"updated_at,omitempty"`
 }

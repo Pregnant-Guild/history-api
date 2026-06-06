@@ -21,4 +21,5 @@ type EntityGeometrySearchGeo struct {
 	BoundWith    *string         `json:"bound_with,omitempty"`
 	TimeStart    *int32          `json:"time_start,omitempty"`
 	TimeEnd      *int32          `json:"time_end,omitempty"`
+	ReplayIDs    []string        `json:"replay_ids,omitempty"`
 }

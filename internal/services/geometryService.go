@@ -163,6 +163,7 @@ func (s *geometryService) SearchGeometriesByEntityName(
 			BoundWith:    row.BoundWith,
 			TimeStart:    row.TimeStart,
 			TimeEnd:      row.TimeEnd,
+			ReplayIDs:    row.ReplayIDs,
 		})
 	}
 
