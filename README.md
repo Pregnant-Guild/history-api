@@ -128,7 +128,7 @@ history-api/
 
     FRONTEND_URL=
 
-    GOOGLE_AI_API_KEY
+    GOOGLE_AI_API_KEY=
     GOOGLE_AI_MODEL=
     GOOGLE_AI_EMBEDDING_MODEL=
 
@@ -214,4 +214,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [pgvector](https://github.com/pgvector/pgvector) - Vector similarity search for PostgreSQL
 - [LangChain Go](https://github.com/tmc/langchaingo) - Framework for LLM applications
 - [Swagger UI](https://swagger.io/tools/swagger-ui/) - Interactive API documentation
-- [MinIO](https://min.io/) - High performance S3 compatible object storage
+- [Rustfs](https://github.com/rustfs/rustfs) - High performance S3 compatible object storage
