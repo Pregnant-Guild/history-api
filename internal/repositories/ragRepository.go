@@ -15,6 +15,7 @@ import (
 type RagRepository interface {
 	SaveChunk(ctx context.Context, sourceType string, sourceID string, projectID string, index int, content string, vector []float32) error
 	SearchSimilar(ctx context.Context, projectID *string, vector []float32, limit int, threshold float64) ([]*models.RagChunk, error)
+	SearchLexical(ctx context.Context, projectID *string, terms []string, limit int) ([]*models.RagChunk, error)
 	DeleteBySourceIDs(ctx context.Context, sourceType string, sourceIDs []string) error
 	WithTx(tx pgx.Tx) RagRepository
 }
@@ -59,6 +60,38 @@ func (r *ragRepository) SearchSimilar(ctx context.Context, projectID *string, ve
 	}
 
 	rows, err := r.q.SearchRagChunks(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*models.RagChunk, len(rows))
+	for i, row := range rows {
+		res[i] = &models.RagChunk{
+			ID:         convert.UUIDToString(row.ID),
+			SourceType: row.SourceType,
+			SourceID:   convert.UUIDToString(row.SourceID),
+			ProjectID:  convert.UUIDToString(row.ProjectID),
+			ChunkIndex: row.ChunkIndex,
+			Content:    row.Content,
+			Similarity: row.Similarity,
+			CreatedAt:  row.CreatedAt.Time,
+			UpdatedAt:  row.UpdatedAt.Time,
+		}
+	}
+	return res, nil
+}
+
+func (r *ragRepository) SearchLexical(ctx context.Context, projectID *string, terms []string, limit int) ([]*models.RagChunk, error) {
+	params := sqlc.SearchRagChunksLexicalParams{
+		Terms:      terms,
+		MatchCount: int32(limit),
+	}
+	if projectID != nil && *projectID != "" {
+		pID, _ := convert.StringToUUID(*projectID)
+		params.ProjectID = pID
+	}
+
+	rows, err := r.q.SearchRagChunksLexical(ctx, params)
 	if err != nil {
 		return nil, err
 	}

@@ -140,3 +140,88 @@ func (q *Queries) SearchRagChunks(ctx context.Context, arg SearchRagChunksParams
 	}
 	return items, nil
 }
+
+const searchRagChunksLexical = `-- name: SearchRagChunksLexical :many
+WITH terms AS (
+    SELECT DISTINCT trim(term) AS term
+    FROM unnest($2::text[]) AS term
+    WHERE trim(term) <> ''
+),
+matched AS (
+    SELECT
+        r.id,
+        r.source_type,
+        r.source_id,
+        r.project_id,
+        r.chunk_index,
+        r.content,
+        r.created_at,
+        r.updated_at,
+        COUNT(*)::float8 AS similarity
+    FROM rag_chunks r
+    JOIN terms t ON r.content ILIKE '%' || t.term || '%'
+    WHERE ($3::uuid IS NULL OR r.project_id = $3::uuid)
+    GROUP BY
+        r.id,
+        r.source_type,
+        r.source_id,
+        r.project_id,
+        r.chunk_index,
+        r.content,
+        r.created_at,
+        r.updated_at
+)
+SELECT
+    id, source_type, source_id, project_id, chunk_index, content, created_at, updated_at, similarity
+FROM matched
+ORDER BY similarity DESC, chunk_index ASC
+LIMIT $1
+`
+
+type SearchRagChunksLexicalParams struct {
+	MatchCount int32       `json:"match_count"`
+	Terms      []string    `json:"terms"`
+	ProjectID  pgtype.UUID `json:"project_id"`
+}
+
+type SearchRagChunksLexicalRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	SourceType string             `json:"source_type"`
+	SourceID   pgtype.UUID        `json:"source_id"`
+	ProjectID  pgtype.UUID        `json:"project_id"`
+	ChunkIndex int32              `json:"chunk_index"`
+	Content    string             `json:"content"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	Similarity float64            `json:"similarity"`
+}
+
+func (q *Queries) SearchRagChunksLexical(ctx context.Context, arg SearchRagChunksLexicalParams) ([]SearchRagChunksLexicalRow, error) {
+	rows, err := q.db.Query(ctx, searchRagChunksLexical, arg.MatchCount, arg.Terms, arg.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchRagChunksLexicalRow{}
+	for rows.Next() {
+		var i SearchRagChunksLexicalRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceType,
+			&i.SourceID,
+			&i.ProjectID,
+			&i.ChunkIndex,
+			&i.Content,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Similarity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
