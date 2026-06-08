@@ -176,6 +176,7 @@ func (s *chatbotService) Chat(ctx context.Context, userID string, projectID *str
 	rerankStart := time.Now()
 	results = s.rerankResults(ctx, searchQuery, results, contextLimit)
 	rerankDuration := time.Since(rerankStart)
+	results = limitRagResultsByContextChars(results, config.GetIntConfigWithDefault("RAG_CONTEXT_MAX_CHARS", 8000))
 
 	promptBuildStart := time.Now()
 	var contextBuilder strings.Builder
@@ -388,6 +389,34 @@ func limitRagResults(results []*models.RagChunk, limit int) []*models.RagChunk {
 		return results
 	}
 	return results[:limit]
+}
+
+func limitRagResultsByContextChars(results []*models.RagChunk, maxChars int) []*models.RagChunk {
+	if maxChars <= 0 || len(results) == 0 {
+		return results
+	}
+
+	selected := make([]*models.RagChunk, 0, len(results))
+	used := 0
+	for _, result := range results {
+		if result == nil {
+			continue
+		}
+
+		nextLen := len(result.Content) + 64
+		if len(selected) > 0 && used+nextLen > maxChars {
+			break
+		}
+
+		selected = append(selected, result)
+		used += nextLen
+	}
+
+	if len(selected) == 0 {
+		return results[:1]
+	}
+
+	return selected
 }
 
 func normalizeAnswer(s string) string {
