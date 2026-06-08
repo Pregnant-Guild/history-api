@@ -9,7 +9,7 @@ RETURNING *;
 
 -- name: SearchRagChunks :many
 SELECT 
-    id, source_type, source_id, project_id, chunk_index, content,
+    id, source_type, source_id, project_id, chunk_index, content, created_at, updated_at,
     (1 - (embedding <=> sqlc.arg('embedding')))::float8 AS similarity
 FROM rag_chunks
 WHERE 1=1

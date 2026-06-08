@@ -74,7 +74,7 @@ func (q *Queries) DeleteRagChunksBySourceIDs(ctx context.Context, arg DeleteRagC
 
 const searchRagChunks = `-- name: SearchRagChunks :many
 SELECT 
-    id, source_type, source_id, project_id, chunk_index, content,
+    id, source_type, source_id, project_id, chunk_index, content, created_at, updated_at,
     (1 - (embedding <=> $1))::float8 AS similarity
 FROM rag_chunks
 WHERE 1=1
@@ -94,13 +94,15 @@ type SearchRagChunksParams struct {
 }
 
 type SearchRagChunksRow struct {
-	ID         pgtype.UUID `json:"id"`
-	SourceType string      `json:"source_type"`
-	SourceID   pgtype.UUID `json:"source_id"`
-	ProjectID  pgtype.UUID `json:"project_id"`
-	ChunkIndex int32       `json:"chunk_index"`
-	Content    string      `json:"content"`
-	Similarity float64     `json:"similarity"`
+	ID         pgtype.UUID        `json:"id"`
+	SourceType string             `json:"source_type"`
+	SourceID   pgtype.UUID        `json:"source_id"`
+	ProjectID  pgtype.UUID        `json:"project_id"`
+	ChunkIndex int32              `json:"chunk_index"`
+	Content    string             `json:"content"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	Similarity float64            `json:"similarity"`
 }
 
 func (q *Queries) SearchRagChunks(ctx context.Context, arg SearchRagChunksParams) ([]SearchRagChunksRow, error) {
@@ -125,6 +127,8 @@ func (q *Queries) SearchRagChunks(ctx context.Context, arg SearchRagChunksParams
 			&i.ProjectID,
 			&i.ChunkIndex,
 			&i.Content,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 			&i.Similarity,
 		); err != nil {
 			return nil, err

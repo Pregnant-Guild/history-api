@@ -67,8 +67,14 @@ func (r *ragRepository) SearchSimilar(ctx context.Context, projectID *string, ve
 	for i, row := range rows {
 		res[i] = &models.RagChunk{
 			ID:         convert.UUIDToString(row.ID),
+			SourceType: row.SourceType,
+			SourceID:   convert.UUIDToString(row.SourceID),
+			ProjectID:  convert.UUIDToString(row.ProjectID),
+			ChunkIndex: row.ChunkIndex,
 			Content:    row.Content,
 			Similarity: row.Similarity,
+			CreatedAt:  row.CreatedAt.Time,
+			UpdatedAt:  row.UpdatedAt.Time,
 		}
 	}
 	return res, nil
@@ -78,7 +84,7 @@ func (r *ragRepository) DeleteBySourceIDs(ctx context.Context, sourceType string
 	if len(sourceIDs) == 0 {
 		return nil
 	}
-	
+
 	uids := make([]pgtype.UUID, 0, len(sourceIDs))
 	for _, id := range sourceIDs {
 		uid, err := convert.StringToUUID(id)
@@ -86,9 +92,9 @@ func (r *ragRepository) DeleteBySourceIDs(ctx context.Context, sourceType string
 			uids = append(uids, uid)
 		}
 	}
-	
+
 	return r.q.DeleteRagChunksBySourceIDs(ctx, sqlc.DeleteRagChunksBySourceIDsParams{
 		SourceType: sourceType,
-		Column2:  uids,
+		Column2:    uids,
 	})
 }
