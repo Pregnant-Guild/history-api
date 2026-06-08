@@ -12,6 +12,7 @@ import (
 	"history-api/pkg/constants"
 	"history-api/pkg/convert"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/zerolog/log"
@@ -39,28 +40,74 @@ func NewChatbotService(repo repositories.RagRepository, usageRepo repositories.U
 }
 
 func (s *chatbotService) Chat(ctx context.Context, userID string, projectID *string, question string) (string, error) {
+	totalStart := time.Now()
+	projectIDLog := ""
+	if projectID != nil {
+		projectIDLog = *projectID
+	}
+	questionLen := len([]rune(question))
+
+	log.Info().
+		Str("userID", userID).
+		Str("projectID", projectIDLog).
+		Int("question_len", questionLen).
+		Msg("rag chat started")
+
+	usageStart := time.Now()
 	usage, err := s.usageRepo.GetAIUsage(ctx, userID)
+	usageDuration := time.Since(usageStart)
 	if err != nil {
+		log.Warn().
+			Err(err).
+			Str("userID", userID).
+			Dur("usage_check_duration", usageDuration).
+			Dur("total_duration", time.Since(totalStart)).
+			Msg("rag chat failed while checking usage")
 		return "", fmt.Errorf("failed to check usage: %w", err)
 	}
 
 	if usage >= constants.MaxDailyAIUsage {
+		log.Warn().
+			Str("userID", userID).
+			Int("usage", usage).
+			Dur("usage_check_duration", usageDuration).
+			Dur("total_duration", time.Since(totalStart)).
+			Msg("rag chat rejected by daily usage limit")
 		return "", fmt.Errorf("you have reached your daily limit of %d questions. Please come back tomorrow", constants.MaxDailyAIUsage)
 	}
 
+	convertStart := time.Now()
 	pgUserID, err := convert.StringToUUID(userID)
+	convertDuration := time.Since(convertStart)
 	if err != nil {
+		log.Warn().
+			Err(err).
+			Str("userID", userID).
+			Dur("uuid_convert_duration", convertDuration).
+			Dur("total_duration", time.Since(totalStart)).
+			Msg("rag chat failed while converting user id")
 		return "", fmt.Errorf("invalid user id: %w", err)
 	}
 
 	searchQuery := strings.TrimSpace(question)
+	historyStart := time.Now()
 	rewriteHistory := s.getRewriteHistory(ctx, pgUserID)
+	historyDuration := time.Since(historyStart)
+
+	rewriteStart := time.Now()
 	rewrittenQuery, err := s.ragUtils.RewriteSearchQuery(ctx, question, rewriteHistory)
+	rewriteDuration := time.Since(rewriteStart)
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to rewrite RAG search query")
+		log.Warn().
+			Err(err).
+			Str("userID", userID).
+			Int("history_turns", len(rewriteHistory)).
+			Dur("rewrite_duration", rewriteDuration).
+			Msg("failed to rewrite RAG search query")
 	} else if strings.TrimSpace(rewrittenQuery) != "" {
 		searchQuery = strings.TrimSpace(rewrittenQuery)
 	}
+	queryRewritten := searchQuery != strings.TrimSpace(question)
 
 	candidateLimit := config.GetIntConfigWithDefault("RAG_RETRIEVAL_CANDIDATES", 30)
 	if candidateLimit < 8 {
@@ -75,25 +122,62 @@ func (s *chatbotService) Chat(ctx context.Context, userID string, projectID *str
 		contextLimit = candidateLimit
 	}
 
+	embedStart := time.Now()
 	qVector, err := s.ragUtils.EmbedQuery(ctx, searchQuery)
+	embedDuration := time.Since(embedStart)
 	if err != nil {
+		log.Warn().
+			Err(err).
+			Str("userID", userID).
+			Bool("query_rewritten", queryRewritten).
+			Dur("embed_duration", embedDuration).
+			Dur("total_duration", time.Since(totalStart)).
+			Msg("rag chat failed while embedding query")
 		return "", fmt.Errorf("failed to embed question: %w", err)
 	}
 
+	searchStart := time.Now()
 	results, err := s.repo.SearchSimilar(ctx, projectID, qVector, candidateLimit, 0.45)
+	searchDuration := time.Since(searchStart)
 	if err != nil {
+		log.Warn().
+			Err(err).
+			Str("userID", userID).
+			Str("projectID", projectIDLog).
+			Int("candidate_limit", candidateLimit).
+			Dur("vector_search_duration", searchDuration).
+			Dur("total_duration", time.Since(totalStart)).
+			Msg("rag chat failed while searching similar content")
 		return "", fmt.Errorf("failed to search similar content: %w", err)
 	}
+	initialResultCount := len(results)
 
+	var broadSearchDuration time.Duration
+	broadResultCount := 0
 	if len(results) < contextLimit {
+		broadSearchStart := time.Now()
 		broadResults, err := s.repo.SearchSimilar(ctx, projectID, qVector, candidateLimit, 0.30)
+		broadSearchDuration = time.Since(broadSearchStart)
 		if err == nil && len(broadResults) > len(results) {
 			results = broadResults
 		}
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("userID", userID).
+				Str("projectID", projectIDLog).
+				Int("candidate_limit", candidateLimit).
+				Dur("broad_search_duration", broadSearchDuration).
+				Msg("rag broad vector search failed")
+		}
+		broadResultCount = len(broadResults)
 	}
 
+	rerankStart := time.Now()
 	results = s.rerankResults(ctx, searchQuery, results, contextLimit)
+	rerankDuration := time.Since(rerankStart)
 
+	promptBuildStart := time.Now()
 	var contextBuilder strings.Builder
 	contextBuilder.Grow(len(results) * 128)
 	for i, res := range results {
@@ -144,26 +228,71 @@ Rules:
 - Keep the answer focused on the user's question. Do not add background information that is not needed.
 - Answer in complete, natural, grammatically correct sentences.`, contextStr, question)
 	}
+	promptBuildDuration := time.Since(promptBuildStart)
 
+	generateStart := time.Now()
 	response, err := s.ragUtils.GenerateResponse(ctx, prompt)
+	generateDuration := time.Since(generateStart)
 	if err != nil {
+		log.Warn().
+			Err(err).
+			Str("userID", userID).
+			Str("projectID", projectIDLog).
+			Int("prompt_chars", len(prompt)).
+			Dur("generate_duration", generateDuration).
+			Dur("total_duration", time.Since(totalStart)).
+			Msg("rag chat failed while generating response")
 		return "", err
 	}
 
 	response = normalizeAnswer(response)
 
+	usageIncrementStart := time.Now()
 	if _, err := s.usageRepo.IncrementAIUsage(ctx, userID); err != nil {
 		log.Warn().Err(err).Str("userID", userID).Msg("failed to increment AI usage")
 	}
+	usageIncrementDuration := time.Since(usageIncrementStart)
 
+	historySaveStart := time.Now()
 	_, err = s.chatRepo.CreateChatbotHistory(ctx, sqlc.CreateChatbotHistoryParams{
 		UserID:   pgUserID,
 		Question: question,
 		Answer:   response,
 	})
+	historySaveDuration := time.Since(historySaveStart)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to save chatbot history")
 	}
+
+	log.Info().
+		Str("userID", userID).
+		Str("projectID", projectIDLog).
+		Int("question_len", questionLen).
+		Int("search_query_len", len([]rune(searchQuery))).
+		Bool("query_rewritten", queryRewritten).
+		Int("history_turns", len(rewriteHistory)).
+		Int("candidate_limit", candidateLimit).
+		Int("context_limit", contextLimit).
+		Int("initial_results", initialResultCount).
+		Int("broad_results", broadResultCount).
+		Int("final_results", len(results)).
+		Int("context_chars", len(contextStr)).
+		Int("prompt_chars", len(prompt)).
+		Int("answer_chars", len(response)).
+		Dur("usage_check_duration", usageDuration).
+		Dur("uuid_convert_duration", convertDuration).
+		Dur("history_load_duration", historyDuration).
+		Dur("rewrite_duration", rewriteDuration).
+		Dur("embed_duration", embedDuration).
+		Dur("vector_search_duration", searchDuration).
+		Dur("broad_search_duration", broadSearchDuration).
+		Dur("rerank_duration", rerankDuration).
+		Dur("prompt_build_duration", promptBuildDuration).
+		Dur("generate_duration", generateDuration).
+		Dur("usage_increment_duration", usageIncrementDuration).
+		Dur("history_save_duration", historySaveDuration).
+		Dur("total_duration", time.Since(totalStart)).
+		Msg("rag chat completed")
 
 	return response, nil
 }

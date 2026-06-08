@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/tmc/langchaingo/embeddings"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
@@ -260,10 +261,29 @@ func (u *RagUtils) rerankDocumentsWithModel(ctx context.Context, model, query st
 
 	var lastErr error
 	for attempt := 0; attempt <= u.rerankMaxRetries; attempt++ {
+		attemptStart := time.Now()
 		results, retryable, err := u.sendRerankRequest(ctx, payload, documents)
 		if err == nil {
+			log.Info().
+				Str("model", model).
+				Int("attempt", attempt+1).
+				Int("documents", len(documents)).
+				Int("top_n", topN).
+				Int("results", len(results)).
+				Dur("duration", time.Since(attemptStart)).
+				Msg("rag rerank attempt succeeded")
 			return results, nil
 		}
+
+		log.Warn().
+			Err(err).
+			Str("model", model).
+			Int("attempt", attempt+1).
+			Int("documents", len(documents)).
+			Int("top_n", topN).
+			Bool("retryable", retryable).
+			Dur("duration", time.Since(attemptStart)).
+			Msg("rag rerank attempt failed")
 
 		lastErr = err
 		if !retryable || attempt == u.rerankMaxRetries {
@@ -347,14 +367,37 @@ func (u *RagUtils) generateSinglePromptWithRetry(ctx context.Context, prompt, mo
 	}
 
 	for attempt := 0; attempt <= u.generationMaxRetries; attempt++ {
+		attemptStart := time.Now()
 		raw, err := llms.GenerateFromSinglePrompt(ctx, u.llm, prompt, options...)
 		if err == nil {
+			log.Info().
+				Str("model", model).
+				Int("attempt", attempt+1).
+				Int("prompt_chars", len(prompt)).
+				Int("response_chars", len(raw)).
+				Dur("duration", time.Since(attemptStart)).
+				Msg("rag generation attempt succeeded")
 			return raw, nil
 		}
 
 		if ctx.Err() != nil {
+			log.Warn().
+				Err(ctx.Err()).
+				Str("model", model).
+				Int("attempt", attempt+1).
+				Int("prompt_chars", len(prompt)).
+				Dur("duration", time.Since(attemptStart)).
+				Msg("rag generation attempt canceled")
 			return "", ctx.Err()
 		}
+
+		log.Warn().
+			Err(err).
+			Str("model", model).
+			Int("attempt", attempt+1).
+			Int("prompt_chars", len(prompt)).
+			Dur("duration", time.Since(attemptStart)).
+			Msg("rag generation attempt failed")
 
 		lastErr = err
 		if attempt == u.generationMaxRetries {
