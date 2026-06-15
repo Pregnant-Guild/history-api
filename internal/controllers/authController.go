@@ -29,6 +29,60 @@ func NewAuthController(svc services.AuthService, oauth *oauth2.Config) *AuthCont
 	return &AuthController{service: svc, oauth: oauth}
 }
 
+func authCookieSecure() bool {
+	return config.GetBoolConfigWithDefault("COOKIE_SECURE", true)
+}
+
+func authCookieDomain() string {
+	return config.GetConfigWithDefault("COOKIE_DOMAIN", "")
+}
+
+func authCookieSameSite() string {
+	if authCookieSecure() {
+		return "None"
+	}
+	return "Lax"
+}
+
+func setAuthCookie(c fiber.Ctx, name string, value string, duration time.Duration) {
+	cookie := &fiber.Cookie{
+		Name:     name,
+		Value:    value,
+		Expires:  time.Now().Add(duration),
+		MaxAge:   int(duration.Seconds()),
+		HTTPOnly: true,
+		Secure:   authCookieSecure(),
+		SameSite: authCookieSameSite(),
+		Path:     "/",
+	}
+	if domain := authCookieDomain(); domain != "" {
+		cookie.Domain = domain
+	}
+	c.Cookie(cookie)
+}
+
+func clearAuthCookie(c fiber.Ctx, name string) {
+	cookie := &fiber.Cookie{
+		Name:     name,
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		MaxAge:   -1,
+		HTTPOnly: true,
+		Secure:   authCookieSecure(),
+		SameSite: authCookieSameSite(),
+		Path:     "/",
+	}
+	if domain := authCookieDomain(); domain != "" {
+		cookie.Domain = domain
+	}
+	c.Cookie(cookie)
+}
+
+func setAuthCookies(c fiber.Ctx, res *response.AuthResponse) {
+	setAuthCookie(c, "access_token", res.AccessToken, constants.AccessTokenDuration)
+	setAuthCookie(c, "refresh_token", res.RefreshToken, constants.RefreshTokenDuration)
+}
+
 // Signin godoc
 // @Summary Sign in a user
 // @Description Authenticate user credentials and return access/refresh tokens
@@ -61,25 +115,7 @@ func (h *AuthController) Signin(c fiber.Ctx) error {
 		})
 	}
 
-	c.Cookie(&fiber.Cookie{
-		Name:     "access_token",
-		Value:    res.AccessToken,
-		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "None",
-		Path:     "/",
-		Expires:  time.Now().Add(constants.AccessTokenDuration),
-	})
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    res.RefreshToken,
-		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "None",
-		Path:     "/",
-		Expires:  time.Now().Add(constants.RefreshTokenDuration),
-	})
+	setAuthCookies(c, res)
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
 		Status: true,
@@ -118,25 +154,7 @@ func (h *AuthController) Signup(c fiber.Ctx) error {
 		})
 	}
 
-	c.Cookie(&fiber.Cookie{
-		Name:     "access_token",
-		Value:    res.AccessToken,
-		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "None",
-		Path:     "/",
-		Expires:  time.Now().Add(constants.AccessTokenDuration),
-	})
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    res.RefreshToken,
-		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "None",
-		Path:     "/",
-		Expires:  time.Now().Add(constants.RefreshTokenDuration),
-	})
+	setAuthCookies(c, res)
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
 		Status: true,
@@ -184,25 +202,7 @@ func (h *AuthController) RefreshToken(c fiber.Ctx) error {
 		})
 	}
 
-	c.Cookie(&fiber.Cookie{
-		Name:     "access_token",
-		Value:    res.AccessToken,
-		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "None",
-		Path:     "/",
-		Expires:  time.Now().Add(constants.AccessTokenDuration),
-	})
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    res.RefreshToken,
-		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "None",
-		Path:     "/",
-		Expires:  time.Now().Add(constants.RefreshTokenDuration),
-	})
+	setAuthCookies(c, res)
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
 		Status: true,
@@ -348,15 +348,20 @@ func (h *AuthController) GoogleLogin(c fiber.Ctx) error {
 	b, _ := json.Marshal(data)
 	encoded := base64.URLEncoding.EncodeToString(b)
 
-	c.Cookie(&fiber.Cookie{
+	oauthCookie := &fiber.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
 		Expires:  time.Now().Add(15 * time.Minute),
+		MaxAge:   int((15 * time.Minute).Seconds()),
 		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "None",
+		Secure:   authCookieSecure(),
+		SameSite: authCookieSameSite(),
 		Path:     "/",
-	})
+	}
+	if domain := authCookieDomain(); domain != "" {
+		oauthCookie.Domain = domain
+	}
+	c.Cookie(oauthCookie)
 
 	url := h.oauth.AuthCodeURL(encoded)
 	return c.Redirect().To(url)
@@ -393,7 +398,7 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 		return c.Status(401).JSON(fiber.Map{"error": "Invalid state"})
 	}
 
-	c.ClearCookie("oauth_state")
+	clearAuthCookie(c, "oauth_state")
 
 	code := c.Query("code")
 
@@ -427,25 +432,7 @@ func (h *AuthController) GoogleCallback(c fiber.Ctx) error {
 		})
 	}
 
-	c.Cookie(&fiber.Cookie{
-		Name:     "access_token",
-		Value:    res.AccessToken,
-		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "None",
-		Path:     "/",
-		Expires:  time.Now().Add(constants.AccessTokenDuration),
-	})
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    res.RefreshToken,
-		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "None",
-		Path:     "/",
-		Expires:  time.Now().Add(constants.RefreshTokenDuration),
-	})
+	setAuthCookies(c, res)
 
 	allowed := map[string]bool{
 		"http://localhost:3000":       true,
@@ -491,23 +478,8 @@ func (h *AuthController) Logout(c fiber.Ctx) error {
 		})
 	}
 
-	c.Cookie(&fiber.Cookie{
-		Name:     "access_token",
-		Value:    "",
-		Expires:  time.Now().Add(-time.Hour),
-		HTTPOnly: true,
-		Secure:   true,
-		Path:     "/",
-	})
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    "",
-		Expires:  time.Now().Add(-time.Hour),
-		HTTPOnly: true,
-		Secure:   true,
-		Path:     "/",
-	})
+	clearAuthCookie(c, "access_token")
+	clearAuthCookie(c, "refresh_token")
 
 	return c.Status(fiber.StatusOK).JSON(response.CommonResponse{
 		Status:  true,

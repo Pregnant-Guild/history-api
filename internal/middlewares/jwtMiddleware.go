@@ -134,7 +134,7 @@ func jwtSuccessRefresh() fiber.Handler {
 
 func jwtError(c fiber.Ctx, err error) error {
 	if err.Error() == "Missing or malformed JWT" {
-		return c.Status(fiber.StatusBadRequest).
+		return c.Status(fiber.StatusUnauthorized).
 			JSON(response.CommonResponse{
 				Status:  false,
 				Message: "Missing or malformed JWT",
